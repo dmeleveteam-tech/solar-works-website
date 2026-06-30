@@ -26,9 +26,23 @@ type FormBody = {
   siteNotes?: string
   contactMethod?: string
   turnstileToken?: string
+  attribution?: Record<string, unknown>
 }
 
 const str = (v: unknown): string => (typeof v === "string" ? v.trim() : "")
+
+// Marketing attribution keys we accept from the browser (L-04). Anything else
+// in the attribution object is ignored, so a hostile client can't stuff the
+// lead document via this field.
+const ATTRIBUTION_KEYS = [
+  "utm_source",
+  "utm_medium",
+  "utm_campaign",
+  "utm_content",
+  "utm_term",
+  "landing_page",
+  "referrer",
+] as const
 
 /**
  * Verify a Cloudflare Turnstile token (NFR-02). Returns true when verification
@@ -112,6 +126,14 @@ export async function POST(req: Request) {
   put("Electricity provider", body.utilityProvider)
   put("Heard about us", body.leadSource)
   put("Preferred contact", body.contactMethod)
+
+  // Marketing attribution (L-04): only the whitelisted keys, each capped.
+  if (body.attribution && typeof body.attribution === "object") {
+    for (const key of ATTRIBUTION_KEYS) {
+      const value = str(body.attribution[key]).slice(0, 300)
+      if (value) details[key] = value
+    }
+  }
 
   const result = await forwardLead({
     name,

@@ -12,6 +12,7 @@ import { MobileCtaBar } from "@/components/layout/mobile-cta-bar"
 import { ChatLauncher } from "@/components/chat-launcher"
 import { ConsentBanner } from "@/components/consent-banner"
 import { Analytics } from "@/components/analytics"
+import { AttributionTracker } from "@/components/attribution-tracker"
 import { Toaster } from "@/components/ui/sonner"
 
 const manrope = Manrope({ subsets: ["latin"], variable: "--font-sans" })
@@ -69,6 +70,7 @@ export default function RootLayout({
           <ChatLauncher />
           <ConsentBanner />
           <Analytics />
+          <AttributionTracker />
           <Toaster position="top-center" />
         </ThemeProvider>
       </body>

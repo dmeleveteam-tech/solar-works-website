@@ -138,9 +138,35 @@ async function callGroq(messages: GroqMessage[], withTools: boolean): Promise<Gr
 
 const str = (v: unknown): string => (typeof v === "string" ? v.trim() : "")
 
+// Marketing attribution keys accepted from the browser (L-04). Anything else is
+// ignored so the chat client can't stuff the lead document.
+const ATTRIBUTION_KEYS = [
+  "utm_source",
+  "utm_medium",
+  "utm_campaign",
+  "utm_content",
+  "utm_term",
+  "landing_page",
+  "referrer",
+] as const
+
+/** Keep only the whitelisted attribution keys, each trimmed and capped. */
+function cleanAttribution(raw: unknown): Record<string, string> {
+  const out: Record<string, string> = {}
+  if (raw && typeof raw === "object") {
+    const obj = raw as Record<string, unknown>
+    for (const key of ATTRIBUTION_KEYS) {
+      const value = str(obj[key]).slice(0, 300)
+      if (value) out[key] = value
+    }
+  }
+  return out
+}
+
 /** Validate the model's save_lead args and forward as a chatbot lead. */
 async function handleSaveLead(
   rawArgs: string,
+  attribution: Record<string, string>,
 ): Promise<{ saved: boolean; reason?: string }> {
   let args: Record<string, unknown>
   try {
@@ -170,6 +196,10 @@ async function handleSaveLead(
   put("Primary goal", args.primaryGoal)
   put("Preferred contact", args.contactMethod)
   details["Consent"] = "Yes — granted via Solar Assistant chat"
+  // Carry first-touch marketing attribution onto the chatbot lead (L-04).
+  for (const [key, value] of Object.entries(attribution)) {
+    details[key] = value
+  }
 
   const result = await forwardLead({
     name,
@@ -186,9 +216,9 @@ async function handleSaveLead(
 
 export async function POST(req: Request) {
   // Validate input shape before doing anything else.
-  let body: { messages?: unknown }
+  let body: { messages?: unknown; attribution?: unknown }
   try {
-    body = (await req.json()) as { messages?: unknown }
+    body = (await req.json()) as { messages?: unknown; attribution?: unknown }
   } catch {
     return NextResponse.json({ error: "Invalid request." }, { status: 400 })
   }
@@ -196,6 +226,7 @@ export async function POST(req: Request) {
   if (!Array.isArray(body.messages)) {
     return NextResponse.json({ error: "Invalid request." }, { status: 400 })
   }
+  const attribution = cleanAttribution(body.attribution)
   const history: ChatMessage[] = body.messages
     .slice(-MAX_MESSAGES)
     .filter(
@@ -239,7 +270,7 @@ export async function POST(req: Request) {
     for (const tc of toolCalls) {
       const result =
         tc.function.name === "save_lead"
-          ? await handleSaveLead(tc.function.arguments)
+          ? await handleSaveLead(tc.function.arguments, attribution)
           : { saved: false, reason: "Unknown tool." }
       if (result.saved) leadSaved = true
       messages.push({

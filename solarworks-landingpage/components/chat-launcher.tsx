@@ -7,6 +7,7 @@ import { MessageSquareText, X, Bot, ArrowRight, Phone, Send } from "lucide-react
 import { siteConfig } from "@/lib/site-config"
 import { cn } from "@/lib/utils"
 import { track, ANALYTICS_EVENTS } from "@/lib/analytics"
+import { getAttribution } from "@/lib/attribution"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 
@@ -65,7 +66,7 @@ export function ChatLauncher() {
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ messages: next }),
+        body: JSON.stringify({ messages: next, attribution: getAttribution() }),
       })
       const data = (await res.json()) as { message?: string; leadSaved?: boolean }
       const reply =
