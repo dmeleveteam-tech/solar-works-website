@@ -664,10 +664,14 @@ function TestimonialsManager({ initial }: { initial: TestimonialItem[] }) {
   const [kind, setKind] = React.useState<TestimonialItem["kind"]>("video")
   const [preview, setPreview] = React.useState<PreviewState | null>(null)
 
-  // Sync the kind selector whenever the editor opens.
-  React.useEffect(() => {
+  // Sync the kind selector whenever the editor opens. Adjust state during
+  // render by tracking the previous `editing` value — React's recommended
+  // alternative to calling setState synchronously inside an effect.
+  const [prevEditing, setPrevEditing] = React.useState(editing)
+  if (editing !== prevEditing) {
+    setPrevEditing(editing)
     if (editing) setKind(current?.kind ?? "video")
-  }, [editing, current])
+  }
 
   function onPreview(form: HTMLFormElement) {
     const fd = new FormData(form)

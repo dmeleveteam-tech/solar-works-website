@@ -72,7 +72,6 @@ export function UsersManager() {
   const [newRole, setNewRole] = React.useState<Role>("staff")
 
   const load = React.useCallback(async (searchValue?: string) => {
-    setLoading(true)
     const { data, error } = await authClient.admin.listUsers({
       query: {
         limit: 100,
@@ -92,8 +91,21 @@ export function UsersManager() {
     setTotal(data?.total ?? 0)
   }, [])
 
+  // Re-fetch in response to a user action (search, refresh, post-mutation),
+  // showing the spinner. The initial `loading` state covers the mount fetch,
+  // so the effect below calls `load` without synchronously setting state.
+  const refresh = React.useCallback(
+    (searchValue?: string) => {
+      setLoading(true)
+      void load(searchValue)
+    },
+    [load],
+  )
+
   React.useEffect(() => {
-    load()
+    void (async () => {
+      await load()
+    })()
   }, [load])
 
   async function onCreate(e: React.FormEvent<HTMLFormElement>) {
@@ -124,7 +136,7 @@ export function UsersManager() {
     toast.success(`Created ${email}`)
     form.reset()
     setNewRole("staff")
-    load(search || undefined)
+    refresh(search || undefined)
   }
 
   async function onSetRole(user: AdminUser, role: Role) {
@@ -133,7 +145,7 @@ export function UsersManager() {
     setBusyId(null)
     if (error) {
       toast.error(error.message ?? "Could not change role.")
-      load(search || undefined)
+      refresh(search || undefined)
       return
     }
     toast.success(`${user.email} is now ${ROLE_LABEL[role]}`)
@@ -212,13 +224,13 @@ export function UsersManager() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === "Enter") load(search || undefined)
+              if (e.key === "Enter") refresh(search || undefined)
             }}
             placeholder="Search by email…"
             className="pl-8"
           />
         </div>
-        <Button variant="outline" onClick={() => load(search || undefined)} disabled={loading}>
+        <Button variant="outline" onClick={() => refresh(search || undefined)} disabled={loading}>
           {loading ? <Loader2 className="animate-spin" /> : "Search"}
         </Button>
         <span className="ml-auto text-sm text-muted-foreground">{total} users</span>
