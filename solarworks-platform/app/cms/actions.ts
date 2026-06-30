@@ -117,7 +117,12 @@ const projectSchema = z.object({
   location: z.string().trim().min(1, "Location is required").max(160),
   scope: z.string().trim().min(1, "Scope is required").max(1000),
   outcome: z.string().trim().min(1, "Outcome is required").max(1000),
-  image: z.string().trim().url("Image must be a valid URL").max(500),
+  image: z
+    .string()
+    .trim()
+    .max(500)
+    .url("Image must be a valid URL")
+    .regex(/^https?:\/\//i, "Image URL must start with http(s)://"),
   featured: z.coerce.boolean().default(false),
   published: z.coerce.boolean().default(false),
   sortOrder: z.coerce.number().int().min(0).max(10000).default(0),
