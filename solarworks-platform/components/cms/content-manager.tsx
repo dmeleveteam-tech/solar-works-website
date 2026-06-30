@@ -1,7 +1,34 @@
 "use client"
 
 import * as React from "react"
-import { Eye, EyeOff, Loader2, Pencil, Plus, Star, Trash2, X } from "lucide-react"
+import {
+  Eye,
+  EyeOff,
+  GripVertical,
+  Loader2,
+  Pencil,
+  Plus,
+  Star,
+  Trash2,
+  X,
+} from "lucide-react"
+import {
+  DndContext,
+  KeyboardSensor,
+  PointerSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core"
+import {
+  SortableContext,
+  arrayMove,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable"
+import { CSS } from "@dnd-kit/utilities"
 import { toast } from "sonner"
 
 import { cn } from "@/lib/utils"
@@ -31,6 +58,9 @@ import {
   updateFaq,
   setFaqPublished,
   deleteFaq,
+  reorderProjects,
+  reorderTestimonials,
+  reorderFaqs,
   type ActionResult,
 } from "@/app/cms/actions"
 import { Button } from "@/components/ui/button"
@@ -229,7 +259,25 @@ function useCrud<T extends WithIdPublished>(initial: T[], noun: string) {
     [noun],
   )
 
-  return { items, editing, setEditing, busyId, onSaved, togglePublish, remove }
+  // Optimistically apply a drag reorder, reverting if the server rejects it.
+  const reorder = React.useCallback(
+    async (orderedIds: string[], action: (i: { ids: string[] }) => Promise<ActionResult>) => {
+      let prev: T[] = []
+      setItems((cur) => {
+        prev = cur
+        const byId = new Map(cur.map((i) => [i.id, i]))
+        return orderedIds.map((id) => byId.get(id)).filter((i): i is T => i != null)
+      })
+      const res = await action({ ids: orderedIds })
+      if (!res.ok) {
+        setItems(prev)
+        toast.error(res.error)
+      }
+    },
+    [],
+  )
+
+  return { items, editing, setEditing, busyId, onSaved, togglePublish, remove, reorder }
 }
 
 function SectionHeader({
@@ -302,6 +350,116 @@ function EmptyState({ children }: { children: React.ReactNode }) {
   )
 }
 
+// --- drag-to-reorder --------------------------------------------------------
+//
+// Rows are draggable by their grip handle; dropping persists the new order via
+// the type's reorder action. Both the editor and the public site sort by
+// sortOrder, so the order set here is what visitors see.
+
+/** Honor `prefers-reduced-motion` without a setState-in-effect lint violation. */
+function usePrefersReducedMotion(): boolean {
+  return React.useSyncExternalStore(
+    (onChange) => {
+      const mql = window.matchMedia("(prefers-reduced-motion: reduce)")
+      mql.addEventListener("change", onChange)
+      return () => mql.removeEventListener("change", onChange)
+    },
+    () => window.matchMedia("(prefers-reduced-motion: reduce)").matches,
+    () => false,
+  )
+}
+
+function SortableRow<T extends { id: string }>({
+  item,
+  renderRow,
+  reduceMotion,
+}: {
+  item: T
+  renderRow: (item: T, handle: React.ReactNode) => React.ReactNode
+  reduceMotion: boolean
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
+    useSortable({ id: item.id })
+
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition: reduceMotion ? undefined : transition,
+  }
+
+  const handle = (
+    <button
+      type="button"
+      aria-label="Drag to reorder"
+      className={cn(
+        "-ml-1 flex size-7 shrink-0 cursor-grab touch-none items-center justify-center rounded-md",
+        "text-muted-foreground hover:bg-muted hover:text-foreground active:cursor-grabbing",
+        "focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
+      )}
+      {...attributes}
+      {...listeners}
+    >
+      <GripVertical className="size-4" />
+    </button>
+  )
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={cn("bg-background", isDragging && "relative z-10 opacity-80 shadow-sm")}
+    >
+      {renderRow(item, handle)}
+    </div>
+  )
+}
+
+function SortableList<T extends { id: string }>({
+  items,
+  onReorder,
+  renderRow,
+}: {
+  items: T[]
+  onReorder: (orderedIds: string[]) => void
+  renderRow: (item: T, handle: React.ReactNode) => React.ReactNode
+}) {
+  const reduceMotion = usePrefersReducedMotion()
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  )
+
+  function onDragEnd(e: DragEndEvent) {
+    const { active, over } = e
+    if (!over || active.id === over.id) return
+    const oldIndex = items.findIndex((i) => i.id === active.id)
+    const newIndex = items.findIndex((i) => i.id === over.id)
+    if (oldIndex < 0 || newIndex < 0) return
+    onReorder(arrayMove(items, oldIndex, newIndex).map((i) => i.id))
+  }
+
+  return (
+    <Card>
+      <CardContent className="divide-y p-0">
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
+          <SortableContext
+            items={items.map((i) => i.id)}
+            strategy={verticalListSortingStrategy}
+          >
+            {items.map((item) => (
+              <SortableRow
+                key={item.id}
+                item={item}
+                renderRow={renderRow}
+                reduceMotion={reduceMotion}
+              />
+            ))}
+          </SortableContext>
+        </DndContext>
+      </CardContent>
+    </Card>
+  )
+}
+
 // --- projects ---------------------------------------------------------------
 
 function ProjectsManager({ initial }: { initial: ProjectItem[] }) {
@@ -326,7 +484,8 @@ function ProjectsManager({ initial }: { initial: ProjectItem[] }) {
       outcome: str(fd, "outcome"),
       featured: bool(fd, "featured"),
       published: bool(fd, "published"),
-      sortOrder: str(fd, "sortOrder") || 0,
+      // Ordering is managed by drag-and-drop, not this form; preserve it on edit.
+      sortOrder: current?.sortOrder ?? 0,
     }
     setSaving(true)
     const res = current
@@ -388,10 +547,7 @@ function ProjectsManager({ initial }: { initial: ProjectItem[] }) {
             <Field label="Outcome" htmlFor="p-out" className="sm:col-span-2">
               <textarea id="p-out" name="outcome" defaultValue={current?.outcome} className={textareaClass} required />
             </Field>
-            <Field label="Sort order" htmlFor="p-sort">
-              <Input id="p-sort" name="sortOrder" type="number" min="0" defaultValue={current?.sortOrder ?? 0} />
-            </Field>
-            <div className="flex items-end gap-6">
+            <div className="flex items-end gap-6 sm:col-span-2">
               <CheckboxField label="Featured" name="featured" defaultChecked={current?.featured} />
               <CheckboxField label="Published" name="published" defaultChecked={current?.published} />
             </div>
@@ -402,32 +558,33 @@ function ProjectsManager({ initial }: { initial: ProjectItem[] }) {
       {crud.items.length === 0 ? (
         <EmptyState>No projects yet. Add your first installation above.</EmptyState>
       ) : (
-        <Card>
-          <CardContent className="divide-y p-0">
-            {crud.items.map((p) => (
-              <div key={p.id} className="flex flex-wrap items-center gap-3 px-4 py-3">
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2 font-medium">
-                    <span className="truncate">{p.title}</span>
-                    {p.featured ? <Star className="size-3.5 fill-primary text-primary" /> : null}
-                    <PublishedBadge published={p.published} />
-                  </div>
-                  <div className="truncate text-sm text-muted-foreground">
-                    {p.category} · {p.systemType} · {p.capacityKw} kW
-                    {p.batteryKwh ? ` + ${p.batteryKwh} kWh` : ""} · {p.location}
-                  </div>
+        <SortableList
+          items={crud.items}
+          onReorder={(ids) => crud.reorder(ids, reorderProjects)}
+          renderRow={(p, handle) => (
+            <div className="flex flex-wrap items-center gap-3 px-2 py-3 pr-4">
+              {handle}
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2 font-medium">
+                  <span className="truncate">{p.title}</span>
+                  {p.featured ? <Star className="size-3.5 fill-primary text-primary" /> : null}
+                  <PublishedBadge published={p.published} />
                 </div>
-                <RowActions
-                  published={p.published}
-                  busy={crud.busyId === p.id}
-                  onTogglePublish={() => crud.togglePublish(p, setProjectPublished)}
-                  onEdit={() => crud.setEditing(p)}
-                  onDelete={() => crud.remove(p, `the project “${p.title}”`, deleteProject)}
-                />
+                <div className="truncate text-sm text-muted-foreground">
+                  {p.category} · {p.systemType} · {p.capacityKw} kW
+                  {p.batteryKwh ? ` + ${p.batteryKwh} kWh` : ""} · {p.location}
+                </div>
               </div>
-            ))}
-          </CardContent>
-        </Card>
+              <RowActions
+                published={p.published}
+                busy={crud.busyId === p.id}
+                onTogglePublish={() => crud.togglePublish(p, setProjectPublished)}
+                onEdit={() => crud.setEditing(p)}
+                onDelete={() => crud.remove(p, `the project “${p.title}”`, deleteProject)}
+              />
+            </div>
+          )}
+        />
       )}
     </div>
   )
@@ -463,7 +620,8 @@ function TestimonialsManager({ initial }: { initial: TestimonialItem[] }) {
       quote: str(fd, "quote"),
       photo: str(fd, "photo"),
       published: bool(fd, "published"),
-      sortOrder: str(fd, "sortOrder") || 0,
+      // Ordering is managed by drag-and-drop, not this form; preserve it on edit.
+      sortOrder: current?.sortOrder ?? 0,
     }
     setSaving(true)
     const res = current
@@ -539,10 +697,7 @@ function TestimonialsManager({ initial }: { initial: TestimonialItem[] }) {
               </>
             )}
 
-            <Field label="Sort order" htmlFor="t-sort">
-              <Input id="t-sort" name="sortOrder" type="number" min="0" defaultValue={current?.sortOrder ?? 0} />
-            </Field>
-            <div className="flex items-end">
+            <div className="flex items-end sm:col-span-2">
               <CheckboxField label="Published" name="published" defaultChecked={current?.published} />
             </div>
           </div>
@@ -552,33 +707,34 @@ function TestimonialsManager({ initial }: { initial: TestimonialItem[] }) {
       {crud.items.length === 0 ? (
         <EmptyState>No testimonials yet. Add video or written proof above.</EmptyState>
       ) : (
-        <Card>
-          <CardContent className="divide-y p-0">
-            {crud.items.map((t) => (
-              <div key={t.id} className="flex flex-wrap items-center gap-3 px-4 py-3">
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2 font-medium">
-                    <span className="truncate">{t.name}</span>
-                    <span className="rounded-full bg-muted px-2 py-0.5 text-xs capitalize text-muted-foreground">
-                      {t.kind}
-                    </span>
-                    <PublishedBadge published={t.published} />
-                  </div>
-                  <div className="truncate text-sm text-muted-foreground">
-                    {t.kind === "video" ? t.headline : t.quote}
-                  </div>
+        <SortableList
+          items={crud.items}
+          onReorder={(ids) => crud.reorder(ids, reorderTestimonials)}
+          renderRow={(t, handle) => (
+            <div className="flex flex-wrap items-center gap-3 px-2 py-3 pr-4">
+              {handle}
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2 font-medium">
+                  <span className="truncate">{t.name}</span>
+                  <span className="rounded-full bg-muted px-2 py-0.5 text-xs capitalize text-muted-foreground">
+                    {t.kind}
+                  </span>
+                  <PublishedBadge published={t.published} />
                 </div>
-                <RowActions
-                  published={t.published}
-                  busy={crud.busyId === t.id}
-                  onTogglePublish={() => crud.togglePublish(t, setTestimonialPublished)}
-                  onEdit={() => crud.setEditing(t)}
-                  onDelete={() => crud.remove(t, `the testimonial from ${t.name}`, deleteTestimonial)}
-                />
+                <div className="truncate text-sm text-muted-foreground">
+                  {t.kind === "video" ? t.headline : t.quote}
+                </div>
               </div>
-            ))}
-          </CardContent>
-        </Card>
+              <RowActions
+                published={t.published}
+                busy={crud.busyId === t.id}
+                onTogglePublish={() => crud.togglePublish(t, setTestimonialPublished)}
+                onEdit={() => crud.setEditing(t)}
+                onDelete={() => crud.remove(t, `the testimonial from ${t.name}`, deleteTestimonial)}
+              />
+            </div>
+          )}
+        />
       )}
     </div>
   )
@@ -600,7 +756,8 @@ function FaqsManager({ initial }: { initial: FaqItem[] }) {
       answer: str(fd, "answer"),
       category: str(fd, "category") as FaqCategory,
       published: bool(fd, "published"),
-      sortOrder: str(fd, "sortOrder") || 0,
+      // Ordering is managed by drag-and-drop, not this form; preserve it on edit.
+      sortOrder: current?.sortOrder ?? 0,
     }
     setSaving(true)
     const res = current
@@ -634,12 +791,9 @@ function FaqsManager({ initial }: { initial: FaqItem[] }) {
             <Field label="Answer" htmlFor="f-a">
               <textarea id="f-a" name="answer" defaultValue={current?.answer} className={textareaClass} required />
             </Field>
-            <div className="grid gap-4 sm:grid-cols-[1fr_auto_auto] sm:items-end">
+            <div className="grid gap-4 sm:grid-cols-[1fr_auto] sm:items-end">
               <Field label="Category" htmlFor="f-cat">
                 <Select id="f-cat" name="category" defaultValue={current?.category ?? FAQ_CATEGORIES[0]} options={FAQ_CATEGORIES} />
-              </Field>
-              <Field label="Sort order" htmlFor="f-sort">
-                <Input id="f-sort" name="sortOrder" type="number" min="0" defaultValue={current?.sortOrder ?? 0} className="w-28" />
               </Field>
               <div className="pb-2">
                 <CheckboxField label="Published" name="published" defaultChecked={current?.published} />
@@ -652,30 +806,31 @@ function FaqsManager({ initial }: { initial: FaqItem[] }) {
       {crud.items.length === 0 ? (
         <EmptyState>No FAQs yet. Add your first question above.</EmptyState>
       ) : (
-        <Card>
-          <CardContent className="divide-y p-0">
-            {crud.items.map((f) => (
-              <div key={f.id} className="flex flex-wrap items-center gap-3 px-4 py-3">
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2 font-medium">
-                    <span className="truncate">{f.question}</span>
-                    <PublishedBadge published={f.published} />
-                  </div>
-                  <div className="truncate text-sm text-muted-foreground">
-                    {f.category} · {f.answer}
-                  </div>
+        <SortableList
+          items={crud.items}
+          onReorder={(ids) => crud.reorder(ids, reorderFaqs)}
+          renderRow={(f, handle) => (
+            <div className="flex flex-wrap items-center gap-3 px-2 py-3 pr-4">
+              {handle}
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2 font-medium">
+                  <span className="truncate">{f.question}</span>
+                  <PublishedBadge published={f.published} />
                 </div>
-                <RowActions
-                  published={f.published}
-                  busy={crud.busyId === f.id}
-                  onTogglePublish={() => crud.togglePublish(f, setFaqPublished)}
-                  onEdit={() => crud.setEditing(f)}
-                  onDelete={() => crud.remove(f, "this FAQ", deleteFaq)}
-                />
+                <div className="truncate text-sm text-muted-foreground">
+                  {f.category} · {f.answer}
+                </div>
               </div>
-            ))}
-          </CardContent>
-        </Card>
+              <RowActions
+                published={f.published}
+                busy={crud.busyId === f.id}
+                onTogglePublish={() => crud.togglePublish(f, setFaqPublished)}
+                onEdit={() => crud.setEditing(f)}
+                onDelete={() => crud.remove(f, "this FAQ", deleteFaq)}
+              />
+            </div>
+          )}
+        />
       )}
     </div>
   )

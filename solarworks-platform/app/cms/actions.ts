@@ -1,7 +1,7 @@
 "use server"
 
 import { revalidatePath } from "next/cache"
-import { ObjectId } from "mongodb"
+import { ObjectId, type Collection, type Filter, type UpdateFilter } from "mongodb"
 import { z } from "zod"
 
 import { requireRole } from "@/lib/session"
@@ -48,9 +48,33 @@ const objectId = z.string().refine((v) => ObjectId.isValid(v), "Invalid id")
 
 const idSchema = z.object({ id: objectId })
 const publishSchema = z.object({ id: objectId, published: z.boolean() })
+const reorderSchema = z.object({ ids: z.array(objectId).min(1).max(1000) })
 
 function firstError(err: z.ZodError): string {
   return err.issues[0]?.message ?? "Invalid input."
+}
+
+/**
+ * Persist a drag-reordered list: rewrite each item's `sortOrder` to its index in
+ * `ids`, so the editor and the public site (both sorted by `sortOrder` asc) show
+ * the new order. Items not in `ids` keep their existing sortOrder. Validation and
+ * the role check happen in the calling action.
+ */
+type Orderable = { _id: ObjectId; sortOrder: number; updatedAt: Date }
+
+async function applyOrder<T extends Orderable>(
+  collection: () => Collection<T>,
+  ids: string[],
+): Promise<void> {
+  const now = new Date()
+  await collection().bulkWrite(
+    ids.map((id, index) => ({
+      updateOne: {
+        filter: { _id: new ObjectId(id) } as Filter<T>,
+        update: { $set: { sortOrder: index, updatedAt: now } } as UpdateFilter<T>,
+      },
+    })),
+  )
 }
 
 // --- projects ---------------------------------------------------------------
@@ -368,6 +392,35 @@ export async function deleteFaq(input: { id: string }): Promise<ActionResult> {
     _id: new ObjectId(parsed.data),
   })
   if (!deletedCount) return { ok: false, error: "FAQ not found." }
+  revalidatePath("/cms")
+  return { ok: true, data: undefined }
+}
+
+// --- reordering -------------------------------------------------------------
+
+export async function reorderProjects(input: { ids: string[] }): Promise<ActionResult> {
+  await requireRole(...CONTENT_ROLES)
+  const parsed = reorderSchema.safeParse(input)
+  if (!parsed.success) return { ok: false, error: "Invalid request." }
+  await applyOrder(projectsCollection, parsed.data.ids)
+  revalidatePath("/cms")
+  return { ok: true, data: undefined }
+}
+
+export async function reorderTestimonials(input: { ids: string[] }): Promise<ActionResult> {
+  await requireRole(...CONTENT_ROLES)
+  const parsed = reorderSchema.safeParse(input)
+  if (!parsed.success) return { ok: false, error: "Invalid request." }
+  await applyOrder(testimonialsCollection, parsed.data.ids)
+  revalidatePath("/cms")
+  return { ok: true, data: undefined }
+}
+
+export async function reorderFaqs(input: { ids: string[] }): Promise<ActionResult> {
+  await requireRole(...CONTENT_ROLES)
+  const parsed = reorderSchema.safeParse(input)
+  if (!parsed.success) return { ok: false, error: "Invalid request." }
+  await applyOrder(faqsCollection, parsed.data.ids)
   revalidatePath("/cms")
   return { ok: true, data: undefined }
 }
