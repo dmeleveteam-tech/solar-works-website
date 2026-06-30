@@ -2,46 +2,19 @@ import "server-only"
 import { ObjectId, type Collection, type Filter } from "mongodb"
 
 import { db } from "./mongodb"
+import type { Lead, LeadDetails, LeadSource, LeadStatus } from "./leads-shared"
 
 /**
  * Leads data layer. A "lead" is an incoming sales enquiry — from the marketing
  * site's contact form, the chatbot (Phase 2), or entered manually by staff.
  * All reads/writes go through here so the document shape stays in one place;
  * authorization lives in the server actions (`app/dashboard/actions.ts`).
+ *
+ * Client-safe constants and types (statuses, sources, labels, the `Lead` shape)
+ * live in `./leads-shared` and are re-exported below, so Client Components can
+ * import them from there without bundling the mongodb driver.
  */
-
-export const LEAD_STATUSES = [
-  "new",
-  "contacted",
-  "qualified",
-  "won",
-  "lost",
-] as const
-export type LeadStatus = (typeof LEAD_STATUSES)[number]
-
-export const LEAD_SOURCES = ["website_form", "chatbot", "manual"] as const
-export type LeadSource = (typeof LEAD_SOURCES)[number]
-
-export const STATUS_LABEL: Record<LeadStatus, string> = {
-  new: "New",
-  contacted: "Contacted",
-  qualified: "Qualified",
-  won: "Won",
-  lost: "Lost",
-}
-
-export const SOURCE_LABEL: Record<LeadSource, string> = {
-  website_form: "Website form",
-  chatbot: "Chatbot",
-  manual: "Manual",
-}
-
-/**
- * Extra, free-form fields captured by the marketing-site form (address,
- * property type, goals, etc.) that don't warrant their own column. Stored as
- * labelled string pairs so the inbox can show them without a schema migration.
- */
-export type LeadDetails = Record<string, string>
+export * from "./leads-shared"
 
 /** Stored document shape. */
 export type LeadDoc = {
@@ -57,22 +30,6 @@ export type LeadDoc = {
   details?: LeadDetails | null
   createdAt: Date
   updatedAt: Date
-}
-
-/** Plain, client-safe shape (ObjectId / Date serialized to strings). */
-export type Lead = {
-  id: string
-  name: string
-  email: string | null
-  phone: string | null
-  message: string | null
-  source: LeadSource
-  status: LeadStatus
-  assignedToId: string | null
-  assignedToName: string | null
-  details: LeadDetails | null
-  createdAt: string
-  updatedAt: string
 }
 
 export function leadsCollection(): Collection<LeadDoc> {

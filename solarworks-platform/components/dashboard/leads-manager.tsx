@@ -12,7 +12,7 @@ import {
   SOURCE_LABEL,
   type Lead,
   type LeadStatus,
-} from "@/lib/leads"
+} from "@/lib/leads-shared"
 import {
   getLeads,
   createLead,
