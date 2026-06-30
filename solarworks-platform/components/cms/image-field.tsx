@@ -23,11 +23,14 @@ export function ImageField({
   name,
   defaultValue,
   required,
+  error,
 }: {
   label: string
   name: string
   defaultValue?: string | null
   required?: boolean
+  /** Inline server validation message shown under the field. */
+  error?: string
 }) {
   const [url, setUrl] = React.useState(defaultValue ?? "")
   const inputId = React.useId()
@@ -108,6 +111,8 @@ export function ImageField({
           ) : null}
         </div>
       </div>
+
+      {error ? <p className="text-xs font-medium text-destructive">{error}</p> : null}
     </div>
   )
 }

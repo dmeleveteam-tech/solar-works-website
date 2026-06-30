@@ -40,7 +40,7 @@ import {
 
 export type ActionResult<T = undefined> =
   | { ok: true; data: T }
-  | { ok: false; error: string }
+  | { ok: false; error: string; fieldErrors?: Record<string, string> }
 
 const CONTENT_ROLES = ["content_editor", "superadmin"] as const
 
@@ -52,6 +52,21 @@ const reorderSchema = z.object({ ids: z.array(objectId).min(1).max(1000) })
 
 function firstError(err: z.ZodError): string {
   return err.issues[0]?.message ?? "Invalid input."
+}
+
+/** First message per top-level field, for inline display next to each input. */
+function fieldErrorsFrom(err: z.ZodError): Record<string, string> {
+  const out: Record<string, string> = {}
+  for (const issue of err.issues) {
+    const key = issue.path[0]
+    if (typeof key === "string" && !(key in out)) out[key] = issue.message
+  }
+  return out
+}
+
+/** Standard validation failure: a summary message plus per-field messages. */
+function invalid(err: z.ZodError): { ok: false; error: string; fieldErrors: Record<string, string> } {
+  return { ok: false, error: firstError(err), fieldErrors: fieldErrorsFrom(err) }
 }
 
 /**
@@ -125,11 +140,11 @@ export async function createProject(
 ): Promise<ActionResult<ProjectItem>> {
   await requireRole(...CONTENT_ROLES)
   const parsed = projectSchema.safeParse(input)
-  if (!parsed.success) return { ok: false, error: firstError(parsed.error) }
+  if (!parsed.success) return invalid(parsed.error)
   const v = parsed.data
 
   if (await slugTaken(v.slug)) {
-    return { ok: false, error: "That slug is already in use." }
+    return { ok: false, error: "That slug is already in use.", fieldErrors: { slug: "That slug is already in use." } }
   }
 
   const now = new Date()
@@ -146,10 +161,10 @@ export async function updateProject(
   const id = idSchema.safeParse({ id: input.id })
   if (!id.success) return { ok: false, error: "Invalid id." }
   const parsed = projectSchema.safeParse(input)
-  if (!parsed.success) return { ok: false, error: firstError(parsed.error) }
+  if (!parsed.success) return invalid(parsed.error)
 
   if (await slugTaken(parsed.data.slug, input.id)) {
-    return { ok: false, error: "That slug is already in use." }
+    return { ok: false, error: "That slug is already in use.", fieldErrors: { slug: "That slug is already in use." } }
   }
 
   const result = await projectsCollection().findOneAndUpdate(
@@ -262,7 +277,7 @@ export async function createTestimonial(
 ): Promise<ActionResult<TestimonialItem>> {
   await requireRole(...CONTENT_ROLES)
   const parsed = testimonialSchema.safeParse(input)
-  if (!parsed.success) return { ok: false, error: firstError(parsed.error) }
+  if (!parsed.success) return invalid(parsed.error)
   const now = new Date()
   const doc: TestimonialDoc = {
     _id: new ObjectId(),
@@ -282,7 +297,7 @@ export async function updateTestimonial(
   const id = idSchema.safeParse({ id: input.id })
   if (!id.success) return { ok: false, error: "Invalid id." }
   const parsed = testimonialSchema.safeParse(input)
-  if (!parsed.success) return { ok: false, error: firstError(parsed.error) }
+  if (!parsed.success) return invalid(parsed.error)
 
   const result = await testimonialsCollection().findOneAndUpdate(
     { _id: new ObjectId(input.id) },
@@ -342,7 +357,7 @@ export async function createFaq(
 ): Promise<ActionResult<FaqItem>> {
   await requireRole(...CONTENT_ROLES)
   const parsed = faqSchema.safeParse(input)
-  if (!parsed.success) return { ok: false, error: firstError(parsed.error) }
+  if (!parsed.success) return invalid(parsed.error)
   const now = new Date()
   const doc: FaqDoc = { _id: new ObjectId(), ...parsed.data, createdAt: now, updatedAt: now }
   await faqsCollection().insertOne(doc)
@@ -357,7 +372,7 @@ export async function updateFaq(
   const id = idSchema.safeParse({ id: input.id })
   if (!id.success) return { ok: false, error: "Invalid id." }
   const parsed = faqSchema.safeParse(input)
-  if (!parsed.success) return { ok: false, error: firstError(parsed.error) }
+  if (!parsed.success) return invalid(parsed.error)
   const result = await faqsCollection().findOneAndUpdate(
     { _id: new ObjectId(input.id) },
     { $set: { ...parsed.data, updatedAt: new Date() } },

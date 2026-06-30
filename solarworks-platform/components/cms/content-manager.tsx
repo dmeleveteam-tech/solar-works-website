@@ -78,21 +78,35 @@ const controlClass = cn(
 )
 const textareaClass = cn(controlClass, "h-auto min-h-20 py-2 leading-relaxed")
 
+/** Per-field server validation messages, keyed by field name. */
+const FieldErrorsContext = React.createContext<Record<string, string>>({})
+
+/** Small red message shown under an invalid field. */
+function FieldError({ message }: { message?: string }) {
+  if (!message) return null
+  return <p className="text-xs font-medium text-destructive">{message}</p>
+}
+
 function Field({
   label,
   htmlFor,
+  name,
   className,
   children,
 }: {
   label: string
   htmlFor?: string
+  /** Field name; when set, an inline error for it is shown from context. */
+  name?: string
   className?: string
   children: React.ReactNode
 }) {
+  const errors = React.useContext(FieldErrorsContext)
   return (
     <div className={cn("grid gap-1.5", className)}>
       <Label htmlFor={htmlFor}>{label}</Label>
       {children}
+      {name ? <FieldError message={errors[name]} /> : null}
     </div>
   )
 }
@@ -212,12 +226,20 @@ type WithIdPublished = { id: string; published: boolean }
 
 function useCrud<T extends WithIdPublished>(initial: T[], noun: string) {
   const [items, setItems] = React.useState<T[]>(initial)
-  const [editing, setEditing] = React.useState<T | "new" | null>(null)
+  const [editing, setEditingState] = React.useState<T | "new" | null>(null)
   const [busyId, setBusyId] = React.useState<string | null>(null)
+  const [errors, setErrors] = React.useState<Record<string, string>>({})
+
+  // Opening, switching, or closing the editor always clears stale field errors.
+  const setEditing = React.useCallback((next: T | "new" | null) => {
+    setErrors({})
+    setEditingState(next)
+  }, [])
 
   const onSaved = React.useCallback(
     (res: ActionResult<T>, wasNew: boolean) => {
       if (!res.ok) {
+        setErrors(res.fieldErrors ?? {})
         toast.error(res.error)
         return false
       }
@@ -226,7 +248,8 @@ function useCrud<T extends WithIdPublished>(initial: T[], noun: string) {
         wasNew ? [saved, ...prev] : prev.map((i) => (i.id === saved.id ? saved : i)),
       )
       toast.success(wasNew ? `${noun} added` : `${noun} updated`)
-      setEditing(null)
+      setEditingState(null)
+      setErrors({})
       return true
     },
     [noun],
@@ -277,7 +300,7 @@ function useCrud<T extends WithIdPublished>(initial: T[], noun: string) {
     [],
   )
 
-  return { items, editing, setEditing, busyId, onSaved, togglePublish, remove, reorder }
+  return { items, editing, setEditing, busyId, errors, onSaved, togglePublish, remove, reorder }
 }
 
 function SectionHeader({
@@ -309,32 +332,36 @@ function FormShell({
   onSubmit,
   onCancel,
   saving,
+  errors,
   children,
 }: {
   title: string
   onSubmit: (e: React.FormEvent<HTMLFormElement>) => void
   onCancel: () => void
   saving: boolean
+  errors: Record<string, string>
   children: React.ReactNode
 }) {
   return (
     <Card>
       <CardContent>
-        <form onSubmit={onSubmit} className="grid gap-4">
-          <div className="flex items-center justify-between">
-            <h3 className="font-medium">{title}</h3>
-            <Button type="button" variant="ghost" size="sm" onClick={onCancel} disabled={saving}>
-              <X /> Cancel
-            </Button>
-          </div>
-          {children}
-          <div className="flex justify-end">
-            <Button type="submit" disabled={saving}>
-              {saving ? <Loader2 className="animate-spin" /> : null}
-              Save
-            </Button>
-          </div>
-        </form>
+        <FieldErrorsContext.Provider value={errors}>
+          <form onSubmit={onSubmit} className="grid gap-4">
+            <div className="flex items-center justify-between">
+              <h3 className="font-medium">{title}</h3>
+              <Button type="button" variant="ghost" size="sm" onClick={onCancel} disabled={saving}>
+                <X /> Cancel
+              </Button>
+            </div>
+            {children}
+            <div className="flex justify-end">
+              <Button type="submit" disabled={saving}>
+                {saving ? <Loader2 className="animate-spin" /> : null}
+                Save
+              </Button>
+            </div>
+          </form>
+        </FieldErrorsContext.Provider>
       </CardContent>
     </Card>
   )
@@ -511,12 +538,13 @@ function ProjectsManager({ initial }: { initial: ProjectItem[] }) {
           onSubmit={onSubmit}
           onCancel={() => crud.setEditing(null)}
           saving={saving}
+          errors={crud.errors}
         >
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Title" htmlFor="p-title">
+            <Field label="Title" htmlFor="p-title" name="title">
               <Input id="p-title" name="title" defaultValue={current?.title} required />
             </Field>
-            <Field label="Slug" htmlFor="p-slug">
+            <Field label="Slug" htmlFor="p-slug" name="slug">
               <Input
                 id="p-slug"
                 name="slug"
@@ -525,26 +553,26 @@ function ProjectsManager({ initial }: { initial: ProjectItem[] }) {
                 required
               />
             </Field>
-            <Field label="Category" htmlFor="p-category">
+            <Field label="Category" htmlFor="p-category" name="category">
               <Select id="p-category" name="category" defaultValue={current?.category ?? AUDIENCES[0]} options={AUDIENCES} />
             </Field>
-            <Field label="System type" htmlFor="p-system">
+            <Field label="System type" htmlFor="p-system" name="systemType">
               <Select id="p-system" name="systemType" defaultValue={current?.systemType ?? SYSTEM_TYPES[0]} options={SYSTEM_TYPES} />
             </Field>
-            <Field label="Capacity (kW)" htmlFor="p-kw">
+            <Field label="Capacity (kW)" htmlFor="p-kw" name="capacityKw">
               <Input id="p-kw" name="capacityKw" type="number" step="0.1" min="0" defaultValue={current?.capacityKw} required />
             </Field>
-            <Field label="Battery (kWh) — optional" htmlFor="p-batt">
+            <Field label="Battery (kWh) — optional" htmlFor="p-batt" name="batteryKwh">
               <Input id="p-batt" name="batteryKwh" type="number" step="0.1" min="0" defaultValue={current?.batteryKwh ?? ""} />
             </Field>
-            <Field label="Location" htmlFor="p-loc">
+            <Field label="Location" htmlFor="p-loc" name="location">
               <Input id="p-loc" name="location" defaultValue={current?.location} required />
             </Field>
-            <ImageField label="Project image" name="image" defaultValue={current?.image} required />
-            <Field label="Scope" htmlFor="p-scope" className="sm:col-span-2">
+            <ImageField label="Project image" name="image" defaultValue={current?.image} required error={crud.errors.image} />
+            <Field label="Scope" htmlFor="p-scope" name="scope" className="sm:col-span-2">
               <textarea id="p-scope" name="scope" defaultValue={current?.scope} className={textareaClass} required />
             </Field>
-            <Field label="Outcome" htmlFor="p-out" className="sm:col-span-2">
+            <Field label="Outcome" htmlFor="p-out" name="outcome" className="sm:col-span-2">
               <textarea id="p-out" name="outcome" defaultValue={current?.outcome} className={textareaClass} required />
             </Field>
             <div className="flex items-end gap-6 sm:col-span-2">
@@ -647,9 +675,10 @@ function TestimonialsManager({ initial }: { initial: TestimonialItem[] }) {
           onSubmit={onSubmit}
           onCancel={() => crud.setEditing(null)}
           saving={saving}
+          errors={crud.errors}
         >
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Type" htmlFor="t-kind">
+            <Field label="Type" htmlFor="t-kind" name="kind">
               <select
                 id="t-kind"
                 value={kind}
@@ -660,39 +689,39 @@ function TestimonialsManager({ initial }: { initial: TestimonialItem[] }) {
                 <option value="written">Written</option>
               </select>
             </Field>
-            <Field label="Name" htmlFor="t-name">
+            <Field label="Name" htmlFor="t-name" name="name">
               <Input id="t-name" name="name" defaultValue={current?.name} required />
             </Field>
-            <Field label="Location — optional" htmlFor="t-loc">
+            <Field label="Location — optional" htmlFor="t-loc" name="location">
               <Input id="t-loc" name="location" defaultValue={current?.location ?? ""} />
             </Field>
-            <Field label="Audience" htmlFor="t-aud">
+            <Field label="Audience" htmlFor="t-aud" name="audience">
               <Select id="t-aud" name="audience" defaultValue={current?.audience ?? AUDIENCES[0]} options={AUDIENCES} />
             </Field>
-            <Field label="System type" htmlFor="t-sys">
+            <Field label="System type" htmlFor="t-sys" name="systemType">
               <Select id="t-sys" name="systemType" defaultValue={current?.systemType ?? SYSTEM_TYPES[0]} options={SYSTEM_TYPES} />
             </Field>
 
             {kind === "video" ? (
               <>
-                <Field label="Headline" htmlFor="t-head" className="sm:col-span-2">
+                <Field label="Headline" htmlFor="t-head" name="headline" className="sm:col-span-2">
                   <Input id="t-head" name="headline" defaultValue={current?.headline ?? ""} placeholder="“No more dreading the brownouts.”" />
                 </Field>
-                <Field label="Summary" htmlFor="t-sum" className="sm:col-span-2">
+                <Field label="Summary" htmlFor="t-sum" name="summary" className="sm:col-span-2">
                   <textarea id="t-sum" name="summary" defaultValue={current?.summary ?? ""} className={textareaClass} />
                 </Field>
-                <ImageField label="Thumbnail" name="thumbnail" defaultValue={current?.thumbnail} required />
-                <Field label="Video ID / embed" htmlFor="t-vid">
+                <ImageField label="Thumbnail" name="thumbnail" defaultValue={current?.thumbnail} required error={crud.errors.thumbnail} />
+                <Field label="Video ID / embed" htmlFor="t-vid" name="videoId">
                   <Input id="t-vid" name="videoId" defaultValue={current?.videoId ?? ""} placeholder="YouTube/Vimeo id" />
                 </Field>
               </>
             ) : (
               <>
-                <Field label="Quote" htmlFor="t-quote" className="sm:col-span-2">
+                <Field label="Quote" htmlFor="t-quote" name="quote" className="sm:col-span-2">
                   <textarea id="t-quote" name="quote" defaultValue={current?.quote ?? ""} className={textareaClass} />
                 </Field>
                 <div className="sm:col-span-2">
-                  <ImageField label="Client photo — optional" name="photo" defaultValue={current?.photo} />
+                  <ImageField label="Client photo — optional" name="photo" defaultValue={current?.photo} error={crud.errors.photo} />
                 </div>
               </>
             )}
@@ -783,16 +812,17 @@ function FaqsManager({ initial }: { initial: FaqItem[] }) {
           onSubmit={onSubmit}
           onCancel={() => crud.setEditing(null)}
           saving={saving}
+          errors={crud.errors}
         >
           <div className="grid gap-4">
-            <Field label="Question" htmlFor="f-q">
+            <Field label="Question" htmlFor="f-q" name="question">
               <Input id="f-q" name="question" defaultValue={current?.question} required />
             </Field>
-            <Field label="Answer" htmlFor="f-a">
+            <Field label="Answer" htmlFor="f-a" name="answer">
               <textarea id="f-a" name="answer" defaultValue={current?.answer} className={textareaClass} required />
             </Field>
             <div className="grid gap-4 sm:grid-cols-[1fr_auto] sm:items-end">
-              <Field label="Category" htmlFor="f-cat">
+              <Field label="Category" htmlFor="f-cat" name="category">
                 <Select id="f-cat" name="category" defaultValue={current?.category ?? FAQ_CATEGORIES[0]} options={FAQ_CATEGORIES} />
               </Field>
               <div className="pb-2">
