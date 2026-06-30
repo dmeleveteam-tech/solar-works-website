@@ -41,8 +41,11 @@ Real, published customer video testimonials provided by Solar Works, captured ag
 
 ## Next steps
 
-- [ ] Confirm each testimonial's location, system/project type, and any quotable outcome (no guaranteed-savings figures — T-05).
-- [ ] Load into the live site: the marketing app's video testimonials (`solarworks-landingpage/lib/content/testimonials.ts`) and/or the platform CMS so they render on Home + [[Page - Customer Stories]].
+- [ ] Confirm each testimonial's location, system/project type, and any quotable outcome (no guaranteed-savings figures — T-05). Until confirmed, the site **omits** location and the system-type badge rather than guessing.
+- [x] Load into the live site — done. These two are now the only video testimonials in `solarworks-landingpage/lib/content/testimonials.ts` (and the platform seed `solarworks-platform/scripts/seed-content.ts`). The card embeds the real YouTube video (`youtube-nocookie.com/embed/<id>`) and uses the YouTube thumbnail.
+
+> [!note] Mock content removed (2026-06-30)
+> The previous **mock** video + written testimonials were removed. There are currently **no written testimonials** (the array is empty and the homepage testimonial carousel was removed) — real written quotes go in once collected with consent. All **mock stock photos** site-wide (projects, solutions, learning-center, about, why-solar-works) were cleared; the `Photo` component now shows a **"SOLARWORK IMAGE TO BE PROVIDED"** placeholder wherever a real image is missing.
 
 ## Related
 
