@@ -5,6 +5,7 @@ import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import {
   FileText,
+  FolderKanban,
   Inbox,
   LayoutDashboard,
   Loader2,
@@ -38,6 +39,7 @@ const NAV_ICONS: Record<NavIconName, LucideIcon> = {
   users: Users,
   content: FileText,
   portal: LayoutDashboard,
+  projects: FolderKanban,
 }
 
 export function AppSidebar({ user, nav }: { user: ShellUser; nav: NavItem[] }) {

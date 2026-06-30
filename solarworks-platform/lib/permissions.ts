@@ -11,6 +11,9 @@ export const statement = {
   ...defaultStatements,
   lead: ["create", "read", "update", "assign", "delete"],
   content: ["create", "read", "update", "publish", "delete"],
+  // Customer-portal projects: staff/admin manage them; customers read only
+  // their own (ownership is enforced by query scoping, not this statement).
+  project: ["read", "manage", "delete"],
 } as const
 
 export const ac = createAccessControl(statement)
@@ -36,11 +39,13 @@ export const superadmin = ac.newRole({
   ...fullUserAdmin,
   lead: ["create", "read", "update", "assign", "delete"],
   content: ["create", "read", "update", "publish", "delete"],
+  project: ["read", "manage", "delete"],
 })
 
 export const staff = ac.newRole({
   lead: ["create", "read", "update", "assign"],
   content: ["read"],
+  project: ["read", "manage"],
 })
 
 export const contentEditor = ac.newRole({
