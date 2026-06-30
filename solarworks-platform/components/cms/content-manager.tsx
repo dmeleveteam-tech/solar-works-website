@@ -68,6 +68,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent } from "@/components/ui/card"
 import { ImageField } from "@/components/cms/image-field"
+import { ContentPreview, type PreviewState } from "@/components/cms/content-preview"
 
 // --- shared field primitives ------------------------------------------------
 
@@ -331,6 +332,7 @@ function FormShell({
   title,
   onSubmit,
   onCancel,
+  onPreview,
   saving,
   errors,
   children,
@@ -338,6 +340,8 @@ function FormShell({
   title: string
   onSubmit: (e: React.FormEvent<HTMLFormElement>) => void
   onCancel: () => void
+  /** Opens a public-site preview built from the form's current values. */
+  onPreview: (form: HTMLFormElement) => void
   saving: boolean
   errors: Record<string, string>
   children: React.ReactNode
@@ -354,7 +358,17 @@ function FormShell({
               </Button>
             </div>
             {children}
-            <div className="flex justify-end">
+            <div className="flex justify-end gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                disabled={saving}
+                onClick={(e) => {
+                  if (e.currentTarget.form) onPreview(e.currentTarget.form)
+                }}
+              >
+                <Eye /> Preview
+              </Button>
               <Button type="submit" disabled={saving}>
                 {saving ? <Loader2 className="animate-spin" /> : null}
                 Save
@@ -492,8 +506,27 @@ function SortableList<T extends { id: string }>({
 function ProjectsManager({ initial }: { initial: ProjectItem[] }) {
   const crud = useCrud<ProjectItem>(initial, "Project")
   const [saving, setSaving] = React.useState(false)
+  const [preview, setPreview] = React.useState<PreviewState | null>(null)
   const editing = crud.editing
   const current = editing && editing !== "new" ? editing : null
+
+  function onPreview(form: HTMLFormElement) {
+    const fd = new FormData(form)
+    setPreview({
+      kind: "project",
+      data: {
+        title: str(fd, "title"),
+        category: str(fd, "category"),
+        systemType: str(fd, "systemType"),
+        capacityKw: str(fd, "capacityKw"),
+        batteryKwh: str(fd, "batteryKwh"),
+        location: str(fd, "location"),
+        scope: str(fd, "scope"),
+        outcome: str(fd, "outcome"),
+        image: str(fd, "image"),
+      },
+    })
+  }
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -537,6 +570,7 @@ function ProjectsManager({ initial }: { initial: ProjectItem[] }) {
           title={current ? "Edit project" : "New project"}
           onSubmit={onSubmit}
           onCancel={() => crud.setEditing(null)}
+          onPreview={onPreview}
           saving={saving}
           errors={crud.errors}
         >
@@ -614,6 +648,8 @@ function ProjectsManager({ initial }: { initial: ProjectItem[] }) {
           )}
         />
       )}
+
+      <ContentPreview preview={preview} onOpenChange={(o) => !o && setPreview(null)} />
     </div>
   )
 }
@@ -626,11 +662,30 @@ function TestimonialsManager({ initial }: { initial: TestimonialItem[] }) {
   const editing = crud.editing
   const current = editing && editing !== "new" ? editing : null
   const [kind, setKind] = React.useState<TestimonialItem["kind"]>("video")
+  const [preview, setPreview] = React.useState<PreviewState | null>(null)
 
   // Sync the kind selector whenever the editor opens.
   React.useEffect(() => {
     if (editing) setKind(current?.kind ?? "video")
   }, [editing, current])
+
+  function onPreview(form: HTMLFormElement) {
+    const fd = new FormData(form)
+    setPreview({
+      kind: "testimonial",
+      data: {
+        kind,
+        name: str(fd, "name"),
+        location: str(fd, "location"),
+        systemType: str(fd, "systemType"),
+        headline: str(fd, "headline"),
+        summary: str(fd, "summary"),
+        thumbnail: str(fd, "thumbnail"),
+        quote: str(fd, "quote"),
+        photo: str(fd, "photo"),
+      },
+    })
+  }
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -674,6 +729,7 @@ function TestimonialsManager({ initial }: { initial: TestimonialItem[] }) {
           title={current ? "Edit testimonial" : "New testimonial"}
           onSubmit={onSubmit}
           onCancel={() => crud.setEditing(null)}
+          onPreview={onPreview}
           saving={saving}
           errors={crud.errors}
         >
@@ -765,6 +821,8 @@ function TestimonialsManager({ initial }: { initial: TestimonialItem[] }) {
           )}
         />
       )}
+
+      <ContentPreview preview={preview} onOpenChange={(o) => !o && setPreview(null)} />
     </div>
   )
 }
@@ -774,8 +832,21 @@ function TestimonialsManager({ initial }: { initial: TestimonialItem[] }) {
 function FaqsManager({ initial }: { initial: FaqItem[] }) {
   const crud = useCrud<FaqItem>(initial, "FAQ")
   const [saving, setSaving] = React.useState(false)
+  const [preview, setPreview] = React.useState<PreviewState | null>(null)
   const editing = crud.editing
   const current = editing && editing !== "new" ? editing : null
+
+  function onPreview(form: HTMLFormElement) {
+    const fd = new FormData(form)
+    setPreview({
+      kind: "faq",
+      data: {
+        question: str(fd, "question"),
+        answer: str(fd, "answer"),
+        category: str(fd, "category"),
+      },
+    })
+  }
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -811,6 +882,7 @@ function FaqsManager({ initial }: { initial: FaqItem[] }) {
           title={current ? "Edit FAQ" : "New FAQ"}
           onSubmit={onSubmit}
           onCancel={() => crud.setEditing(null)}
+          onPreview={onPreview}
           saving={saving}
           errors={crud.errors}
         >
@@ -862,6 +934,8 @@ function FaqsManager({ initial }: { initial: FaqItem[] }) {
           )}
         />
       )}
+
+      <ContentPreview preview={preview} onOpenChange={(o) => !o && setPreview(null)} />
     </div>
   )
 }
