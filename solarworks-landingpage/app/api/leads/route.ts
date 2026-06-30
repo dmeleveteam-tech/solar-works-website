@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server"
 
+import { forwardLead, leadIntakeConfigured } from "@/lib/leads"
+
 /**
  * Same-origin proxy for the contact form. The browser posts the raw form shape
  * here; we map it to the platform's canonical lead shape and forward it
@@ -7,8 +9,6 @@ import { NextResponse } from "next/server"
  * the platform URL and key never reach the browser, and there's no CORS hop.
  */
 
-const PLATFORM_INGEST_URL = process.env.PLATFORM_INGEST_URL
-const LEADS_INGEST_KEY = process.env.LEADS_INGEST_KEY
 const TURNSTILE_SECRET_KEY = process.env.TURNSTILE_SECRET_KEY
 
 type FormBody = {
@@ -55,7 +55,7 @@ async function verifyTurnstile(token: string, ip: string | null): Promise<boolea
 }
 
 export async function POST(req: Request) {
-  if (!PLATFORM_INGEST_URL || !LEADS_INGEST_KEY) {
+  if (!leadIntakeConfigured()) {
     return NextResponse.json(
       { ok: false, error: "Lead intake is not configured yet." },
       { status: 503 },
@@ -113,38 +113,16 @@ export async function POST(req: Request) {
   put("Heard about us", body.leadSource)
   put("Preferred contact", body.contactMethod)
 
-  const payload = {
+  const result = await forwardLead({
     name,
     email: str(body.email) || undefined,
     phone,
     message: str(body.siteNotes) || undefined,
     details,
-  }
-
-  try {
-    const res = await fetch(PLATFORM_INGEST_URL, {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        "x-ingest-key": LEADS_INGEST_KEY,
-      },
-      body: JSON.stringify(payload),
-      cache: "no-store",
-    })
-    if (!res.ok) {
-      // Don't surface the platform's internals to the visitor.
-      console.error("Lead forward failed:", res.status, await res.text().catch(() => ""))
-      return NextResponse.json(
-        { ok: false, error: "We couldn't submit your request. Please try again." },
-        { status: 502 },
-      )
-    }
-  } catch (err) {
-    console.error("Lead forward error:", err)
-    return NextResponse.json(
-      { ok: false, error: "We couldn't reach our servers. Please try again." },
-      { status: 502 },
-    )
+    source: "website_form",
+  })
+  if (!result.ok) {
+    return NextResponse.json({ ok: false, error: result.error }, { status: result.status })
   }
 
   return NextResponse.json({ ok: true }, { status: 201 })
