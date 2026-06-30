@@ -2,7 +2,7 @@ import { requireRole } from "@/lib/session"
 import { AppShell, type NavItem } from "@/components/app-shell"
 import type { Role } from "@/lib/permissions"
 
-const NAV: NavItem[] = [{ label: "Content", href: "/cms" }]
+const NAV: NavItem[] = [{ label: "Content", href: "/cms", icon: "content" }]
 
 export default async function CmsLayout({
   children,

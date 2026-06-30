@@ -3,10 +3,10 @@ import { AppShell, type NavItem } from "@/components/app-shell"
 import type { Role } from "@/lib/permissions"
 
 const NAV: NavItem[] = [
-  { label: "Overview", href: "/admin" },
-  { label: "Users", href: "/admin/users" },
-  { label: "Leads", href: "/dashboard" },
-  { label: "Content", href: "/cms" },
+  { label: "Overview", href: "/admin", icon: "overview" },
+  { label: "Users", href: "/admin/users", icon: "users" },
+  { label: "Leads", href: "/dashboard", icon: "leads" },
+  { label: "Content", href: "/cms", icon: "content" },
 ]
 
 export default async function AdminLayout({
