@@ -24,28 +24,28 @@ const articles = [
     excerpt: "A plain-language breakdown of the two most common home setups and when a battery is worth it.",
     tag: "Buying guide",
     minutes: 6,
-    image: "https://images.unsplash.com/photo-1466611653911-95081537e5b7?auto=format&fit=crop&w=1000&q=80",
+    image: "",
   },
   {
     title: "How to read your electricity bill",
     excerpt: "Find your kWh, understand peak usage, and learn what actually drives your monthly cost.",
     tag: "Solar basics",
     minutes: 4,
-    image: "https://images.unsplash.com/photo-1554224155-6726b3ff858f?auto=format&fit=crop&w=1000&q=80",
+    image: "",
   },
   {
     title: "5 solar myths, debunked",
     excerpt: "Does solar work when it's cloudy? Will it power your home at night? We clear up the common ones.",
     tag: "Myth-busting",
     minutes: 5,
-    image: "https://images.unsplash.com/photo-1509391366360-2e959784a276?auto=format&fit=crop&w=1000&q=80",
+    image: "",
   },
   {
     title: "What net metering means for your savings",
     excerpt: "How exporting surplus energy back to the grid works in the Philippines, and what to expect.",
     tag: "Savings",
     minutes: 7,
-    image: "https://images.unsplash.com/photo-1605980776566-0486c3ac7617?auto=format&fit=crop&w=1000&q=80",
+    image: "",
   },
 ]
 

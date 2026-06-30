@@ -52,7 +52,7 @@ export default function WhySolarWorksPage() {
         <Container className="grid items-center gap-12 lg:grid-cols-2">
           <Reveal>
             <Photo
-              src="https://images.unsplash.com/photo-1559302504-64aae6ca6b6d?auto=format&fit=crop&w=1200&q=80"
+              src=""
               alt="Technician carefully installing a rooftop solar panel"
               className="aspect-[4/3] w-full rounded-3xl shadow-lg"
               sizes="(max-width: 1024px) 100vw, 50vw"

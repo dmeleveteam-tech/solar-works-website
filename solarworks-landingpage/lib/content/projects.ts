@@ -23,8 +23,7 @@ export const projects: Project[] = [
     location: "Tagaytay, Cavite",
     scope: "Rooftop hybrid system with battery backup for a four-bedroom home prone to brownouts.",
     outcome: "Roughly 70% lower monthly bill and uninterrupted power during outages.",
-    image:
-      "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=80",
+    image: "",
     featured: true,
   },
   {
@@ -36,8 +35,7 @@ export const projects: Project[] = [
     location: "San Juan, Batangas",
     scope: "Ground-mount and rooftop array sized around peak daytime guest load.",
     outcome: "Significant cut in daytime grid draw across the dry season.",
-    image:
-      "https://images.unsplash.com/photo-1605980776566-0486c3ac7617?auto=format&fit=crop&w=1200&q=80",
+    image: "",
     featured: true,
   },
   {
@@ -49,8 +47,7 @@ export const projects: Project[] = [
     location: "Santa Rosa, Laguna",
     scope: "Clean rooftop install with net-metering on a modern two-storey home.",
     outcome: "Daytime consumption almost fully offset by solar.",
-    image:
-      "https://images.unsplash.com/photo-1559302504-64aae6ca6b6d?auto=format&fit=crop&w=1200&q=80",
+    image: "",
     featured: true,
   },
   {
@@ -63,8 +60,7 @@ export const projects: Project[] = [
     location: "Lucena, Quezon",
     scope: "Hybrid system keeping ventilation and cooling running through outages.",
     outcome: "Protected livestock from heat events during grid failures.",
-    image:
-      "https://images.unsplash.com/photo-1625246333195-78d9c38ad449?auto=format&fit=crop&w=1200&q=80",
+    image: "",
     featured: false,
   },
   {
@@ -76,8 +72,7 @@ export const projects: Project[] = [
     location: "Dasmariñas, Cavite",
     scope: "Multi-building rooftop array sized to weekday classroom load.",
     outcome: "Lower operating cost redirected to learning programs.",
-    image:
-      "https://images.unsplash.com/photo-1497440001374-f26997328c1b?auto=format&fit=crop&w=1200&q=80",
+    image: "",
     featured: false,
   },
   {
@@ -90,8 +85,7 @@ export const projects: Project[] = [
     location: "Quezon City, Metro Manila",
     scope: "Carport-mounted array with battery and EV-ready charging point.",
     outcome: "Shade, backup power, and EV charging from one structure.",
-    image:
-      "https://images.unsplash.com/photo-1593941707882-a5bba14938c7?auto=format&fit=crop&w=1200&q=80",
+    image: "",
     featured: false,
   },
 ]

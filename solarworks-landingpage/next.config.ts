@@ -4,8 +4,9 @@ const nextConfig: NextConfig = {
   images: {
     remotePatterns: [
       {
+        // YouTube video thumbnails for real customer testimonials.
         protocol: "https",
-        hostname: "images.unsplash.com",
+        hostname: "img.youtube.com",
       },
     ],
   },

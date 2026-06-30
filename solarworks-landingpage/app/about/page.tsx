@@ -51,7 +51,7 @@ export default function AboutPage() {
         <Container className="grid items-center gap-12 lg:grid-cols-2">
           <Reveal>
             <Photo
-              src="https://images.unsplash.com/photo-1521791136064-7986c2920216?auto=format&fit=crop&w=1200&q=80"
+              src=""
               alt="The Solar Works team reviewing a system design"
               className="aspect-[4/3] w-full rounded-3xl shadow-lg"
               sizes="(max-width: 1024px) 100vw, 50vw"

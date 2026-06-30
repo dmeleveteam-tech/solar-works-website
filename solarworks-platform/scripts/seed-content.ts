@@ -38,7 +38,7 @@ const projects: Array<{
     location: "Tagaytay, Cavite",
     scope: "Rooftop hybrid system with battery backup for a four-bedroom home prone to brownouts.",
     outcome: "Roughly 70% lower monthly bill and uninterrupted power during outages.",
-    image: "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=80",
+    image: "",
     featured: true,
   },
   {
@@ -51,7 +51,7 @@ const projects: Array<{
     location: "San Juan, Batangas",
     scope: "Ground-mount and rooftop array sized around peak daytime guest load.",
     outcome: "Significant cut in daytime grid draw across the dry season.",
-    image: "https://images.unsplash.com/photo-1605980776566-0486c3ac7617?auto=format&fit=crop&w=1200&q=80",
+    image: "",
     featured: true,
   },
   {
@@ -64,7 +64,7 @@ const projects: Array<{
     location: "Santa Rosa, Laguna",
     scope: "Clean rooftop install with net-metering on a modern two-storey home.",
     outcome: "Daytime consumption almost fully offset by solar.",
-    image: "https://images.unsplash.com/photo-1559302504-64aae6ca6b6d?auto=format&fit=crop&w=1200&q=80",
+    image: "",
     featured: true,
   },
   {
@@ -77,7 +77,7 @@ const projects: Array<{
     location: "Lucena, Quezon",
     scope: "Hybrid system keeping ventilation and cooling running through outages.",
     outcome: "Protected livestock from heat events during grid failures.",
-    image: "https://images.unsplash.com/photo-1625246333195-78d9c38ad449?auto=format&fit=crop&w=1200&q=80",
+    image: "",
     featured: false,
   },
   {
@@ -90,7 +90,7 @@ const projects: Array<{
     location: "Dasmariñas, Cavite",
     scope: "Multi-building rooftop array sized to weekday classroom load.",
     outcome: "Lower operating cost redirected to learning programs.",
-    image: "https://images.unsplash.com/photo-1497440001374-f26997328c1b?auto=format&fit=crop&w=1200&q=80",
+    image: "",
     featured: false,
   },
   {
@@ -103,89 +103,51 @@ const projects: Array<{
     location: "Quezon City, Metro Manila",
     scope: "Carport-mounted array with battery and EV-ready charging point.",
     outcome: "Shade, backup power, and EV charging from one structure.",
-    image: "https://images.unsplash.com/photo-1593941707882-a5bba14938c7?auto=format&fit=crop&w=1200&q=80",
+    image: "",
     featured: false,
   },
 ]
 
-const videoTestimonials = [
+// Real, published customer video testimonials provided by Solar Works (public on
+// YouTube, with consent). Location and system type are omitted until confirmed.
+const videoTestimonials: Array<{
+  name: string
+  location?: string
+  audience: Audience
+  systemType?: SystemType
+  headline: string
+  summary: string
+  thumbnail: string
+  videoId: string
+}> = [
   {
-    name: "The Reyes Family",
-    location: "Tagaytay, Cavite",
-    audience: "Residential" as Audience,
-    systemType: "Hybrid" as SystemType,
-    headline: "“No more dreading the brownouts.”",
-    summary:
-      "A hybrid system kept their home running through typhoon season and cut the bill they had quietly accepted for years.",
-    thumbnail: "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1000&q=80",
-    videoId: "mock-reyes",
+    name: "Mr. Ric Corciga",
+    audience: "Residential",
+    headline: "Why going solar made sense for our family long-term",
+    summary: "A family's perspective on the long-term value of going solar.",
+    thumbnail: "https://img.youtube.com/vi/Q7F2BEHBiQw/hqdefault.jpg",
+    videoId: "Q7F2BEHBiQw",
   },
   {
-    name: "Marisol D., Resort Owner",
-    location: "San Juan, Batangas",
-    audience: "Commercial" as Audience,
-    systemType: "Grid-Tied" as SystemType,
-    headline: "“Our biggest bill, finally under control.”",
+    name: "Ms. Zeny Raca",
+    audience: "Residential",
+    headline: "From high electric bills to big savings",
     summary:
-      "The team designed the array around her resort's real daytime load instead of selling her a bigger system than she needed.",
-    thumbnail: "https://images.unsplash.com/photo-1605980776566-0486c3ac7617?auto=format&fit=crop&w=1000&q=80",
-    videoId: "mock-marisol",
-  },
-  {
-    name: "Engr. Paolo S.",
-    location: "Santa Rosa, Laguna",
-    audience: "Residential" as Audience,
-    systemType: "Grid-Tied" as SystemType,
-    headline: "“They got it right the first time.”",
-    summary:
-      "As an engineer himself, he scrutinized the design and workmanship — and came away recommending them to his whole street.",
-    thumbnail: "https://images.unsplash.com/photo-1559302504-64aae6ca6b6d?auto=format&fit=crop&w=1000&q=80",
-    videoId: "mock-paolo",
+      "A homeowner's story of moving from high electricity bills to meaningful savings with solar.",
+    thumbnail: "https://img.youtube.com/vi/-l_882YKEPg/hqdefault.jpg",
+    videoId: "-l_882YKEPg",
   },
 ]
 
-const writtenTestimonials = [
-  {
-    quote:
-      "From the site visit to the final switch-on, everything was explained clearly. The installation is clean and tidy — you can tell they care about the details.",
-    name: "Andrea L.",
-    location: "Quezon City",
-    audience: "Residential" as Audience,
-    systemType: "Hybrid" as SystemType,
-  },
-  {
-    quote:
-      "They didn't oversell us. They asked about how the farm actually runs, then designed around it. The backup has already paid off during two outages.",
-    name: "Ramon T.",
-    location: "Lucena, Quezon",
-    audience: "Farm" as Audience,
-    systemType: "Hybrid" as SystemType,
-  },
-  {
-    quote:
-      "Professional from start to finish. The proposal was easy to understand and there were no surprise costs. Highly recommended.",
-    name: "Grace M.",
-    location: "Dasmariñas, Cavite",
-    audience: "Commercial" as Audience,
-    systemType: "Grid-Tied" as SystemType,
-  },
-  {
-    quote:
-      "What sold me was talking to two of their past clients. Real proof, not just promises. The follow-up support has been excellent.",
-    name: "Jun P.",
-    location: "Batangas City",
-    audience: "Residential" as Audience,
-    systemType: "Grid-Tied" as SystemType,
-  },
-  {
-    quote:
-      "Our electricity was the single largest cost we could actually control. Six months in, the difference is exactly what they projected.",
-    name: "Sister Carmen R.",
-    location: "Cavite",
-    audience: "Commercial" as Audience,
-    systemType: "Grid-Tied" as SystemType,
-  },
-]
+// No written testimonials are published yet — real quotes will be added once
+// collected with client consent. Kept empty rather than seeding mock content.
+const writtenTestimonials: Array<{
+  quote: string
+  name: string
+  location?: string
+  audience: Audience
+  systemType?: SystemType
+}> = []
 
 const faqs = [
   {
