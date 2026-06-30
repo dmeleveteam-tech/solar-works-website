@@ -37,6 +37,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent } from "@/components/ui/card"
+import { ImageField } from "@/components/cms/image-field"
 
 // --- shared field primitives ------------------------------------------------
 
@@ -380,9 +381,7 @@ function ProjectsManager({ initial }: { initial: ProjectItem[] }) {
             <Field label="Location" htmlFor="p-loc">
               <Input id="p-loc" name="location" defaultValue={current?.location} required />
             </Field>
-            <Field label="Image URL" htmlFor="p-img">
-              <Input id="p-img" name="image" type="url" defaultValue={current?.image} required />
-            </Field>
+            <ImageField label="Project image" name="image" defaultValue={current?.image} required />
             <Field label="Scope" htmlFor="p-scope" className="sm:col-span-2">
               <textarea id="p-scope" name="scope" defaultValue={current?.scope} className={textareaClass} required />
             </Field>
@@ -524,9 +523,7 @@ function TestimonialsManager({ initial }: { initial: TestimonialItem[] }) {
                 <Field label="Summary" htmlFor="t-sum" className="sm:col-span-2">
                   <textarea id="t-sum" name="summary" defaultValue={current?.summary ?? ""} className={textareaClass} />
                 </Field>
-                <Field label="Thumbnail URL" htmlFor="t-thumb">
-                  <Input id="t-thumb" name="thumbnail" type="url" defaultValue={current?.thumbnail ?? ""} />
-                </Field>
+                <ImageField label="Thumbnail" name="thumbnail" defaultValue={current?.thumbnail} required />
                 <Field label="Video ID / embed" htmlFor="t-vid">
                   <Input id="t-vid" name="videoId" defaultValue={current?.videoId ?? ""} placeholder="YouTube/Vimeo id" />
                 </Field>
@@ -536,9 +533,9 @@ function TestimonialsManager({ initial }: { initial: TestimonialItem[] }) {
                 <Field label="Quote" htmlFor="t-quote" className="sm:col-span-2">
                   <textarea id="t-quote" name="quote" defaultValue={current?.quote ?? ""} className={textareaClass} />
                 </Field>
-                <Field label="Client photo URL — optional" htmlFor="t-photo" className="sm:col-span-2">
-                  <Input id="t-photo" name="photo" type="url" defaultValue={current?.photo ?? ""} />
-                </Field>
+                <div className="sm:col-span-2">
+                  <ImageField label="Client photo — optional" name="photo" defaultValue={current?.photo} />
+                </div>
               </>
             )}
 
