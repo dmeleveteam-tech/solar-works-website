@@ -1,0 +1,24 @@
+# Local tooling / agent state (not part of the product codebase)
+.gstack/
+.claude/
+
+# Dependencies (each app has its own; defensive)
+node_modules/
+**/node_modules/
+
+# Secrets — never commit env files
+.env
+.env*.local
+**/.env
+**/.env*.local
+
+# Build output
+.next/
+**/.next/
+out/
+**/out/
+
+# OS / editor cruft
+.DS_Store
+Thumbs.db
+*.tsbuildinfo

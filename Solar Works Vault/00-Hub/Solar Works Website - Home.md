@@ -72,3 +72,10 @@ See [[Project Summary]] and [[Project Scope]] for full context.
 - [[Integration - Google Sheets Lead Database]]
 - [[Integration - AI Lead Chatbot]]
 - [[Integration - GA4 and Meta Pixel]]
+
+---
+
+## Architecture
+
+- [[Tech Stack and Architecture]] — decided 2026-06-29 (Next.js · shadcn · MongoDB + Payload CMS · Google Sheets leads · Resend · third-party chatbot · Render)
+- [[Design System and Frontend Build]] — design-system redesign 2026-06-29 (yellow accent kept · wordmark logo · Sora/Manrope · Lenis + Framer Motion · wide layout · honest pricing packages)
