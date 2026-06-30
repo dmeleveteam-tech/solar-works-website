@@ -5,6 +5,8 @@ import { CheckCircle2, Loader2, ShieldCheck, MessageCircle } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import { siteConfig } from "@/lib/site-config"
+import { track, ANALYTICS_EVENTS } from "@/lib/analytics"
+import { Turnstile, TURNSTILE_SITE_KEY } from "@/components/turnstile"
 import {
   propertyTypes,
   solutionInterests,
@@ -37,6 +39,19 @@ export function LeadForm({ defaultSolution }: { defaultSolution?: string }) {
   const [consent, setConsent] = React.useState(false)
   const [errors, setErrors] = React.useState<Errors>({})
   const [status, setStatus] = React.useState<"idle" | "submitting" | "success">("idle")
+  const [submitError, setSubmitError] = React.useState<string | null>(null)
+  const [turnstileToken, setTurnstileToken] = React.useState("")
+
+  const handleTurnstileVerify = React.useCallback((t: string) => setTurnstileToken(t), [])
+  const handleTurnstileExpire = React.useCallback(() => setTurnstileToken(""), [])
+
+  // Fire the `lead_form_start` conversion event once, on first interaction.
+  const startedRef = React.useRef(false)
+  function handleFirstInteraction() {
+    if (startedRef.current) return
+    startedRef.current = true
+    track(ANALYTICS_EVENTS.leadFormStart)
+  }
 
   function toggleGoal(goal: string) {
     setGoals((prev) =>
@@ -70,10 +85,54 @@ export function LeadForm({ defaultSolution }: { defaultSolution?: string }) {
       return
     }
 
+    // When spam protection is configured, require a solved challenge before we
+    // bother the server (which re-verifies the token regardless).
+    if (TURNSTILE_SITE_KEY && !turnstileToken) {
+      setSubmitError("Please complete the spam-protection check above.")
+      return
+    }
+
     setStatus("submitting")
-    // Mock submit. Production posts to /api/leads → Mongo → Google Sheets + Resend.
-    await new Promise((r) => setTimeout(r, 900))
-    setStatus("success")
+    setSubmitError(null)
+    try {
+      const res = await fetch("/api/leads", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          fullName,
+          mobile,
+          email: String(data.get("email") ?? "").trim(),
+          address: {
+            barangay: String(data.get("addressBarangay") ?? ""),
+            city: address,
+            province: String(data.get("addressProvince") ?? ""),
+          },
+          propertyType,
+          solutionInterest: String(data.get("solutionInterest") ?? ""),
+          monthlyBill: String(data.get("monthlyBill") ?? ""),
+          monthlyKwh: String(data.get("monthlyKwh") ?? ""),
+          goals,
+          utilityProvider: String(data.get("utilityProvider") ?? ""),
+          leadSource: String(data.get("leadSource") ?? ""),
+          siteNotes: String(data.get("siteNotes") ?? ""),
+          contactMethod,
+          turnstileToken,
+        }),
+      })
+      if (!res.ok) {
+        const payload = (await res.json().catch(() => null)) as { error?: string } | null
+        throw new Error(payload?.error ?? "Submit failed")
+      }
+      track(ANALYTICS_EVENTS.leadFormSubmit)
+      setStatus("success")
+    } catch (err) {
+      setStatus("idle")
+      setSubmitError(
+        err instanceof Error && err.message !== "Submit failed"
+          ? err.message
+          : "Something went wrong. Please try again, or contact us directly below.",
+      )
+    }
   }
 
   if (status === "success") {
@@ -104,6 +163,7 @@ export function LeadForm({ defaultSolution }: { defaultSolution?: string }) {
   return (
     <form
       onSubmit={onSubmit}
+      onFocusCapture={handleFirstInteraction}
       noValidate
       className="rounded-2xl border bg-card p-6 shadow-sm sm:p-8"
     >
@@ -257,11 +317,22 @@ export function LeadForm({ defaultSolution }: { defaultSolution?: string }) {
           <p className="-mt-2 text-sm text-destructive">{errors.consent}</p>
         ) : null}
 
-        {/* Spam protection placeholder — Cloudflare Turnstile mounts here (NFR-02). */}
-        <div className="flex items-center gap-2 rounded-lg border border-dashed px-3 py-2 text-xs text-muted-foreground">
-          <ShieldCheck className="size-4" />
-          Protected by Cloudflare Turnstile
-        </div>
+        {/* Spam protection (NFR-02). Cloudflare Turnstile renders here when a
+            site key is configured; otherwise this collapses to nothing. */}
+        {TURNSTILE_SITE_KEY ? (
+          <Turnstile onVerify={handleTurnstileVerify} onExpire={handleTurnstileExpire} />
+        ) : (
+          <div className="flex items-center gap-2 rounded-lg border border-dashed px-3 py-2 text-xs text-muted-foreground">
+            <ShieldCheck className="size-4" />
+            Protected by Cloudflare Turnstile
+          </div>
+        )}
+
+        {submitError ? (
+          <p role="alert" className="-mb-1 text-sm text-destructive">
+            {submitError}
+          </p>
+        ) : null}
 
         <Button type="submit" size="lg" disabled={status === "submitting"} className="w-full">
           {status === "submitting" ? (

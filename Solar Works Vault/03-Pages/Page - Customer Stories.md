@@ -30,6 +30,7 @@ source: "Website Functional Specifications v1.0"
 
 ## Related
 
+- [[Customer Stories - Video Testimonials (Content)]] — actual customer video testimonials (Ric Corciga, Zeny Raca).
 - [[Audience - Referral Prospects]]
 - [[Page - Our Work and Projects]]
 - [[MOC - Pages and Features]]

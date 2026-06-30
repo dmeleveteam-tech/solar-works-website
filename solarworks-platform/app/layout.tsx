@@ -1,8 +1,11 @@
 import type { Metadata } from "next"
 import { Geist_Mono, Manrope, Sora } from "next/font/google"
+import { NextSSRPlugin } from "@uploadthing/react/next-ssr-plugin"
+import { extractRouterConfig } from "uploadthing/server"
 
 import "./globals.css"
 import { cn } from "@/lib/utils"
+import { ourFileRouter } from "@/app/api/uploadthing/core"
 import { ThemeProvider } from "@/components/theme-provider"
 import { Toaster } from "@/components/ui/sonner"
 
@@ -41,6 +44,7 @@ export default function RootLayout({
       )}
     >
       <body className="min-h-svh bg-background text-foreground">
+        <NextSSRPlugin routerConfig={extractRouterConfig(ourFileRouter)} />
         <ThemeProvider>
           {children}
           <Toaster position="top-center" />

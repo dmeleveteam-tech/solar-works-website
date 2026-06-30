@@ -24,8 +24,7 @@ export const solutions: Solution[] = [
       "Fastest payback period",
       "Net-metering ready",
     ],
-    image:
-      "https://images.unsplash.com/photo-1509391366360-2e959784a276?auto=format&fit=crop&w=1200&q=80",
+    image: "",
   },
   {
     slug: "hybrid-with-battery",
@@ -39,8 +38,7 @@ export const solutions: Solution[] = [
       "Use solar energy after sunset",
       "Smart load prioritization",
     ],
-    image:
-      "https://images.unsplash.com/photo-1466611653911-95081537e5b7?auto=format&fit=crop&w=1200&q=80",
+    image: "",
   },
   {
     slug: "commercial-farm-carport",
@@ -54,8 +52,7 @@ export const solutions: Solution[] = [
       "Roof, ground-mount, or carport",
       "Measurable operating-cost reduction",
     ],
-    image:
-      "https://images.unsplash.com/photo-1605980776566-0486c3ac7617?auto=format&fit=crop&w=1200&q=80",
+    image: "",
   },
   {
     slug: "solar-carport",
@@ -69,7 +66,6 @@ export const solutions: Solution[] = [
       "EV-charging ready",
       "No roof space required",
     ],
-    image:
-      "https://images.unsplash.com/photo-1593941707882-a5bba14938c7?auto=format&fit=crop&w=1200&q=80",
+    image: "",
   },
 ]

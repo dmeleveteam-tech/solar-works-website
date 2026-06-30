@@ -1,21 +1,25 @@
 import { PageHeading } from "@/components/app-shell"
-import { Card, CardContent } from "@/components/ui/card"
+import { LeadsManager } from "@/components/dashboard/leads-manager"
+import { requireRole } from "@/lib/session"
+import { listLeads, listAssignees } from "@/lib/leads"
 
 export const metadata = { title: "Leads" }
 
-export default function StaffDashboardPage() {
+export default async function StaffDashboardPage() {
+  const session = await requireRole("staff", "superadmin")
+  const [leads, assignees] = await Promise.all([listLeads(), listAssignees()])
+
   return (
     <>
       <PageHeading
         title="Leads"
-        description="Incoming enquiries from the website form and chatbot."
+        description="Incoming enquiries from the website form, chatbot, and manual entry."
       />
-      <Card>
-        <CardContent className="py-12 text-center text-sm text-muted-foreground">
-          The lead inbox lands here in Phase 2 — list, filter, assign, and update
-          status on enquiries stored in MongoDB.
-        </CardContent>
-      </Card>
+      <LeadsManager
+        initialLeads={leads}
+        assignees={assignees}
+        canDelete={session.user.role === "superadmin"}
+      />
     </>
   )
 }

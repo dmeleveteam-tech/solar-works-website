@@ -2,10 +2,10 @@
 
 import * as React from "react"
 
-import {
-  videoTestimonials,
-  writtenTestimonials,
-  type Audience,
+import type {
+  Audience,
+  VideoTestimonial,
+  WrittenTestimonial,
 } from "@/lib/content/testimonials"
 import { cn } from "@/lib/utils"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
@@ -15,7 +15,13 @@ import { WrittenTestimonialCard } from "@/components/written-testimonial-card"
 
 const audiences = ["All", "Residential", "Commercial", "Farm"] as const
 
-export function StoriesExplorer() {
+export function StoriesExplorer({
+  videoTestimonials,
+  writtenTestimonials,
+}: {
+  videoTestimonials: VideoTestimonial[]
+  writtenTestimonials: WrittenTestimonial[]
+}) {
   const [audience, setAudience] = React.useState<(typeof audiences)[number]>("All")
 
   const matches = (a: Audience) => audience === "All" || a === audience

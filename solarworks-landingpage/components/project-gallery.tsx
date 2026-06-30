@@ -2,19 +2,19 @@
 
 import * as React from "react"
 
-import { projects } from "@/lib/content/projects"
+import type { Project } from "@/lib/content/projects"
 import { cn } from "@/lib/utils"
 import { ProjectCard } from "@/components/project-card"
 import { Reveal } from "@/components/reveal"
 
 const filters = ["All", "Residential", "Commercial", "Farm"] as const
 
-export function ProjectGallery() {
+export function ProjectGallery({ projects }: { projects: Project[] }) {
   const [active, setActive] = React.useState<(typeof filters)[number]>("All")
 
   const visible = React.useMemo(
     () => (active === "All" ? projects : projects.filter((p) => p.category === active)),
-    [active],
+    [active, projects],
   )
 
   return (

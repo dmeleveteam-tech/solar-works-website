@@ -1,13 +1,7 @@
 import { requireRole } from "@/lib/session"
-import { AppShell, type NavItem } from "@/components/app-shell"
+import { AppShell } from "@/components/app-shell"
 import type { Role } from "@/lib/permissions"
-
-const NAV: NavItem[] = [
-  { label: "Overview", href: "/admin" },
-  { label: "Users", href: "/admin/users" },
-  { label: "Leads", href: "/dashboard" },
-  { label: "Content", href: "/cms" },
-]
+import { navForRole } from "@/lib/nav"
 
 export default async function AdminLayout({
   children,
@@ -15,14 +9,15 @@ export default async function AdminLayout({
   children: React.ReactNode
 }) {
   const session = await requireRole("superadmin")
+  const role = session.user.role as Role
   return (
     <AppShell
       user={{
         name: session.user.name,
         email: session.user.email,
-        role: session.user.role as Role,
+        role,
       }}
-      nav={NAV}
+      nav={navForRole(role)}
     >
       {children}
     </AppShell>

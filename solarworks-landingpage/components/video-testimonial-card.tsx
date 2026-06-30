@@ -3,6 +3,7 @@
 import { Play } from "lucide-react"
 
 import type { VideoTestimonial } from "@/lib/content/testimonials"
+import { track, ANALYTICS_EVENTS } from "@/lib/analytics"
 import { Photo } from "@/components/photo"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -16,11 +17,14 @@ import {
 
 export function VideoTestimonialCard({ item }: { item: VideoTestimonial }) {
   return (
-    <Dialog>
+    <Dialog
+      onOpenChange={(open) => {
+        if (open) track(ANALYTICS_EVENTS.testimonialVideoPlay, { name: item.name })
+      }}
+    >
       <DialogTrigger asChild>
         <button
           type="button"
-          // Production: fire `testimonial_video_play` (GA4 + Meta Pixel) here.
           className="group/card relative block w-full overflow-hidden rounded-2xl border bg-card text-left shadow-sm transition-shadow duration-200 hover:shadow-md focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
           aria-label={`Play ${item.name}'s story`}
         >
@@ -31,11 +35,13 @@ export function VideoTestimonialCard({ item }: { item: VideoTestimonial }) {
               className="absolute inset-0 size-full transition-transform duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] motion-safe:group-hover/card:scale-[1.04]"
               sizes="(max-width: 768px) 100vw, 33vw"
             />
-            <span className="absolute top-3 left-3">
-              <Badge variant="secondary" className="bg-background/85 backdrop-blur">
-                {item.systemType}
-              </Badge>
-            </span>
+            {item.systemType ? (
+              <span className="absolute top-3 left-3">
+                <Badge variant="secondary" className="bg-background/85 backdrop-blur">
+                  {item.systemType}
+                </Badge>
+              </span>
+            ) : null}
             <span className="absolute inset-0 grid place-items-center">
               <span className="grid size-14 place-items-center rounded-full bg-background/90 text-primary shadow-lg transition-transform duration-200 ease-out motion-safe:group-hover/card:scale-110 motion-safe:group-active/card:scale-95">
                 <Play className="size-6 translate-x-0.5 fill-current" />
@@ -58,21 +64,20 @@ export function VideoTestimonialCard({ item }: { item: VideoTestimonial }) {
         <DialogHeader>
           <DialogTitle>{item.name}</DialogTitle>
           <DialogDescription>
-            {item.location ? `${item.location} · ` : ""}
-            {item.systemType} system
+            {[item.location, item.systemType ? `${item.systemType} system` : null]
+              .filter(Boolean)
+              .join(" · ") || item.headline}
           </DialogDescription>
         </DialogHeader>
-        <div className="relative aspect-video overflow-hidden rounded-xl bg-gradient-to-br from-primary/20 via-muted to-secondary">
-          <div className="absolute inset-0 grid place-items-center text-center">
-            <div>
-              <span className="mx-auto grid size-16 place-items-center rounded-full bg-background/90 text-primary shadow-lg">
-                <Play className="size-7 translate-x-0.5 fill-current" />
-              </span>
-              <p className="mt-4 px-6 text-sm text-muted-foreground">
-                Video preview placeholder — a YouTube / Vimeo embed loads here in production.
-              </p>
-            </div>
-          </div>
+        <div className="relative aspect-video overflow-hidden rounded-xl bg-muted">
+          <iframe
+            className="absolute inset-0 size-full"
+            src={`https://www.youtube-nocookie.com/embed/${item.videoId}`}
+            title={`${item.name} — customer story`}
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+            referrerPolicy="strict-origin-when-cross-origin"
+            allowFullScreen
+          />
         </div>
         <p className="text-pretty text-muted-foreground">{item.summary}</p>
       </DialogContent>

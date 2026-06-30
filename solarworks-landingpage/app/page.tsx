@@ -17,7 +17,6 @@ import {
 
 import { siteConfig } from "@/lib/site-config"
 import { solutions } from "@/lib/content/solutions"
-import { writtenTestimonials } from "@/lib/content/testimonials"
 import { trustMarkers, stats } from "@/lib/content/site-content"
 import { cn } from "@/lib/utils"
 
@@ -27,7 +26,6 @@ import { Photo } from "@/components/photo"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { HeroVisual } from "@/components/sections/hero-visual"
-import { TestimonialCarousel } from "@/components/sections/testimonial-carousel"
 import { Packages } from "@/components/sections/packages"
 import { CtaBand } from "@/components/sections/cta-band"
 
@@ -39,7 +37,6 @@ export default function HomePage() {
       <FeatureCards />
       <CapabilityGrid />
       <Showcase />
-      <Testimonials />
       <WhatYouGet />
       <PackagesSection />
       <CtaBand />
@@ -386,26 +383,7 @@ function Showcase() {
   )
 }
 
-/* ── 6. Testimonials ─────────────────────────────────────── */
-function Testimonials() {
-  return (
-    <Section>
-      <Container>
-        <SectionHeading
-          eyebrow="In their words"
-          title="Hundreds of confident switches"
-          align="center"
-          className="mx-auto"
-        />
-        <div className="mt-12">
-          <TestimonialCarousel items={writtenTestimonials} />
-        </div>
-      </Container>
-    </Section>
-  )
-}
-
-/* ── 7. What you get (2×3 grid) ──────────────────────────── */
+/* ── 6. What you get (2×3 grid) ──────────────────────────── */
 function WhatYouGet() {
   return (
     <Section className="bg-muted/30">

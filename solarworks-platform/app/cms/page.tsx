@@ -1,20 +1,25 @@
+import { requireRole } from "@/lib/session"
 import { PageHeading } from "@/components/app-shell"
-import { Card, CardContent } from "@/components/ui/card"
+import { ContentManager } from "@/components/cms/content-manager"
+import { listProjects, listTestimonials, listFaqs } from "@/lib/content"
 
 export const metadata = { title: "Content" }
 
-export default function CmsPage() {
+export default async function CmsPage() {
+  await requireRole("content_editor", "superadmin")
+  const [projects, testimonials, faqs] = await Promise.all([
+    listProjects(),
+    listTestimonials(),
+    listFaqs(),
+  ])
+
   return (
     <>
       <PageHeading
         title="Content"
-        description="Edit testimonials, projects, FAQs, and learning-center articles."
+        description="Manage the testimonials, projects, and FAQs shown on the public website. Only published items appear live."
       />
-      <Card>
-        <CardContent className="py-12 text-center text-sm text-muted-foreground">
-          Editable content collections land here in Phase 3, backed by MongoDB.
-        </CardContent>
-      </Card>
+      <ContentManager projects={projects} testimonials={testimonials} faqs={faqs} />
     </>
   )
 }

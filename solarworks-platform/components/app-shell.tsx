@@ -1,55 +1,56 @@
-import Link from "next/link"
-
-import { Brand } from "@/components/brand"
-import { RoleBadge } from "@/components/role-badge"
-import { SignOutButton } from "@/components/sign-out-button"
+import { AppSidebar } from "@/components/app-sidebar"
+import { ActiveCrumb } from "@/components/active-crumb"
+import { Separator } from "@/components/ui/separator"
+import {
+  SidebarInset,
+  SidebarProvider,
+  SidebarTrigger,
+} from "@/components/ui/sidebar"
+import { TooltipProvider } from "@/components/ui/tooltip"
 import type { Role } from "@/lib/permissions"
 
-export type NavItem = { label: string; href: string }
+/**
+ * Icon keys are strings (not component references) so a NavItem stays
+ * serializable across the Server → Client boundary. `AppSidebar` maps each key
+ * to a lucide icon.
+ */
+export type NavIconName =
+  | "overview"
+  | "leads"
+  | "users"
+  | "content"
+  | "portal"
+
+export type NavItem = { label: string; href: string; icon?: NavIconName }
+
+export type ShellUser = { name?: string | null; email: string; role: Role }
 
 export function AppShell({
   user,
   nav,
   children,
 }: {
-  user: { name?: string | null; email: string; role: Role }
+  user: ShellUser
   nav: NavItem[]
   children: React.ReactNode
 }) {
   return (
-    <div className="min-h-svh">
-      <header className="sticky top-0 z-40 border-b bg-background/80 backdrop-blur">
-        <div className="mx-auto flex h-14 max-w-6xl items-center gap-6 px-4">
-          <Link href="/" className="shrink-0">
-            <Brand />
-          </Link>
-          <nav className="hidden items-center gap-1 md:flex">
-            {nav.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                className="rounded-md px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-              >
-                {item.label}
-              </Link>
-            ))}
-          </nav>
-          <div className="ml-auto flex items-center gap-3">
-            <div className="hidden text-right sm:block">
-              <div className="text-sm leading-tight font-medium">
-                {user.name || user.email}
-              </div>
-              <div className="text-xs leading-tight text-muted-foreground">
-                {user.email}
-              </div>
-            </div>
-            <RoleBadge role={user.role} />
-            <SignOutButton />
-          </div>
-        </div>
-      </header>
-      <main className="mx-auto max-w-6xl px-4 py-8">{children}</main>
-    </div>
+    <TooltipProvider>
+      <SidebarProvider>
+        <AppSidebar user={user} nav={nav} />
+        <SidebarInset>
+          <header className="sticky top-0 z-10 flex h-14 shrink-0 items-center gap-2 rounded-t-xl border-b bg-background/80 px-4 backdrop-blur">
+            <SidebarTrigger className="-ml-1" />
+            <Separator
+              orientation="vertical"
+              className="mr-1 data-[orientation=vertical]:h-4"
+            />
+            <ActiveCrumb nav={nav} />
+          </header>
+          <div className="flex flex-1 flex-col p-4 md:p-6">{children}</div>
+        </SidebarInset>
+      </SidebarProvider>
+    </TooltipProvider>
   )
 }
 

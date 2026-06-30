@@ -1,8 +1,7 @@
 import { requireRole } from "@/lib/session"
-import { AppShell, type NavItem } from "@/components/app-shell"
+import { AppShell } from "@/components/app-shell"
 import type { Role } from "@/lib/permissions"
-
-const NAV: NavItem[] = [{ label: "Overview", href: "/portal" }]
+import { navForRole } from "@/lib/nav"
 
 export default async function PortalLayout({
   children,
@@ -10,14 +9,15 @@ export default async function PortalLayout({
   children: React.ReactNode
 }) {
   const session = await requireRole("customer", "superadmin")
+  const role = session.user.role as Role
   return (
     <AppShell
       user={{
         name: session.user.name,
         email: session.user.email,
-        role: session.user.role as Role,
+        role,
       }}
-      nav={NAV}
+      nav={navForRole(role)}
     >
       {children}
     </AppShell>
