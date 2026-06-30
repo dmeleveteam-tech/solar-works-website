@@ -6,6 +6,7 @@ import { MessageSquareText, X, Bot, ArrowRight, Phone } from "lucide-react"
 
 import { siteConfig } from "@/lib/site-config"
 import { cn } from "@/lib/utils"
+import { track, ANALYTICS_EVENTS } from "@/lib/analytics"
 import { Button } from "@/components/ui/button"
 
 /**
@@ -15,6 +16,14 @@ import { Button } from "@/components/ui/button"
  */
 export function ChatLauncher() {
   const [open, setOpen] = React.useState(false)
+
+  function toggle() {
+    setOpen((v) => {
+      // Fire the conversion event only on open, not on close.
+      if (!v) track(ANALYTICS_EVENTS.chatbotOpen)
+      return !v
+    })
+  }
 
   return (
     <>
@@ -70,7 +79,7 @@ export function ChatLauncher() {
       {/* Launcher button */}
       <Button
         size="icon-lg"
-        onClick={() => setOpen((v) => !v)}
+        onClick={toggle}
         aria-expanded={open}
         aria-label={open ? "Close Solar Assistant" : "Open Solar Assistant"}
         className="fixed right-4 bottom-24 z-50 size-14 rounded-full shadow-lg lg:bottom-6"

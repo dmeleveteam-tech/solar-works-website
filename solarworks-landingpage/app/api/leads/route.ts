@@ -9,6 +9,7 @@ import { NextResponse } from "next/server"
 
 const PLATFORM_INGEST_URL = process.env.PLATFORM_INGEST_URL
 const LEADS_INGEST_KEY = process.env.LEADS_INGEST_KEY
+const TURNSTILE_SECRET_KEY = process.env.TURNSTILE_SECRET_KEY
 
 type FormBody = {
   fullName?: string
@@ -24,9 +25,34 @@ type FormBody = {
   leadSource?: string
   siteNotes?: string
   contactMethod?: string
+  turnstileToken?: string
 }
 
 const str = (v: unknown): string => (typeof v === "string" ? v.trim() : "")
+
+/**
+ * Verify a Cloudflare Turnstile token (NFR-02). Returns true when verification
+ * is not configured, so the form keeps working in environments without keys.
+ */
+async function verifyTurnstile(token: string, ip: string | null): Promise<boolean> {
+  if (!TURNSTILE_SECRET_KEY) return true
+  if (!token) return false
+  try {
+    const form = new URLSearchParams()
+    form.set("secret", TURNSTILE_SECRET_KEY)
+    form.set("response", token)
+    if (ip) form.set("remoteip", ip)
+    const res = await fetch(
+      "https://challenges.cloudflare.com/turnstile/v0/siteverify",
+      { method: "POST", body: form, cache: "no-store" },
+    )
+    const data = (await res.json()) as { success?: boolean }
+    return data.success === true
+  } catch (err) {
+    console.error("Turnstile verify error:", err)
+    return false
+  }
+}
 
 export async function POST(req: Request) {
   if (!PLATFORM_INGEST_URL || !LEADS_INGEST_KEY) {
@@ -49,6 +75,19 @@ export async function POST(req: Request) {
     return NextResponse.json(
       { ok: false, error: "Name and mobile number are required." },
       { status: 422 },
+    )
+  }
+
+  // Spam gate before we touch the platform. The header is set by the hosting
+  // edge (Vercel/Cloudflare); fall back to null when absent.
+  const ip =
+    req.headers.get("cf-connecting-ip") ??
+    req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
+    null
+  if (!(await verifyTurnstile(str(body.turnstileToken), ip))) {
+    return NextResponse.json(
+      { ok: false, error: "Spam check failed. Please try again." },
+      { status: 403 },
     )
   }
 

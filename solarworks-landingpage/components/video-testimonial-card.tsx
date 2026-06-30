@@ -3,6 +3,7 @@
 import { Play } from "lucide-react"
 
 import type { VideoTestimonial } from "@/lib/content/testimonials"
+import { track, ANALYTICS_EVENTS } from "@/lib/analytics"
 import { Photo } from "@/components/photo"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -16,11 +17,14 @@ import {
 
 export function VideoTestimonialCard({ item }: { item: VideoTestimonial }) {
   return (
-    <Dialog>
+    <Dialog
+      onOpenChange={(open) => {
+        if (open) track(ANALYTICS_EVENTS.testimonialVideoPlay, { name: item.name })
+      }}
+    >
       <DialogTrigger asChild>
         <button
           type="button"
-          // Production: fire `testimonial_video_play` (GA4 + Meta Pixel) here.
           className="group/card relative block w-full overflow-hidden rounded-2xl border bg-card text-left shadow-sm transition-shadow duration-200 hover:shadow-md focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
           aria-label={`Play ${item.name}'s story`}
         >
