@@ -236,6 +236,9 @@ The home page is the primary facade of the brand. The hierarchy must lead with p
 
 ## AI Lead Chatbot
 
+> [!success] Implemented (2026-06-30)
+> Built as a real assistant: a floating launcher on every public page opens a chat backed by a server-side `/api/chat` route using **Groq** inference. It runs the qualification flow below, enforces the guardrails via a system brief, and calls a `save_lead` tool that the server validates (name, mobile, explicit consent) before forwarding to the platform inbox with `Channel = chatbot`. Fires `chatbot_open` and `chatbot_qualified_lead`. The Groq key is server-only; with no key configured the assistant hands visitors off to the assessment form / Viber. Needs `GROQ_API_KEY` (and the existing ingest key) to go live.
+
 ### Placement and Entry Points
 
 - Floating chatbot launcher visible across all main public pages.
@@ -328,7 +331,7 @@ The home page is the primary facade of the brand. The hierarchy must lead with p
 - [ ] Responsive production website with all agreed pages and functional navigation.
 - [ ] Testimonial and project content-management capability.
 - [ ] Website lead form connected to Google Sheets.
-- [ ] AI-enabled chatbot configured with approved Solar Works knowledge, lead-qualification flow, consent logic, and Google Sheets integration.
+- [x] AI-enabled chatbot configured with approved Solar Works knowledge, lead-qualification flow, consent logic, and lead-database integration (Groq + platform inbox; needs `GROQ_API_KEY` to switch on).
 - [ ] GA4 and Meta Pixel setup with documented conversion events.
 - [ ] Google Sheet template / schema with lead notification workflow.
 - [ ] Privacy Notice page and consent capture implementation.
