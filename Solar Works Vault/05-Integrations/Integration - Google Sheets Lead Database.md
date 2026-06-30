@@ -9,6 +9,11 @@ source: "Website Functional Specifications v1.0"
 
 The initial central lead database for both [[Lead Capture Form|form]] and [[Integration - AI Lead Chatbot|chatbot]] leads.
 
+> [!note] Implementation deviation (2026-06-30)
+> The central lead database was built as a **MongoDB collection inside `solarworks-platform`**, not a Google Sheet — staff work leads in the back-office Leads inbox instead of a spreadsheet. The schema and security goals below still apply (lead ID/status auto-set, consent gate, no public access, credentials server-side only).
+> - **Lead notification** (the spec's minimum-required sales alert) is **implemented as email** via Resend, fired on each new lead — config-gated on `RESEND_API_KEY` / `LEADS_NOTIFY_FROM` / `LEADS_NOTIFY_TO`. Code: `lib/notifications.ts`.
+> - A one-way **export/mirror to Google Sheets** (if the sales team still wants a spreadsheet view) remains an open option, not yet built.
+
 ## Database Schema
 
 | Tab | Purpose | Minimum Required Columns |

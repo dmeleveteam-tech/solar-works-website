@@ -11,6 +11,7 @@ source: "Website Functional Specifications v1.0"
   - *Acceptance:* Key public pages load without excessive blocking media; videos are deferred / lazy-loaded.
 - [ ] **NFR-02** — Security: HTTPS, secure form submission, server-side validation, spam prevention (e.g., reCAPTCHA / Turnstile), no exposed secrets.
   - *Acceptance:* Security test confirms no API keys or Google credentials are visible in front-end source code.
+  - *Status (2026-06-30):* Server-side validation (Zod) and **Cloudflare Turnstile** spam prevention implemented on the contact form — client widget + server-side token re-verification in the `/api/leads` proxy, config-gated on `NEXT_PUBLIC_TURNSTILE_SITE_KEY` / `TURNSTILE_SECRET_KEY` (secret stays server-side). HTTPS pending production hosting.
 - [ ] **NFR-03** — Privacy: publish a Privacy Notice explaining lead data collection, use, retention, consent, and contact details.
   - *Acceptance:* Every form/chat lead flow captures consent and links to the notice. See [[Page - Privacy Notice and Terms]].
 - [ ] **NFR-04** — Accessibility: readable contrast, keyboard navigation, alt text, clear form labels, captions/subtitles for testimonial videos where practical.
