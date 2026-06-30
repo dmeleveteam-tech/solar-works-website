@@ -11,7 +11,8 @@
     "format": "prettier --write \"**/*.{ts,tsx}\"",
     "typecheck": "tsc --noEmit",
     "seed:superadmin": "tsx scripts/seed-superadmin.ts",
-    "seed:roles": "tsx scripts/seed-roles.ts"
+    "seed:roles": "tsx scripts/seed-roles.ts",
+    "seed:content": "tsx scripts/seed-content.ts"
   },
   "dependencies": {
     "better-auth": "^1.3.0",
