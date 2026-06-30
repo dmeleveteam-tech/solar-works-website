@@ -80,3 +80,4 @@ See [[Project Summary]] and [[Project Scope]] for full context.
 - [[Tech Stack and Architecture]] — decided 2026-06-29 (Next.js · shadcn · MongoDB + Payload CMS · Google Sheets leads · Resend · third-party chatbot · Render)
 - [[Design System and Frontend Build]] — design-system redesign 2026-06-29 (yellow accent kept · wordmark logo · Sora/Manrope · Lenis + Framer Motion · wide layout · honest pricing packages)
 - [[User Flows and Swimlanes]] — full-flow overview 2026-06-30 (Mermaid swimlanes per role · visitor → lead pipeline · CMS publish · user mgmt · portal · permission matrix)
+- [[Feature - Solar Savings Tracker]] — **Phase-2 platform feature, POSTPONED** (2026-07-01): Deye monthly upload → savings comparison → customer email. On hold until 2 sample Deye exports arrive. Not in Functional Spec v1.0.
