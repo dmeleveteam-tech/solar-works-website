@@ -5,6 +5,7 @@ import { z } from "zod"
 
 import { env } from "@/lib/env"
 import { leadsCollection, type LeadDoc } from "@/lib/leads"
+import { notifyNewLead } from "@/lib/notifications"
 
 /**
  * Public lead-ingest endpoint for the marketing site's contact form.
@@ -81,5 +82,10 @@ export async function POST(req: Request) {
   }
 
   await leadsCollection().insertOne(doc)
+
+  // Fire-and-forget the sales alert; a notification failure must never affect
+  // the captured lead or the response the marketing site sees.
+  void notifyNewLead(doc)
+
   return NextResponse.json({ ok: true, id: doc._id.toString() }, { status: 201 })
 }
