@@ -12,15 +12,20 @@ import { notifyNewLead } from "@/lib/notifications"
  *
  * The form posts here (server-to-server, via the landing app's own
  * `/api/leads` proxy) with a shared `x-ingest-key`. We never trust the caller
- * for anything privileged: `source` is forced to "website_form", the new lead
- * always starts unassigned with status "new", and the payload is fully
- * validated. Spam/abuse controls (Turnstile, rate limiting) live in front of
- * this in the marketing app.
+ * for anything privileged: the new lead always starts unassigned with status
+ * "new", and the payload is fully validated. The caller may declare which
+ * public channel it is ("website_form" or "chatbot") but cannot forge the
+ * staff-only "manual" source. Spam/abuse controls (Turnstile, rate limiting)
+ * live in front of this in the marketing app.
  */
 
 // Bounded labelled extras (address, property type, goals, …). Caps keep a
 // hostile caller from stuffing the document.
 const detailsSchema = z.record(z.string().max(80), z.string().max(2000))
+
+// Public channels a caller may legitimately declare. "manual" is staff-only and
+// must never be settable through this endpoint.
+const PUBLIC_SOURCES = ["website_form", "chatbot"] as const
 
 const ingestSchema = z.object({
   name: z.string().trim().min(1, "Name is required").max(120),
@@ -28,6 +33,7 @@ const ingestSchema = z.object({
   phone: z.string().trim().max(40).optional().or(z.literal("")),
   message: z.string().trim().max(5000).optional().or(z.literal("")),
   details: detailsSchema.optional(),
+  source: z.enum(PUBLIC_SOURCES).default("website_form"),
 })
 
 /** Constant-time key comparison that tolerates differing lengths. */
@@ -72,7 +78,7 @@ export async function POST(req: Request) {
     email: v.email ? v.email : null,
     phone: v.phone ? v.phone : null,
     message: v.message ? v.message : null,
-    source: "website_form",
+    source: v.source,
     status: "new",
     assignedToId: null,
     assignedToName: null,
