@@ -4,6 +4,7 @@ import { Container, Section } from "@/components/section"
 import { PageHero } from "@/components/page-hero"
 import { ProjectGallery } from "@/components/project-gallery"
 import { CtaBand } from "@/components/sections/cta-band"
+import { getProjects } from "@/lib/content/api"
 
 export const metadata: Metadata = {
   title: "Our Work & Projects",
@@ -11,7 +12,8 @@ export const metadata: Metadata = {
     "Real Solar Works installations across homes, businesses, and farms — with capacity, location, and outcomes.",
 }
 
-export default function OurWorkPage() {
+export default async function OurWorkPage() {
+  const projects = await getProjects()
   return (
     <>
       <PageHero
@@ -25,7 +27,7 @@ export default function OurWorkPage() {
       />
       <Section>
         <Container>
-          <ProjectGallery />
+          <ProjectGallery projects={projects} />
         </Container>
       </Section>
       <CtaBand

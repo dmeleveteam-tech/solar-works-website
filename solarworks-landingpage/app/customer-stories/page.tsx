@@ -4,6 +4,7 @@ import { Container, Section } from "@/components/section"
 import { PageHero } from "@/components/page-hero"
 import { StoriesExplorer } from "@/components/stories-explorer"
 import { CtaBand } from "@/components/sections/cta-band"
+import { getTestimonials } from "@/lib/content/api"
 
 export const metadata: Metadata = {
   title: "Customer Stories",
@@ -11,7 +12,8 @@ export const metadata: Metadata = {
     "Video and written testimonials from Solar Works customers — filter by residential, commercial, or farm.",
 }
 
-export default function CustomerStoriesPage() {
+export default async function CustomerStoriesPage() {
+  const { video, written } = await getTestimonials()
   return (
     <>
       <PageHero
@@ -25,7 +27,10 @@ export default function CustomerStoriesPage() {
       />
       <Section>
         <Container>
-          <StoriesExplorer />
+          <StoriesExplorer
+            videoTestimonials={video}
+            writtenTestimonials={written}
+          />
         </Container>
       </Section>
       <CtaBand

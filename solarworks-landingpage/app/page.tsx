@@ -17,7 +17,8 @@ import {
 
 import { siteConfig } from "@/lib/site-config"
 import { solutions } from "@/lib/content/solutions"
-import { writtenTestimonials } from "@/lib/content/testimonials"
+import type { WrittenTestimonial } from "@/lib/content/testimonials"
+import { getTestimonials } from "@/lib/content/api"
 import { trustMarkers, stats } from "@/lib/content/site-content"
 import { cn } from "@/lib/utils"
 
@@ -31,7 +32,8 @@ import { TestimonialCarousel } from "@/components/sections/testimonial-carousel"
 import { Packages } from "@/components/sections/packages"
 import { CtaBand } from "@/components/sections/cta-band"
 
-export default function HomePage() {
+export default async function HomePage() {
+  const { written } = await getTestimonials()
   return (
     <>
       <Hero />
@@ -39,7 +41,7 @@ export default function HomePage() {
       <FeatureCards />
       <CapabilityGrid />
       <Showcase />
-      <Testimonials />
+      <Testimonials written={written} />
       <WhatYouGet />
       <PackagesSection />
       <CtaBand />
@@ -387,7 +389,7 @@ function Showcase() {
 }
 
 /* ── 6. Testimonials ─────────────────────────────────────── */
-function Testimonials() {
+function Testimonials({ written }: { written: WrittenTestimonial[] }) {
   return (
     <Section>
       <Container>
@@ -398,7 +400,7 @@ function Testimonials() {
           className="mx-auto"
         />
         <div className="mt-12">
-          <TestimonialCarousel items={writtenTestimonials} />
+          <TestimonialCarousel items={written} />
         </div>
       </Container>
     </Section>

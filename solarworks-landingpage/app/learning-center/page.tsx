@@ -2,7 +2,7 @@ import type { Metadata } from "next"
 import Link from "next/link"
 import { ArrowRight, BookOpen } from "lucide-react"
 
-import { faqs } from "@/lib/content/site-content"
+import { getFaqs } from "@/lib/content/api"
 import { Container, Section, SectionHeading } from "@/components/section"
 import { PageHero } from "@/components/page-hero"
 import { Reveal } from "@/components/reveal"
@@ -49,7 +49,8 @@ const articles = [
   },
 ]
 
-export default function LearningCenterPage() {
+export default async function LearningCenterPage() {
+  const faqs = await getFaqs()
   return (
     <>
       <PageHero

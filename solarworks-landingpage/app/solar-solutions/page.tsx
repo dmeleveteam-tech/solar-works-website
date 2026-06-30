@@ -4,7 +4,7 @@ import { Check, ArrowRight } from "lucide-react"
 
 import { solutions } from "@/lib/content/solutions"
 import { siteConfig } from "@/lib/site-config"
-import { faqs } from "@/lib/content/site-content"
+import { getFaqs } from "@/lib/content/api"
 import { cn } from "@/lib/utils"
 import { Container, Section, SectionHeading } from "@/components/section"
 import { PageHero } from "@/components/page-hero"
@@ -20,7 +20,8 @@ export const metadata: Metadata = {
     "Grid-tied, hybrid with battery, commercial, and solar carport systems — explained simply, with who each one is for.",
 }
 
-export default function SolarSolutionsPage() {
+export default async function SolarSolutionsPage() {
+  const faqs = await getFaqs()
   return (
     <>
       <PageHero
