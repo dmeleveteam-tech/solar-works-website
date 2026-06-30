@@ -13,6 +13,9 @@ const schema = z.object({
   BETTER_AUTH_URL: z.string().url().default("http://localhost:3001"),
   GOOGLE_CLIENT_ID: z.string().optional(),
   GOOGLE_CLIENT_SECRET: z.string().optional(),
+  // Shared secret the marketing site presents to POST /api/leads. When unset,
+  // the public lead-ingest endpoint refuses all requests (deny by default).
+  LEADS_INGEST_KEY: z.string().optional(),
 })
 
 const parsed = schema.safeParse(process.env)

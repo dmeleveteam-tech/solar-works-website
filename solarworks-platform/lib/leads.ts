@@ -36,6 +36,13 @@ export const SOURCE_LABEL: Record<LeadSource, string> = {
   manual: "Manual",
 }
 
+/**
+ * Extra, free-form fields captured by the marketing-site form (address,
+ * property type, goals, etc.) that don't warrant their own column. Stored as
+ * labelled string pairs so the inbox can show them without a schema migration.
+ */
+export type LeadDetails = Record<string, string>
+
 /** Stored document shape. */
 export type LeadDoc = {
   _id: ObjectId
@@ -47,6 +54,7 @@ export type LeadDoc = {
   status: LeadStatus
   assignedToId: string | null
   assignedToName: string | null
+  details?: LeadDetails | null
   createdAt: Date
   updatedAt: Date
 }
@@ -62,6 +70,7 @@ export type Lead = {
   status: LeadStatus
   assignedToId: string | null
   assignedToName: string | null
+  details: LeadDetails | null
   createdAt: string
   updatedAt: string
 }
@@ -81,6 +90,7 @@ export function serializeLead(doc: LeadDoc): Lead {
     status: doc.status,
     assignedToId: doc.assignedToId,
     assignedToName: doc.assignedToName,
+    details: doc.details ?? null,
     createdAt: doc.createdAt.toISOString(),
     updatedAt: doc.updatedAt.toISOString(),
   }

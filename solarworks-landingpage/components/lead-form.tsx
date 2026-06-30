@@ -37,6 +37,7 @@ export function LeadForm({ defaultSolution }: { defaultSolution?: string }) {
   const [consent, setConsent] = React.useState(false)
   const [errors, setErrors] = React.useState<Errors>({})
   const [status, setStatus] = React.useState<"idle" | "submitting" | "success">("idle")
+  const [submitError, setSubmitError] = React.useState<string | null>(null)
 
   function toggleGoal(goal: string) {
     setGoals((prev) =>
@@ -71,9 +72,44 @@ export function LeadForm({ defaultSolution }: { defaultSolution?: string }) {
     }
 
     setStatus("submitting")
-    // Mock submit. Production posts to /api/leads → Mongo → Google Sheets + Resend.
-    await new Promise((r) => setTimeout(r, 900))
-    setStatus("success")
+    setSubmitError(null)
+    try {
+      const res = await fetch("/api/leads", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          fullName,
+          mobile,
+          email: String(data.get("email") ?? "").trim(),
+          address: {
+            barangay: String(data.get("addressBarangay") ?? ""),
+            city: address,
+            province: String(data.get("addressProvince") ?? ""),
+          },
+          propertyType,
+          solutionInterest: String(data.get("solutionInterest") ?? ""),
+          monthlyBill: String(data.get("monthlyBill") ?? ""),
+          monthlyKwh: String(data.get("monthlyKwh") ?? ""),
+          goals,
+          utilityProvider: String(data.get("utilityProvider") ?? ""),
+          leadSource: String(data.get("leadSource") ?? ""),
+          siteNotes: String(data.get("siteNotes") ?? ""),
+          contactMethod,
+        }),
+      })
+      if (!res.ok) {
+        const payload = (await res.json().catch(() => null)) as { error?: string } | null
+        throw new Error(payload?.error ?? "Submit failed")
+      }
+      setStatus("success")
+    } catch (err) {
+      setStatus("idle")
+      setSubmitError(
+        err instanceof Error && err.message !== "Submit failed"
+          ? err.message
+          : "Something went wrong. Please try again, or contact us directly below.",
+      )
+    }
   }
 
   if (status === "success") {
@@ -262,6 +298,12 @@ export function LeadForm({ defaultSolution }: { defaultSolution?: string }) {
           <ShieldCheck className="size-4" />
           Protected by Cloudflare Turnstile
         </div>
+
+        {submitError ? (
+          <p role="alert" className="-mb-1 text-sm text-destructive">
+            {submitError}
+          </p>
+        ) : null}
 
         <Button type="submit" size="lg" disabled={status === "submitting"} className="w-full">
           {status === "submitting" ? (
