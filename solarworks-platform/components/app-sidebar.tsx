@@ -9,13 +9,13 @@ import {
   LayoutDashboard,
   Loader2,
   LogOut,
-  Sun,
   Users,
   type LucideIcon,
 } from "lucide-react"
 
 import { authClient } from "@/lib/auth-client"
 import { activeNavItem } from "@/lib/active-nav"
+import { ROLE_HOME } from "@/lib/permissions"
 import { ROLE_LABEL } from "@/components/role-badge"
 import { Brand } from "@/components/brand"
 import type { NavIconName, NavItem, ShellUser } from "@/components/app-shell"
@@ -50,10 +50,7 @@ export function AppSidebar({ user, nav }: { user: ShellUser; nav: NavItem[] }) {
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" asChild>
-              <Link href="/">
-                <span className="flex aspect-square size-8 items-center justify-center rounded-lg bg-primary/15 text-primary-strong">
-                  <Sun className="size-4" />
-                </span>
+              <Link href={ROLE_HOME[user.role]}>
                 <span className="grid flex-1 text-left leading-tight group-data-[collapsible=icon]:hidden">
                   <Brand />
                 </span>
