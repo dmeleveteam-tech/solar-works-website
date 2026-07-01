@@ -10,6 +10,7 @@ import {
   LayoutDashboard,
   Loader2,
   LogOut,
+  PiggyBank,
   Users,
   type LucideIcon,
 } from "lucide-react"
@@ -40,6 +41,7 @@ const NAV_ICONS: Record<NavIconName, LucideIcon> = {
   content: FileText,
   portal: LayoutDashboard,
   projects: FolderKanban,
+  savings: PiggyBank,
 }
 
 export function AppSidebar({ user, nav }: { user: ShellUser; nav: NavItem[] }) {

@@ -13,11 +13,13 @@ const NAV_BY_ROLE: Record<Role, NavItem[]> = {
     { label: "Users", href: "/admin/users", icon: "users" },
     { label: "Leads", href: "/dashboard", icon: "leads" },
     { label: "Customer projects", href: "/dashboard/projects", icon: "projects" },
+    { label: "Savings tracker", href: "/dashboard/savings", icon: "savings" },
     { label: "Content", href: "/cms", icon: "content" },
   ],
   staff: [
     { label: "Leads", href: "/dashboard", icon: "leads" },
     { label: "Customer projects", href: "/dashboard/projects", icon: "projects" },
+    { label: "Savings tracker", href: "/dashboard/savings", icon: "savings" },
   ],
   content_editor: [{ label: "Content", href: "/cms", icon: "content" }],
   customer: [{ label: "Overview", href: "/portal", icon: "portal" }],

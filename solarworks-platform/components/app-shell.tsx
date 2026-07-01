@@ -21,6 +21,7 @@ export type NavIconName =
   | "content"
   | "portal"
   | "projects"
+  | "savings"
 
 export type NavItem = { label: string; href: string; icon?: NavIconName }
 
