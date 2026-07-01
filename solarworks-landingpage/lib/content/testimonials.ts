@@ -13,8 +13,11 @@ export type VideoTestimonial = {
   thumbnail: string
   // Real YouTube video id — embedded as https://www.youtube.com/embed/<videoId>.
   videoId?: string
-  // Facebook video embed URL — used instead of videoId for Facebook-hosted content.
-  facebookEmbedUrl?: string
+  // Public Facebook reel/video URL. We link out to it (opens on Facebook) rather
+  // than embedding the FB social plugin inline, because browsers' tracking
+  // prevention (e.g. Microsoft Edge, on by default) blocks facebook.com plugin
+  // frames and replaces them with a "This page has been blocked" interstitial.
+  facebookUrl?: string
 }
 
 export type WrittenTestimonial = {
@@ -58,8 +61,7 @@ export const videoTestimonials: VideoTestimonial[] = [
     summary:
       "Watch this customer share their firsthand experience with Solar Works.",
     thumbnail: "/images/testimonials/fb-reel-thumb.png",
-    facebookEmbedUrl:
-      "https://www.facebook.com/plugins/video.php?height=314&href=https%3A%2F%2Fwww.facebook.com%2Freel%2F4382754665384766%2F&show_text=false&width=560&t=0",
+    facebookUrl: "https://www.facebook.com/reel/4382754665384766/",
   },
   {
     id: "vt-fb-reel-02",
@@ -69,8 +71,7 @@ export const videoTestimonials: VideoTestimonial[] = [
     summary:
       "Hear directly from a Solar Works customer about their solar journey and results.",
     thumbnail: "/images/testimonials/fb-reel-thumb-2.png",
-    facebookEmbedUrl:
-      "https://www.facebook.com/plugins/video.php?height=476&href=https%3A%2F%2Fwww.facebook.com%2Freel%2F1230926652252153%2F&show_text=false&width=380&t=0",
+    facebookUrl: "https://www.facebook.com/reel/1230926652252153/",
   },
 ]
 
