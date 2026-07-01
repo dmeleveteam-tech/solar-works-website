@@ -12,7 +12,9 @@ export type VideoTestimonial = {
   summary: string
   thumbnail: string
   // Real YouTube video id — embedded as https://www.youtube.com/embed/<videoId>.
-  videoId: string
+  videoId?: string
+  // Facebook video embed URL — used instead of videoId for Facebook-hosted content.
+  facebookEmbedUrl?: string
 }
 
 export type WrittenTestimonial = {
@@ -47,6 +49,28 @@ export const videoTestimonials: VideoTestimonial[] = [
       "A homeowner's story of moving from high electricity bills to meaningful savings with solar.",
     thumbnail: "https://img.youtube.com/vi/-l_882YKEPg/hqdefault.jpg",
     videoId: "-l_882YKEPg",
+  },
+  {
+    id: "vt-fb-reel-01",
+    name: "Solar Works Customer",
+    audience: "Residential",
+    headline: "A real customer shares their solar experience",
+    summary:
+      "Watch this customer share their firsthand experience with Solar Works.",
+    thumbnail: "/images/testimonials/fb-reel-thumb.png",
+    facebookEmbedUrl:
+      "https://www.facebook.com/plugins/video.php?height=314&href=https%3A%2F%2Fwww.facebook.com%2Freel%2F4382754665384766%2F&show_text=false&width=560&t=0",
+  },
+  {
+    id: "vt-fb-reel-02",
+    name: "Solar Works Customer",
+    audience: "Residential",
+    headline: "Switching to solar — a customer's journey",
+    summary:
+      "Hear directly from a Solar Works customer about their solar journey and results.",
+    thumbnail: "/images/testimonials/fb-reel-thumb-2.png",
+    facebookEmbedUrl:
+      "https://www.facebook.com/plugins/video.php?height=476&href=https%3A%2F%2Fwww.facebook.com%2Freel%2F1230926652252153%2F&show_text=false&width=380&t=0",
   },
 ]
 

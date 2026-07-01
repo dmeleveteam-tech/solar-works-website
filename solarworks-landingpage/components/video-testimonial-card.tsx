@@ -16,6 +16,30 @@ import {
 } from "@/components/ui/dialog"
 
 export function VideoTestimonialCard({ item }: { item: VideoTestimonial }) {
+  // Facebook reels: embed the video directly in the card (no dialog needed)
+  if (item.facebookEmbedUrl) {
+    return (
+      <div className="relative block w-full overflow-hidden rounded-2xl border bg-card text-left shadow-sm transition-shadow duration-200 hover:shadow-md">
+        <div className="relative aspect-[4/3] overflow-hidden bg-muted">
+          <iframe
+            className="absolute inset-0 size-full"
+            src={item.facebookEmbedUrl}
+            title={`${item.name} — customer story`}
+            style={{ border: "none", overflow: "hidden" }}
+            scrolling="no"
+            allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"
+            allowFullScreen
+          />
+        </div>
+        <div className="p-4">
+          <p className="font-medium text-balance">{item.headline}</p>
+          <p className="mt-1.5 text-sm text-muted-foreground">{item.summary}</p>
+        </div>
+      </div>
+    )
+  }
+
+  // YouTube: keep the thumbnail + dialog flow
   return (
     <Dialog
       onOpenChange={(open) => {

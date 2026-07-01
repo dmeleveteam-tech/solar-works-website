@@ -5,7 +5,6 @@ import { trustMarkers, howItWorks } from "@/lib/content/site-content"
 import { Container, Section, SectionHeading } from "@/components/section"
 import { PageHero } from "@/components/page-hero"
 import { Reveal } from "@/components/reveal"
-import { Photo } from "@/components/photo"
 import { Card, CardContent } from "@/components/ui/card"
 import { CtaBand } from "@/components/sections/cta-band"
 
@@ -51,12 +50,17 @@ export default function WhySolarWorksPage() {
       <Section>
         <Container className="grid items-center gap-12 lg:grid-cols-2">
           <Reveal>
-            <Photo
-              src=""
-              alt="Technician carefully installing a rooftop solar panel"
-              className="aspect-[4/3] w-full rounded-3xl shadow-lg"
-              sizes="(max-width: 1024px) 100vw, 50vw"
-            />
+            <div className="aspect-[1/1] w-full overflow-hidden rounded-3xl bg-muted shadow-lg">
+              <iframe
+                className="size-full"
+                src="https://www.facebook.com/plugins/video.php?height=476&href=https%3A%2F%2Fwww.facebook.com%2Freel%2F2069197367262156%2F&show_text=false&width=476&t=0"
+                title="Why Solar Works — customer reel"
+                style={{ border: "none", overflow: "hidden" }}
+                scrolling="no"
+                allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"
+                allowFullScreen
+              />
+            </div>
           </Reveal>
           <div className="grid gap-6">
             {pillars.map((p, i) => (
