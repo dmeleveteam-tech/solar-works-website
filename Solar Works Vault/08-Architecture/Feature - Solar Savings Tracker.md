@@ -9,8 +9,23 @@ app: solarworks-platform
 
 # Feature — Solar Savings Tracker
 
-> [!abstract] Postponed (2026-07-01)
-> **On hold — not started.** Build is parked until the client provides **two real monthly Deye exports** (needed to pin the parser) and confirms **what counts as "saved"** (all solar kWh produced × tariff, vs only self-consumed kWh × tariff). Decisions and MVP scope below are agreed and ready to resume from. Resume trigger: the 2 sample files arrive.
+> [!abstract] Scaffolding built (2026-07-01) — parser still blocked
+> The parts that do **not** depend on the real Deye file format are now **built and committed** on branch `phase-1-launch-qa`: the tariff table, the customer↔plant links, the savings-email consent toggle, the monthly-readings data layer, and the pure savings maths (all unit-tested). What remains blocked is the **file parser** — it stays an explicit stub until the client provides **two real monthly Deye exports** — and the **"what counts as saved"** decision (all solar kWh produced × tariff, vs only self-consumed kWh × tariff), which the app currently defaults to *all production* and labels provisional in the UI. Resume trigger: the 2 sample files + the basis decision arrive; then implement the parser and flip `PARSER_CONFIGURED`.
+
+## Build status (2026-07-01)
+
+Done (committed):
+- Tariff table — admin-maintained flat ₱/kWh per provider (`lib/savings.ts`, staff screen at `/dashboard/savings`).
+- Plant links — connect a customer account to their Deye plant + provider, reusing the customer-projects create-existing/create-new-customer flow; per-plant email-consent toggle.
+- Monthly readings — data layer with `(plant, month)` upsert (`saveReadingsForPlant`).
+- Savings maths — pure `computeMonthlySavings`, `billableKwh`, `monthOverMonthDelta` in `lib/savings-shared.ts`, covered by `lib/savings.test.ts` (15 tests).
+- Upload flow wired end-to-end but disabled behind `PARSER_CONFIGURED = false`.
+- `savings` permission resource; deletes are superadmin-only; every action re-checks role server-side.
+
+Still to do when unblocked:
+- Implement `parseDeyeExport` in `lib/savings-parser.ts` from the 2 sample files; flip `PARSER_CONFIGURED`; add fixture tests.
+- Confirm the "saved" basis and set `DEFAULT_SAVINGS_BASIS` accordingly.
+- Customer-facing comparison view in the portal + the staff-triggered, consent-gated Resend email.
 
 > [!warning] Not in the Functional Specifications
 > This feature is **not** in [[Solar Works - Website Production Build Guide|Functional Spec v1.0]] or the website vault. The spec deliberately puts a *"customer portal / monitoring dashboard"* **out of scope** for Phase 1 ([[Project Scope]] §1.2) and forbids unverified savings claims on the **public** site ([[Page - Customer Stories|T-05]]). This is a **new Phase-2 feature of the authenticated app**, not website work.
