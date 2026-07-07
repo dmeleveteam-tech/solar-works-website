@@ -1,4 +1,4 @@
-﻿"use client"
+"use client"
 
 import * as React from "react"
 import { ChevronLeft, ChevronRight, Play, Quote } from "lucide-react"
@@ -19,25 +19,25 @@ import { track, ANALYTICS_EVENTS } from "@/lib/analytics"
 
 const CAPTIONS: Record<string, { title: string; subtitle: string; tag: string }> = {
   "vt-corciga": {
-    title: "\"Going solar was the best decision we made for our family\"",
+    title: '"Going solar was the best decision we made for our family"',
     subtitle:
       "Mr. Ric Corciga shares how Solar Works designed a system that fits their lifestyle — and how they haven't looked back since.",
     tag: "Family Home",
   },
   "vt-raca": {
-    title: "\"Our electric bill dropped drastically — we wish we did it sooner\"",
+    title: '"Our electric bill dropped drastically — we wish we did it sooner"',
     subtitle:
       "Ms. Zeny Raca walks us through her journey from high monthly bills to real, measurable savings every single month.",
     tag: "Homeowner",
   },
   "vt-fb-reel-01": {
-    title: "\"Solar Works made the whole process simple and stress-free\"",
+    title: '"Solar Works made the whole process simple and stress-free"',
     subtitle:
       "A satisfied Solar Works customer describes how smoothly the installation went and the difference it's made day-to-day.",
     tag: "Customer Story",
   },
   "vt-fb-reel-02": {
-    title: "\"I didn't expect this much savings — it's been a game changer\"",
+    title: '"I didn\'t expect this much savings — it\'s been a game changer"',
     subtitle:
       "Hear firsthand how switching to solar exceeded expectations and delivered real financial relief from the very first month.",
     tag: "Customer Story",
@@ -56,7 +56,7 @@ export function VideoCarousel({ videoTestimonials }: { videoTestimonials: VideoT
 
   const item = videoTestimonials[current]
   const caption = CAPTIONS[item.id] ?? {
-    title: \"\",
+    title: `"${item.headline}"`,
     subtitle: item.summary,
     tag: item.audience,
   }
@@ -97,7 +97,7 @@ export function VideoCarousel({ videoTestimonials }: { videoTestimonials: VideoT
           {/* Tag + counter */}
           <AnimatePresence mode="wait" custom={direction}>
             <motion.div
-              key={	ag-}
+              key={`tag-${current}`}
               custom={direction}
               variants={variants}
               initial="enter"
@@ -121,7 +121,7 @@ export function VideoCarousel({ videoTestimonials }: { videoTestimonials: VideoT
           {/* Title */}
           <AnimatePresence mode="wait" custom={direction}>
             <motion.h3
-              key={	itle-}
+              key={`title-${current}`}
               custom={direction}
               variants={variants}
               initial="enter"
@@ -137,7 +137,7 @@ export function VideoCarousel({ videoTestimonials }: { videoTestimonials: VideoT
           {/* Subtitle */}
           <AnimatePresence mode="wait" custom={direction}>
             <motion.p
-              key={sub-}
+              key={`sub-${current}`}
               custom={direction}
               variants={variants}
               initial="enter"
@@ -153,8 +153,7 @@ export function VideoCarousel({ videoTestimonials }: { videoTestimonials: VideoT
           {/* Name */}
           <AnimatePresence mode="wait" custom={direction}>
             <motion.p
-              key={
-ame-}
+              key={`name-${current}`}
               custom={direction}
               variants={variants}
               initial="enter"
@@ -195,7 +194,7 @@ ame-}
                   key={i}
                   role="tab"
                   aria-selected={i === current}
-                  aria-label={Go to story }
+                  aria-label={`Go to story ${i + 1}`}
                   onClick={() => go(i, i > current ? 1 : -1)}
                   className={cn(
                     "h-1.5 rounded-full transition-all duration-300",
@@ -213,7 +212,7 @@ ame-}
         <div className="relative">
           <AnimatePresence mode="wait" custom={direction}>
             <motion.div
-              key={ideo-}
+              key={`video-${current}`}
               custom={direction}
               variants={variants}
               initial="enter"
@@ -228,7 +227,7 @@ ame-}
                     <iframe
                       className="absolute inset-0 size-full"
                       src={item.facebookEmbedUrl}
-                      title={${item.name} — customer story}
+                      title={`${item.name} — customer story`}
                       style={{ border: "none", overflow: "hidden" }}
                       scrolling="no"
                       allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"
@@ -246,12 +245,12 @@ ame-}
                     <button
                       type="button"
                       className="group/thumb relative block w-full overflow-hidden rounded-3xl border bg-card text-left shadow-xl ring-1 ring-foreground/[0.06] focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
-                      aria-label={Play 's story}
+                      aria-label={`Play ${item.name}'s story`}
                     >
                       <div className="relative aspect-[4/3] overflow-hidden">
                         <Photo
                           src={item.thumbnail}
-                          alt={${item.name} — customer story thumbnail}
+                          alt={`${item.name} — customer story thumbnail`}
                           className="absolute inset-0 size-full object-cover transition-transform duration-700 ease-[cubic-bezier(0.23,1,0.32,1)] motion-safe:group-hover/thumb:scale-[1.04]"
                           sizes="(max-width: 1024px) 100vw, 50vw"
                         />
@@ -268,7 +267,7 @@ ame-}
                     <DialogHeader>
                       <DialogTitle>{item.name}</DialogTitle>
                       <DialogDescription>
-                        {[item.location, item.systemType ? ${item.systemType} system : null]
+                        {[item.location, item.systemType ? `${item.systemType} system` : null]
                           .filter(Boolean)
                           .join(" · ") || item.headline}
                       </DialogDescription>
@@ -276,8 +275,8 @@ ame-}
                     <div className="relative aspect-video overflow-hidden rounded-xl bg-muted">
                       <iframe
                         className="absolute inset-0 size-full"
-                        src={https://www.youtube-nocookie.com/embed/?autoplay=1}
-                        title={${item.name} — customer story}
+                        src={`https://www.youtube-nocookie.com/embed/${item.videoId}?autoplay=1`}
+                        title={`${item.name} — customer story`}
                         allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                         referrerPolicy="strict-origin-when-cross-origin"
                         allowFullScreen
