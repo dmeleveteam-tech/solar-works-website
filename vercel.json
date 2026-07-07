@@ -1,0 +1,6 @@
+﻿{
+  "buildCommand": "cd solarworks-landingpage && pnpm install && pnpm build",
+  "outputDirectory": "solarworks-landingpage/.next",
+  "installCommand": "cd solarworks-landingpage && pnpm install",
+  "framework": "nextjs"
+}
