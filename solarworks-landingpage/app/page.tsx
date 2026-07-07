@@ -46,6 +46,8 @@ export default async function HomePage() {
       <PackagesSection />
       <CtaBand />
     </>
+
+    //
   )
 }
 
