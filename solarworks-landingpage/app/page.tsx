@@ -19,6 +19,7 @@ import { siteConfig } from "@/lib/site-config"
 import { solutions } from "@/lib/content/solutions"
 import { trustMarkers, stats } from "@/lib/content/site-content"
 import { cn } from "@/lib/utils"
+import { getTestimonials } from "@/lib/content/api"
 
 import { Container, Section, SectionHeading, Eyebrow } from "@/components/section"
 import { Reveal } from "@/components/reveal"
@@ -28,11 +29,15 @@ import { Card, CardContent } from "@/components/ui/card"
 import { HeroVisual } from "@/components/sections/hero-visual"
 import { Packages } from "@/components/sections/packages"
 import { CtaBand } from "@/components/sections/cta-band"
+import { VideoCarousel } from "@/components/sections/video-carousel"
 
-export default function HomePage() {
+export default async function HomePage() {
+  const { video } = await getTestimonials()
+
   return (
     <>
       <Hero />
+      <VideoTestimonialsSection videoTestimonials={video} />
       <LogoCloud />
       <FeatureCards />
       <CapabilityGrid />
@@ -143,7 +148,32 @@ function Hero() {
   )
 }
 
-/* ── 2. Logo cloud ───────────────────────────────────────── */
+/* ── 2. Video testimonials carousel ─────────────────────── */
+import type { VideoTestimonial } from "@/lib/content/testimonials"
+
+function VideoTestimonialsSection({ videoTestimonials }: { videoTestimonials: VideoTestimonial[] }) {
+  return (
+    <Section className="bg-muted/30">
+      <Container>
+        <SectionHeading
+          eyebrow="What our customers say"
+          title={
+            <>
+              Real stories,{" "}
+              <span className="word-soft">in their own words</span>
+            </>
+          }
+          description="Every testimonial here is from a real Solar Works customer. Hear directly from families and homeowners who made the switch."
+          align="center"
+          className="mx-auto mb-14"
+        />
+        <VideoCarousel videoTestimonials={videoTestimonials} />
+      </Container>
+    </Section>
+  )
+}
+
+/* ── 3. Logo cloud ───────────────────────────────────────── */
 const partnerBrands = ["Canadian Solar", "Jinko", "Huawei", "Deye", "LONGi", "Growatt"]
 
 function LogoCloud() {
