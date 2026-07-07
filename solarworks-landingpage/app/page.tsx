@@ -75,6 +75,7 @@ function Hero() {
               Cut your power bill by up to 70%.{" "}
               <span className="word-soft">Own your energy.</span>
             </h1>
+
           </Reveal>
           <Reveal delay={120}>
             <p className="max-w-xl text-lg text-muted-foreground text-pretty">
@@ -83,6 +84,7 @@ function Hero() {
               owning it. Free assessment, no obligation.
             </p>
           </Reveal>
+          //
           <Reveal delay={180} className="flex flex-col gap-3 sm:flex-row">
             <Button asChild size="lg">
               <Link href={siteConfig.primaryCta.href}>
