@@ -46,8 +46,6 @@ export default async function HomePage() {
       <PackagesSection />
       <CtaBand />
     </>
-
-    //
   )
 }
 
@@ -84,7 +82,6 @@ function Hero() {
               owning it. Free assessment, no obligation.
             </p>
           </Reveal>
-          //
           <Reveal delay={180} className="flex flex-col gap-3 sm:flex-row">
             <Button asChild size="lg">
               <Link href={siteConfig.primaryCta.href}>
