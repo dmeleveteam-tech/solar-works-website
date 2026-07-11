@@ -1,0 +1,9 @@
+{
+  "name": "solar-works-website-root",
+  "private": true,
+  "scripts": {
+    "dev": "pnpm --filter solarworks-landingpage dev",
+    "build": "pnpm --filter solarworks-landingpage build",
+    "start": "pnpm --filter solarworks-landingpage start"
+  }
+}
