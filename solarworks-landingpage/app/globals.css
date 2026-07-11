@@ -233,3 +233,60 @@ html.lenis body {
     scroll-behavior: auto;
   }
 }
+
+/* ── Auto-play testimonial marquee ────────────────────────────────────
+   A seamless, infinite horizontal loop. The track renders the cards twice;
+   translating it by -50% wraps perfectly because the two halves are
+   identical. Constant motion → linear easing (Emil Kowalski). Kept at top
+   level (not inside @layer utilities) to match the Lenis/scrollbar rules. */
+@keyframes marquee-x {
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+.marquee-track {
+  animation: marquee-x var(--marquee-duration, 42s) linear infinite;
+  will-change: transform;
+}
+
+.marquee-card {
+  /* hover = ease, ~200ms; strong ease-out on the zoom */
+  transition:
+    opacity 200ms ease,
+    transform 220ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+/* Pause whenever a card inside is focused, so keyboard users can act on it.
+   Outside the hover media query so it works on any input device. */
+.marquee-viewport:focus-within .marquee-track {
+  animation-play-state: paused;
+}
+
+/* Hover spotlight — only where a real pointer can hover (not touch taps).
+   Hovering pauses the loop, zooms the hovered card, and dims the rest. */
+@media (hover: hover) and (pointer: fine) {
+  .marquee-viewport:hover .marquee-track {
+    animation-play-state: paused;
+  }
+  .marquee-viewport:hover .marquee-card {
+    opacity: 0.55;
+    transform: scale(0.98);
+  }
+  .marquee-viewport .marquee-card:hover {
+    opacity: 1;
+    transform: scale(1.08);
+    z-index: 10;
+  }
+}
+
+/* Reduced motion: stop the auto-loop and let the strip scroll manually, so
+   every testimonial stays reachable without any movement. */
+@media (prefers-reduced-motion: reduce) {
+  .marquee-track {
+    animation: none;
+  }
+  .marquee-viewport {
+    overflow-x: auto;
+  }
+}
