@@ -32,7 +32,7 @@ export const solutions: Solution[] = [
     icon: BatteryCharging,
     forWho: "Homes that need backup power during outages",
     summary:
-      "Combine solar with battery storage so you keep the lights on when the grid goes down — and store cheap daytime energy for the evening.",
+      "Combine solar with battery storage so you keep the lights on when the grid goes down, and store cheap daytime energy for the evening.",
     highlights: [
       "Backup power during brownouts",
       "Use solar energy after sunset",
@@ -60,7 +60,7 @@ export const solutions: Solution[] = [
     icon: Car,
     forWho: "Properties that want generation plus shade and EV-ready parking",
     summary:
-      "Turn unused parking into a power plant. Generate clean energy, shade vehicles, and prepare for EV charging — all from one structure.",
+      "Turn unused parking into a power plant. Generate clean energy, shade vehicles, and prepare for EV charging, all from one structure.",
     highlights: [
       "Dual-purpose: power + shade",
       "EV-charging ready",
