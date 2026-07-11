@@ -1,7 +1,0 @@
-{
-  "buildCommand": "pnpm build",
-  "installCommand": "pnpm install",
-  "framework": "nextjs",
-  "rootDirectory": "solarworks-landingpage"
-}
-
