@@ -154,7 +154,7 @@ import type { VideoTestimonial } from "@/lib/content/testimonials"
 
 function VideoTestimonialsSection({ videoTestimonials }: { videoTestimonials: VideoTestimonial[] }) {
   return (
-    <Section className="bg-muted/30">
+    <Section id="testimonials" className="bg-muted/30">
       <Container>
         <SectionHeading
           eyebrow="What our customers say"

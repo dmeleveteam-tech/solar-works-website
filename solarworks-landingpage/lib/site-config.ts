@@ -32,7 +32,7 @@ export const siteConfig = {
   },
   secondaryCta: {
     label: "Hear From Our Customers",
-    href: "/customer-stories",
+    href: "/#testimonials",
   },
   warranties: {
     panel: "20-Year Panel Warranty",
@@ -56,7 +56,6 @@ export const mainNav: NavLink[] = [
   { label: "Why Solar Works", href: "/why-solar-works", description: "What makes our work different" },
   { label: "Solar Solutions", href: "/solar-solutions", description: "Grid-tied, hybrid, and commercial" },
   { label: "Our Work", href: "/our-work", description: "Real installations and case studies" },
-  { label: "Customer Stories", href: "/customer-stories", description: "Video and written testimonials" },
   { label: "Learning Center", href: "/learning-center", description: "Guides, FAQs, and solar basics" },
   { label: "About", href: "/about", description: "The team behind the work" },
 ]
@@ -68,7 +67,6 @@ export const footerNav: { title: string; links: NavLink[] }[] = [
       { label: "Why Solar Works", href: "/why-solar-works" },
       { label: "Solar Solutions", href: "/solar-solutions" },
       { label: "Our Work", href: "/our-work" },
-      { label: "Customer Stories", href: "/customer-stories" },
     ],
   },
   {
