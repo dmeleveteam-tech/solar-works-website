@@ -26,9 +26,11 @@ export const STATUS_LABEL: Record<LeadStatus, string> = {
   lost: "Lost",
 }
 
+// Channel labels exactly as the spec's Leads database defines them
+// ("Website Form" / "Website Chatbot"); QA-03 checks the chatbot wording.
 export const SOURCE_LABEL: Record<LeadSource, string> = {
-  website_form: "Website form",
-  chatbot: "Chatbot",
+  website_form: "Website Form",
+  chatbot: "Website Chatbot",
   manual: "Manual",
 }
 

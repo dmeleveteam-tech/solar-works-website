@@ -16,12 +16,13 @@ import { isRole, type Role } from "@/lib/permissions"
 const f = createUploadthing()
 
 const CONTENT_ROLES: readonly Role[] = ["content_editor", "superadmin"]
+const STAFF_ROLES: readonly Role[] = ["staff", "superadmin"]
 
-/** Reject anyone who is not a signed-in content manager. */
-async function requireContentManager() {
+/** Reject anyone whose signed-in role isn't in `allowed`. */
+async function requireRoleUpload(allowed: readonly Role[]) {
   const session = await getSession()
   const role = session?.user?.role
-  if (!session || !isRole(role) || !CONTENT_ROLES.includes(role)) {
+  if (!session || !isRole(role) || !allowed.includes(role)) {
     throw new UploadThingError("Unauthorized")
   }
   return { userId: session.user.id }
@@ -30,9 +31,20 @@ async function requireContentManager() {
 export const ourFileRouter = {
   // Single image, capped at 4MB. Used for every CMS image field.
   contentImage: f({ image: { maxFileSize: "4MB", maxFileCount: 1 } })
-    .middleware(() => requireContentManager())
+    .middleware(() => requireRoleUpload(CONTENT_ROLES))
     .onUploadComplete(({ metadata, file }) => {
       // Whatever is returned here is sent to the client `onClientUploadComplete`.
+      return { url: file.ufsUrl, uploadedBy: metadata.userId }
+    }),
+
+  // Customer-portal documents (proposal PDF, contract, warranty…). Staff/admin
+  // only; the resolved URL is stored on the customer's project document.
+  customerDocument: f({
+    pdf: { maxFileSize: "16MB", maxFileCount: 1 },
+    image: { maxFileSize: "8MB", maxFileCount: 1 },
+  })
+    .middleware(() => requireRoleUpload(STAFF_ROLES))
+    .onUploadComplete(({ metadata, file }) => {
       return { url: file.ufsUrl, uploadedBy: metadata.userId }
     }),
 } satisfies FileRouter

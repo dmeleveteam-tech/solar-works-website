@@ -2,7 +2,6 @@ import Link from "next/link"
 import {
   ArrowRight,
   Check,
-  Star,
   Sun,
   ShieldCheck,
   BatteryFull,
@@ -29,15 +28,15 @@ import { Card, CardContent } from "@/components/ui/card"
 import { HeroVisual } from "@/components/sections/hero-visual"
 import { Packages } from "@/components/sections/packages"
 import { CtaBand } from "@/components/sections/cta-band"
-import { VideoCarousel } from "@/components/sections/video-carousel"
+import { TestimonialMarquee } from "@/components/sections/testimonial-marquee"
 
 export default async function HomePage() {
   const { video } = await getTestimonials()
 
   return (
     <>
+      <TestimonialsBand videoTestimonials={video} />
       <Hero />
-      <VideoTestimonialsSection videoTestimonials={video} />
       <LogoCloud />
       <FeatureCards />
       <CapabilityGrid />
@@ -70,16 +69,15 @@ function Hero() {
           </Reveal>
           <Reveal delay={60}>
             <h1 className="text-display text-4xl sm:text-5xl lg:text-6xl lg:leading-[1.02]">
-              Cut your power bill by up to 70%.{" "}
-              <span className="word-soft">Own your energy.</span>
+              Stop renting your electricity.{" "}
+              <span className="word-soft">Start owning it.</span>
             </h1>
 
           </Reveal>
           <Reveal delay={120}>
             <p className="max-w-xl text-lg text-muted-foreground text-pretty">
-              Solar Works designs, installs, and supports a system sized to how
-              you actually use power — so you stop renting electricity and start
-              owning it. Free assessment, no obligation.
+              We design and install a system built around how you actually use
+              power, so your bill drops by up to 70% and stays there.
             </p>
           </Reveal>
           <Reveal delay={180} className="flex flex-col gap-3 sm:flex-row">
@@ -108,21 +106,6 @@ function Hero() {
               </li>
             ))}
           </Reveal>
-          <Reveal
-            delay={300}
-            className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-muted-foreground"
-          >
-            <span className="inline-flex items-center gap-1.5">
-              <span className="flex">
-                {Array.from({ length: 5 }).map((_, i) => (
-                  <Star key={i} className="size-4 fill-primary text-primary" />
-                ))}
-              </span>
-              4.9 average rating
-            </span>
-            <span className="h-4 w-px bg-border" />
-            <span>350+ systems installed</span>
-          </Reveal>
         </div>
 
         <Reveal delay={120}>
@@ -149,28 +132,27 @@ function Hero() {
   )
 }
 
-/* ── 2. Video testimonials carousel ─────────────────────── */
+/* ── Testimonials band (opens the page, above the hero) ──── */
 import type { VideoTestimonial } from "@/lib/content/testimonials"
 
-function VideoTestimonialsSection({ videoTestimonials }: { videoTestimonials: VideoTestimonial[] }) {
+function TestimonialsBand({ videoTestimonials }: { videoTestimonials: VideoTestimonial[] }) {
   return (
-    <Section id="testimonials" className="bg-muted/30">
+    <section id="testimonials" className="border-b bg-muted/30 py-14 sm:py-16">
       <Container>
         <SectionHeading
-          eyebrow="What our customers say"
           title={
             <>
-              Real stories,{" "}
+              The switch,{" "}
               <span className="word-soft">in their own words</span>
             </>
           }
-          description="Every testimonial here is from a real Solar Works customer. Hear directly from families and homeowners who made the switch."
+          description="Every story here is a real Solar Works customer. Real installs, real savings. Press play."
           align="center"
-          className="mx-auto mb-14"
+          className="mx-auto mb-10"
         />
-        <VideoCarousel videoTestimonials={videoTestimonials} />
       </Container>
-    </Section>
+      <TestimonialMarquee items={videoTestimonials} />
+    </section>
   )
 }
 
@@ -207,7 +189,7 @@ const features = [
   {
     icon: PencilRuler,
     title: "Personalized design",
-    body: "Every system is sized to your actual bill and roof — never an off-the-shelf package.",
+    body: "Every system is sized to your actual bill and roof, never an off-the-shelf package.",
     mock: <ProposalMock />,
   },
   {
@@ -219,7 +201,7 @@ const features = [
   {
     icon: HeartHandshake,
     title: "Lifetime support",
-    body: "We stay reachable for the life of your warranty — not just until the invoice clears.",
+    body: "We stay reachable for the life of your warranty, not just until the invoice clears.",
     mock: <SupportMock />,
   },
 ]
@@ -229,9 +211,8 @@ function FeatureCards() {
     <Section className="bg-muted/30">
       <Container>
         <SectionHeading
-          eyebrow="Why Solar Works"
           title="Solar you won't have to think about"
-          description="The decisions that protect a 20-year investment — designed in from day one."
+          description="The decisions that protect a 20-year investment, designed in from day one."
           align="center"
           className="mx-auto"
         />
@@ -308,15 +289,19 @@ function SupportMock() {
         Is my system producing today?
       </div>
       <div className="max-w-[85%] rounded-2xl rounded-bl-sm bg-background px-3 py-2 text-xs ring-1 ring-foreground/[0.06]">
-        Yes — 18.4 kWh so far, right on target ☀
+        Yes! 18.4 kWh so far, right on target ☀
       </div>
     </div>
   )
 }
 
-/* ── 4. Capability grid ──────────────────────────────────── */
+/* ── 4. Capability grid (bento) ──────────────────────────── */
 const capabilities = [
-  { icon: LineChart, title: "Consumption modeling", body: "We size around your real load, not a guess." },
+  {
+    icon: LineChart,
+    title: "Consumption modeling",
+    body: "We map how much power you draw and when, then size the system around that real load profile — so you cover your daytime usage instead of paying for panels you'll never need.",
+  },
   { icon: MessageSquareText, title: "Solar Assistant", body: "Ask questions any time and hand off to a human." },
   { icon: Plug, title: "Net-metering handled", body: "We file the application and documentation for you." },
   { icon: Gauge, title: "Live monitoring", body: "See production and savings from your phone." },
@@ -324,20 +309,68 @@ const capabilities = [
   { icon: Sun, title: "Performance reporting", body: "Know your system is delivering, season to season." },
 ]
 
+/* A day's load profile — the midday block is what solar covers. Decorative,
+   so it's hidden from assistive tech; the legend beside it carries the meaning. */
+function LoadProfileMock() {
+  const bars = [3, 3, 2, 2, 3, 5, 8, 11, 9, 7, 8, 10, 12, 11, 10, 8, 7, 9, 12, 11, 8, 6, 4, 3]
+  const max = Math.max(...bars)
+  return (
+    <div className="flex h-20 items-end gap-[3px]" aria-hidden>
+      {bars.map((h, i) => {
+        const daylight = i >= 7 && i <= 16 // hours solar typically covers
+        return (
+          <div
+            key={i}
+            className={cn("flex-1 rounded-sm", daylight ? "bg-primary" : "bg-foreground/[0.12]")}
+            style={{ height: `${(h / max) * 100}%` }}
+          />
+        )
+      })}
+    </div>
+  )
+}
+
 function CapabilityGrid() {
+  const [feature, ...rest] = capabilities
+  const FeatureIcon = feature.icon
   return (
     <Section>
       <Container>
         <SectionHeading
-          eyebrow="Built on solid engineering"
           title="Everything working quietly behind the panels"
         />
         <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {capabilities.map((c, i) => {
+          {/* Feature tile — anchors the bento (2×2 on lg) and carries the visual */}
+          <Reveal className="sm:col-span-2 lg:row-span-2">
+            <div className="flex h-full flex-col justify-between gap-8 rounded-3xl border bg-card p-7">
+              <div>
+                <span className="grid size-12 place-items-center rounded-2xl bg-primary/10 text-primary">
+                  <FeatureIcon className="size-6" />
+                </span>
+                <h3 className="font-heading mt-5 text-xl font-semibold">{feature.title}</h3>
+                <p className="mt-2 max-w-md text-muted-foreground text-pretty">{feature.body}</p>
+              </div>
+              <div className="space-y-3">
+                <LoadProfileMock />
+                <div className="flex items-center gap-4 text-[11px] text-muted-foreground">
+                  <span className="inline-flex items-center gap-1.5">
+                    <span className="size-2 rounded-full bg-primary" />
+                    Covered by solar
+                  </span>
+                  <span className="inline-flex items-center gap-1.5">
+                    <span className="size-2 rounded-full bg-foreground/15" />
+                    Grid / evening
+                  </span>
+                </div>
+              </div>
+            </div>
+          </Reveal>
+
+          {rest.map((c, i) => {
             const Icon = c.icon
             return (
-              <Reveal key={c.title} delay={i * 50}>
-                <div className="flex h-full flex-col gap-3 rounded-2xl border bg-card p-6 transition-shadow hover:shadow-md">
+              <Reveal key={c.title} delay={(i + 1) * 50}>
+                <div className="flex h-full flex-col gap-3 rounded-2xl border bg-card p-6 transition-colors hover:border-primary/30 hover:bg-muted/40">
                   <span className="grid size-10 place-items-center rounded-xl bg-primary/10 text-primary">
                     <Icon className="size-5" />
                   </span>
@@ -420,7 +453,6 @@ function WhatYouGet() {
     <Section className="bg-muted/30">
       <Container>
         <SectionHeading
-          eyebrow="What you get with Solar Works"
           title="Protection, performance, and peace of mind"
           align="center"
           className="mx-auto"
@@ -456,7 +488,7 @@ function WhatYouGet() {
                 </div>
                 <Button asChild size="sm" className="self-start bg-background text-foreground hover:bg-background/85">
                   <Link href={siteConfig.primaryCta.href}>
-                    Get started
+                    Get an assessment
                   </Link>
                 </Button>
               </CardContent>
@@ -476,7 +508,7 @@ function PackagesSection() {
         <SectionHeading
           eyebrow="Ways to go solar"
           title="Smarter plans for how you use power"
-          description="No fixed price tags — solar is sized to your bill. Pick the shape that fits, and we'll quote it precisely."
+          description="No fixed price tags. Solar is sized to your bill, so pick the shape that fits and we'll quote it precisely."
           align="center"
           className="mx-auto"
         />

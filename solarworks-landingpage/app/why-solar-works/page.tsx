@@ -1,5 +1,5 @@
 import type { Metadata } from "next"
-import { Check } from "lucide-react"
+import { Check, Play } from "lucide-react"
 
 import { trustMarkers, howItWorks } from "@/lib/content/site-content"
 import { Container, Section, SectionHeading } from "@/components/section"
@@ -50,17 +50,28 @@ export default function WhySolarWorksPage() {
       <Section>
         <Container className="grid items-center gap-12 lg:grid-cols-2">
           <Reveal>
-            <div className="aspect-[1/1] w-full overflow-hidden rounded-3xl bg-muted shadow-lg">
-              <iframe
-                className="size-full"
-                src="https://www.facebook.com/plugins/video.php?height=476&href=https%3A%2F%2Fwww.facebook.com%2Freel%2F2069197367262156%2F&show_text=false&width=476&t=0"
-                title="Why Solar Works — customer reel"
-                style={{ border: "none", overflow: "hidden" }}
-                scrolling="no"
-                allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"
-                allowFullScreen
-              />
-            </div>
+            {/*
+              Link out to the reel on Facebook rather than embedding the FB video
+              plugin: browser tracking prevention (Microsoft Edge's is on by
+              default) blocks facebook.com plugin frames, so an inline embed fails
+              for many visitors. A plain link is never framed and can't be blocked.
+            */}
+            <a
+              href="https://www.facebook.com/reel/2069197367262156/"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Watch our customer reel on Facebook (opens in a new tab)"
+              className="group relative grid aspect-[1/1] w-full place-items-center overflow-hidden rounded-3xl border bg-gradient-to-br from-primary/10 via-muted to-muted shadow-lg transition-shadow duration-200 hover:shadow-xl focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+            >
+              <span className="grid size-16 place-items-center rounded-full bg-background/90 text-primary shadow-lg transition-transform duration-200 ease-out motion-safe:group-hover:scale-110 motion-safe:group-active:scale-95">
+                <Play className="size-7 translate-x-0.5 fill-current" />
+              </span>
+              <span className="absolute inset-x-5 bottom-5 text-center">
+                <span className="rounded-lg bg-background/85 px-3 py-1.5 text-sm font-medium text-foreground backdrop-blur">
+                  Watch our customer reel on Facebook
+                </span>
+              </span>
+            </a>
           </Reveal>
           <div className="grid gap-6">
             {pillars.map((p, i) => (

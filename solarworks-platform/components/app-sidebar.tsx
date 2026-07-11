@@ -5,10 +5,12 @@ import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import {
   FileText,
+  FolderKanban,
   Inbox,
   LayoutDashboard,
   Loader2,
   LogOut,
+  PiggyBank,
   Users,
   type LucideIcon,
 } from "lucide-react"
@@ -38,6 +40,8 @@ const NAV_ICONS: Record<NavIconName, LucideIcon> = {
   users: Users,
   content: FileText,
   portal: LayoutDashboard,
+  projects: FolderKanban,
+  savings: PiggyBank,
 }
 
 export function AppSidebar({ user, nav }: { user: ShellUser; nav: NavItem[] }) {

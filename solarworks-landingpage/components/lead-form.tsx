@@ -6,6 +6,7 @@ import { CheckCircle2, Loader2, ShieldCheck, MessageCircle } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { siteConfig } from "@/lib/site-config"
 import { track, ANALYTICS_EVENTS } from "@/lib/analytics"
+import { getAttribution } from "@/lib/attribution"
 import { Turnstile, TURNSTILE_SITE_KEY } from "@/components/turnstile"
 import {
   propertyTypes,
@@ -117,6 +118,7 @@ export function LeadForm({ defaultSolution }: { defaultSolution?: string }) {
           siteNotes: String(data.get("siteNotes") ?? ""),
           contactMethod,
           turnstileToken,
+          attribution: getAttribution(),
         }),
       })
       if (!res.ok) {

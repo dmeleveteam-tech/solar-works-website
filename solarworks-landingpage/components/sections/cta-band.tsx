@@ -9,7 +9,7 @@ import { PathGraphic } from "@/components/path-graphic"
 
 export function CtaBand({
   title = "Ready to take your power bill off autopilot?",
-  description = "Get a free, no-obligation assessment grounded in your real consumption. Fill out a quick form, or chat with our Solar Assistant — whichever's easier.",
+  description = "Get a free, no-obligation assessment grounded in your real consumption. Fill out a quick form, or chat with our Solar Assistant, whichever's easier.",
 }: {
   title?: string
   description?: string
