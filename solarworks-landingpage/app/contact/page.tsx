@@ -5,19 +5,19 @@ import { siteConfig } from "@/lib/site-config"
 import { Container, Section } from "@/components/section"
 import { PageHero } from "@/components/page-hero"
 import { Reveal } from "@/components/reveal"
-import { LeadForm } from "@/components/lead-form"
-
-export const metadata: Metadata = {
-  title: "Get a Free Solar Assessment",
-  description:
-    "Tell us about your home or business and a Solar Works adviser will prepare a free, no-obligation solar assessment.",
-}
+import { NativeInquiryForm } from "@/components/native-inquiry-form"
 
 const solutionSlugToValue: Record<string, string> = {
   "grid-tied": "Grid-Tied",
   "hybrid-with-battery": "Hybrid with Battery",
   "commercial-farm-carport": "Commercial Solar",
   "solar-carport": "Hybrid with Battery",
+}
+
+export const metadata: Metadata = {
+  title: "Get a Free Solar Assessment",
+  description:
+    "Tell us about your home or business and a Solar Works adviser will prepare a free, no-obligation solar assessment.",
 }
 
 export default async function ContactPage({
@@ -41,9 +41,9 @@ export default async function ContactPage({
       />
       <Section>
         <Container className="grid gap-10 lg:grid-cols-[1.4fr_1fr]">
-          <div>
-            <LeadForm defaultSolution={defaultSolution} />
-          </div>
+          <Reveal>
+            <NativeInquiryForm defaultSolution={defaultSolution} />
+          </Reveal>
 
           <aside className="flex flex-col gap-4">
             <Reveal className="rounded-2xl border bg-card p-6 shadow-sm">
@@ -117,3 +117,4 @@ function ContactRow({
     </a>
   )
 }
+

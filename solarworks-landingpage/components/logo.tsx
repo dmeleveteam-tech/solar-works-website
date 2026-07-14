@@ -1,26 +1,28 @@
 import Link from "next/link"
+import Image from "next/image"
 import { cn } from "@/lib/utils"
 import { siteConfig } from "@/lib/site-config"
 
-/**
- * Wordmark logo: the words "Solar Works" with a single small amber node dot as
- * the lone accent (no sun icon, per brand direction).
- */
 export function Logo({ className }: { className?: string }) {
   return (
     <Link
       href="/"
-      className={cn(
-        "group inline-flex items-baseline gap-1.5 rounded-md font-heading text-lg font-bold tracking-tight",
-        className,
-      )}
+      className={cn("inline-flex items-center gap-2 rounded-md", className)}
       aria-label={`${siteConfig.name} — home`}
     >
-      <span>{siteConfig.name}</span>
-      <span
-        aria-hidden
-        className="size-1.5 translate-y-[-0.1em] rounded-full bg-primary"
+      <Image
+        src="/images/solar-works-logo.png"
+        alt=""
+        width={72}
+        height={72}
+        className="h-14 w-14 object-contain [mix-blend-mode:multiply] dark:[mix-blend-mode:screen]"
+        priority
       />
+      <span className="font-heading text-lg font-bold leading-tight tracking-tight">
+        Solar<br />
+        <span className="text-primary">Works</span>
+      </span>
     </Link>
   )
 }
+

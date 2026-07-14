@@ -77,7 +77,7 @@ function CardBody({
           src={item.thumbnail}
           alt={`${item.name}, customer story`}
           className="absolute inset-0 size-full object-cover transition-transform duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] motion-safe:group-hover/thumb:scale-105"
-          sizes="(max-width: 768px) 90vw, 360px"
+          sizes="(max-width: 768px) 95vw, 580px"
         />
         {preview ? (
           // Autoplays muted; pointer-events-none so a click still reaches the
@@ -103,8 +103,8 @@ function CardBody({
             preview && "opacity-0",
           )}
         >
-          <span className="grid size-14 place-items-center rounded-full bg-background/90 text-primary shadow-lg transition-transform duration-200 ease-out group-hover/thumb:scale-110 motion-safe:group-active/thumb:scale-95">
-            <Play className="size-6 translate-x-0.5 fill-current" aria-hidden />
+          <span className="grid size-20 place-items-center rounded-full bg-background/90 text-primary shadow-lg transition-transform duration-200 ease-out group-hover/thumb:scale-110 motion-safe:group-active/thumb:scale-95">
+            <Play className="size-9 translate-x-0.5 fill-current" aria-hidden />
           </span>
         </span>
         {preview ? (
@@ -122,11 +122,11 @@ function CardBody({
         </span>
         <div className="mt-3 flex gap-2">
           <Quote className="size-4 shrink-0 text-primary/30" aria-hidden />
-          <p className="font-heading text-base font-semibold leading-snug text-foreground line-clamp-3">
+          <p className="font-heading text-xl font-semibold leading-snug text-foreground line-clamp-3">
             {caption.title}
           </p>
         </div>
-        <p className="mt-2 text-xs leading-relaxed text-muted-foreground line-clamp-2">
+        <p className="mt-2 text-base leading-relaxed text-muted-foreground line-clamp-2">
           {caption.subtitle}
         </p>
         <p className="mt-auto border-t pt-3 text-xs font-semibold text-foreground">
@@ -143,7 +143,7 @@ function CardBody({
 }
 
 const cardShell =
-  "marquee-card group/card flex h-full w-full flex-col rounded-3xl border bg-card p-5 text-left shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+  "marquee-card group/card flex h-full w-full flex-col rounded-3xl border bg-card p-7 text-left shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
 
 /**
  * One testimonial card. YouTube stories open in a dialog (privacy-preserving
@@ -163,7 +163,7 @@ function TestimonialCard({
   // Spacing lives on each card (mr) rather than a flex `gap` on the track, so
   // the strip is a perfect repeat of [card + margin] units. That makes the
   // translateX(-50%) loop land exactly on the duplicate with no seam jump.
-  const width = "mr-6 w-[300px] shrink-0 sm:w-[340px] md:w-[360px]"
+  const width = "mr-10 w-[420px] shrink-0 sm:w-[520px] md:w-[580px]"
   const tabIndex = duplicate ? -1 : undefined
 
   // Muted autoplay (YouTube only). Each card lazy-mounts its player when it

@@ -60,7 +60,7 @@ export function SiteHeader() {
             : "border-transparent bg-background/70 backdrop-blur-sm",
         )}
       >
-        <div className="mx-auto grid h-16 max-w-[96rem] grid-cols-[auto_1fr_auto] items-center gap-4 px-4 sm:px-6 lg:px-10">
+        <div className="mx-auto grid h-20 max-w-[96rem] grid-cols-[auto_1fr_auto] items-center gap-4 px-4 sm:px-6 lg:px-10">
           <Logo />
 
           <nav
@@ -75,7 +75,7 @@ export function SiteHeader() {
                   href={item.href}
                   aria-current={active ? "page" : undefined}
                   className={cn(
-                    "rounded-full px-3.5 py-2 text-sm font-medium transition-colors",
+                    "rounded-full px-4 py-2.5 text-base font-medium transition-colors",
                     active
                       ? "bg-muted text-foreground"
                       : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
@@ -87,16 +87,31 @@ export function SiteHeader() {
             })}
           </nav>
 
-          <div className="hidden items-center justify-end gap-2 lg:flex">
-            <Button asChild variant="ghost" size="sm">
+          <div className="hidden items-center justify-end gap-3 lg:flex">
+            <Button asChild variant="ghost">
               <a href={siteConfig.contact.phone.href}>
                 <Phone />
                 {siteConfig.contact.phone.value}
               </a>
             </Button>
-            <Button asChild variant="dark" size="sm">
+            <a
+              href={siteConfig.social.facebook}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex size-11 items-center justify-center rounded-full hover:bg-muted text-[#1877F2] transition-colors"
+              title="Visit our Facebook Page"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                className="size-7 fill-current"
+              >
+                <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
+              </svg>
+            </a>
+            <Button asChild variant="dark" size="lg" className="gap-2 px-6 text-base font-semibold">
               <Link href={siteConfig.primaryCta.href}>
-                Get Started
+                Begin Solar Journey
+                <ArrowRight className="size-4" />
               </Link>
             </Button>
           </div>
@@ -138,6 +153,17 @@ export function SiteHeader() {
                   <Button asChild variant="outline" size="lg">
                     <a href={siteConfig.contact.phone.href}>
                       <Phone /> {siteConfig.contact.phone.value}
+                    </a>
+                  </Button>
+                  <Button asChild variant="outline" size="lg">
+                    <a href={siteConfig.social.facebook} target="_blank" rel="noopener noreferrer" className="gap-2.5 text-base">
+                      <svg
+                        viewBox="0 0 24 24"
+                        className="size-5 fill-[#1877F2]"
+                      >
+                        <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
+                      </svg>
+                      Facebook Page
                     </a>
                   </Button>
                 </div>
