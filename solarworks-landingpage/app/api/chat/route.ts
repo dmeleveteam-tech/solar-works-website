@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 
-import { forwardLead, leadIntakeConfigured } from "@/lib/leads"
+import { forwardLead } from "@/lib/leads"
 import { siteConfig } from "@/lib/site-config"
 import { getFaqs } from "@/lib/content/api"
 import { howItWorks, type Faq } from "@/lib/content/site-content"
@@ -8,18 +8,18 @@ import { howItWorks, type Faq } from "@/lib/content/site-content"
 /**
  * Server-side brain for the Solar Assistant chatbot (build guide: "AI Lead
  * Chatbot"). The browser sends the running transcript; we prepend the system
- * brief, call xAI (Grok), and — once the visitor has been qualified and has
- * given explicit consent — let the model call the `save_lead` tool, which we
+ * brief, call Groq, and — once the visitor has been qualified and has given
+ * explicit consent — let the model call the `save_lead` tool, which we
  * validate and forward to the platform inbox as a `chatbot` lead.
  *
- * The xAI key lives only here, never in the browser. The endpoint degrades
+ * The Groq key lives only here, never in the browser. The endpoint degrades
  * gracefully: with no key it returns a friendly hand-off message rather than
  * an error, mirroring how the rest of the site behaves before keys are set.
  */
 
-const XAI_API_KEY = process.env.XAI_API_KEY
-const XAI_MODEL = process.env.XAI_MODEL || "grok-3-mini"
-const XAI_URL = "https://api.x.ai/v1/chat/completions"
+const GROQ_API_KEY = process.env.GROQ_API_KEY
+const GROQ_MODEL = process.env.GROQ_MODEL || "llama-3.3-70b-versatile"
+const GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
 
 // Input guards: keep a hostile or runaway client from blowing up token usage.
 const MAX_MESSAGES = 40
@@ -145,15 +145,15 @@ type GroqChoice = {
   message: { content: string | null; tool_calls?: GroqToolCall[] }
 }
 
-async function callXAI(messages: GroqMessage[], withTools: boolean): Promise<GroqChoice> {
-  const res = await fetch(XAI_URL, {
+async function callGroq(messages: GroqMessage[], withTools: boolean): Promise<GroqChoice> {
+  const res = await fetch(GROQ_URL, {
     method: "POST",
     headers: {
       "content-type": "application/json",
-      authorization: `Bearer ${XAI_API_KEY}`,
+      authorization: `Bearer ${GROQ_API_KEY}`,
     },
     body: JSON.stringify({
-      model: XAI_MODEL,
+      model: GROQ_MODEL,
       messages,
       temperature: 0.4,
       max_tokens: 700,
@@ -162,11 +162,11 @@ async function callXAI(messages: GroqMessage[], withTools: boolean): Promise<Gro
     cache: "no-store",
   })
   if (!res.ok) {
-    throw new Error(`xAI error ${res.status}: ${await res.text().catch(() => "")}`)
+    throw new Error(`Groq error ${res.status}: ${await res.text().catch(() => "")}`)
   }
   const data = (await res.json()) as { choices?: GroqChoice[] }
   const choice = data.choices?.[0]
-  if (!choice) throw new Error("xAI returned no choices")
+  if (!choice) throw new Error("Groq returned no choices")
   return choice
 }
 
@@ -276,8 +276,8 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "No messages." }, { status: 400 })
   }
 
-  // No xAI key → can't run the AI at all; hand off to humans gracefully.
-  if (!XAI_API_KEY) {
+  // No Groq key → can't run the AI at all; hand off to humans gracefully.
+  if (!GROQ_API_KEY) {
     return NextResponse.json({ message: HUMAN_FALLBACK, leadSaved: false })
   }
 
@@ -288,7 +288,7 @@ export async function POST(req: Request) {
   ]
 
   try {
-    const first = await callXAI(messages, true)
+    const first = await callGroq(messages, true)
     const toolCalls = first.message.tool_calls ?? []
 
     if (toolCalls.length === 0) {
@@ -315,7 +315,7 @@ export async function POST(req: Request) {
       })
     }
 
-    const second = await callXAI(messages, false)
+    const second = await callGroq(messages, false)
     return NextResponse.json({ message: second.message.content ?? "", leadSaved })
   } catch (err) {
     console.error("Chat error:", err)

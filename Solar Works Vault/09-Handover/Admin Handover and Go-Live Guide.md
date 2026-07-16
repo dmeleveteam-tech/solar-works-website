@@ -199,6 +199,15 @@ See [[#2. Credentials and accounts inventory]] for where each comes from.
 \* When `PLATFORM_CONTENT_URL` is unset the site renders its **bundled static
 content** instead — useful as a fallback, but CMS edits won't show until it's set.
 
+> **Chatbot provider note (verified 2026-07-16).** The Solar Assistant runs on
+> **Groq** via its OpenAI-compatible endpoint (`api.groq.com/openai/v1`). The
+> code in `app/api/chat/route.ts` reads exactly the variable names above —
+> `GROQ_API_KEY` and the optional `GROQ_MODEL` (default
+> `llama-3.3-70b-versatile`). If the chatbot only offers the form/Viber, the key
+> is missing or wrong-provider: it must be a Groq key from console.groq.com, not
+> a key from another AI provider. Confirmed end-to-end (chat reply + a qualified
+> lead written to the platform inbox with source `chatbot`) on 2026-07-16.
+
 ### Accounts that should be registered to Solar Works (NFR-06)
 Domain registrar · hosting · MongoDB Atlas · Google Workspace (OAuth + GA4) ·
 Meta Business (Pixel) · Cloudflare (Turnstile) · Resend · UploadThing · Groq.
