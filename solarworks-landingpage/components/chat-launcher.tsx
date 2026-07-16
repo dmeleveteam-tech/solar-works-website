@@ -140,7 +140,12 @@ export function ChatLauncher() {
         </div>
 
         {/* Transcript */}
-        <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto p-4" aria-live="polite">
+        <div
+          ref={scrollRef}
+          data-lenis-prevent
+          className="flex-1 space-y-3 overflow-y-auto p-4"
+          aria-live="polite"
+        >
           {messages.map((m, i) => (
             <div
               key={i}
