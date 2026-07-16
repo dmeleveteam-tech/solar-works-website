@@ -25,7 +25,7 @@ export const siteConfig = {
   tagline: "Solar that works. Built around your life.",
   description:
     "From personalized system design to professional installation and lifetime support, Solar Works helps homes and businesses make the shift to clean energy with confidence.",
-  url: "https://solarworks.example.com",
+  url: "https://solarworks.ph",
   primaryCta: {
     label: "Get Your Free Solar Assessment",
     href: "/contact",
