@@ -2,6 +2,8 @@ import { NextResponse } from "next/server"
 
 import { forwardLead, leadIntakeConfigured } from "@/lib/leads"
 import { siteConfig } from "@/lib/site-config"
+import { getFaqs } from "@/lib/content/api"
+import { howItWorks, type Faq } from "@/lib/content/site-content"
 
 /**
  * Server-side brain for the Solar Assistant chatbot (build guide: "AI Lead
@@ -28,11 +30,43 @@ type ChatMessage = { role: Role; content: string }
 
 const HUMAN_FALLBACK = `I'm not available to chat right now, but our team is. You can ${siteConfig.primaryCta.label.toLowerCase()} at ${siteConfig.primaryCta.href}, or message us on Viber and a real person will help you straight away.`
 
-const systemPrompt = (): string => `
-You are the Solar Assistant for ${siteConfig.name} (${siteConfig.legalName}), a solar installation company serving ${siteConfig.serviceAreas.join(", ")} in the Philippines. You help homeowners and businesses figure out whether solar fits them, then capture their details so a real adviser can prepare a proper assessment.
+/** Render the FAQ knowledge base (CMS-backed, static fallback) as Q&A text grouped by category. */
+function renderFaqKnowledge(faqs: Faq[]): string {
+  if (faqs.length === 0) return "(no FAQ entries loaded)"
+  const byCategory = new Map<string, Faq[]>()
+  for (const faq of faqs) {
+    const list = byCategory.get(faq.category) ?? []
+    list.push(faq)
+    byCategory.set(faq.category, list)
+  }
+  return Array.from(byCategory.entries())
+    .map(([category, items]) => {
+      const lines = items.map((f) => `- Q: ${f.question}\n  A: ${f.answer}`).join("\n")
+      return `${category}:\n${lines}`
+    })
+    .join("\n\n")
+}
+
+const renderProcessKnowledge = (): string =>
+  howItWorks.map((step) => `${step.number}. ${step.title} — ${step.description}`).join("\n")
+
+const systemPrompt = (faqs: Faq[]): string => `
+You are the Solar Assistant for ${siteConfig.name} (${siteConfig.legalName}), a solar installation company serving ${siteConfig.serviceAreas.join(", ")} in the Philippines. You help homeowners and businesses figure out whether solar fits them, answer their questions, and capture their details so a real adviser can prepare a proper assessment.
 
 # Your goal
-Guide the visitor through a friendly qualification chat and, once they consent, save their details as a lead. Keep replies short, warm, and plain — one or two questions at a time, never a wall of text.
+Answer the visitor's questions confidently using the knowledge base below, and guide them through a friendly qualification chat so that, once they consent, you save their details as a lead. Keep replies short, warm, and plain — one or two questions at a time, never a wall of text.
+
+# What you know (answer directly from this — do not defer these to "an adviser")
+## Frequently asked questions
+${renderFaqKnowledge(faqs)}
+
+## How the process works
+${renderProcessKnowledge()}
+
+## Company facts
+- Warranties: ${siteConfig.warranties.panel}, ${siteConfig.warranties.battery}, ${siteConfig.warranties.support}.
+- Service areas: ${siteConfig.serviceAreas.join(", ")}.
+- Contact: phone/Viber/WhatsApp ${siteConfig.contact.phone.value}, email ${siteConfig.contact.email.value}.
 
 # Qualification flow (adapt naturally; don't interrogate)
 1. Greet and offer two paths: get a solar assessment, or ask a question first.
@@ -47,8 +81,8 @@ Guide the visitor through a friendly qualification chat and, once they consent, 
 # Hard guardrails
 - You are an AI assistant. Never imply you are a licensed engineer or a human employee.
 - Never give binding quotations, guaranteed savings, definitive roof suitability, or final system sizing. Pricing depends on consumption, site conditions, roof, and battery needs — say so and steer toward an assessment.
-- You MAY explain, in simple approved terms: grid-tied vs hybrid-with-battery, and that warranties are ${siteConfig.warranties.panel}, ${siteConfig.warranties.battery}, and ${siteConfig.warranties.support}.
-- For anything outside what you know, say a ${siteConfig.name} adviser will confirm, and offer to take their details.
+- Use the knowledge base above to answer general questions (cost ballpark, warranties, battery, installation, net metering, process) directly and naturally, in your own words — don't just paste the FAQ text.
+- Only for questions truly outside the knowledge base (e.g. something site-specific, legal, or not covered above), say a ${siteConfig.name} adviser will confirm, and offer to take their details.
 - Only call save_lead AFTER explicit consent and once you have at least a full name and mobile number. Never call it twice for the same person.
 - At any time, a visitor can reach a human directly: phone ${siteConfig.contact.phone.value}, Viber/WhatsApp ${siteConfig.contact.whatsapp.value}.
 `.trim()
@@ -247,8 +281,9 @@ export async function POST(req: Request) {
     return NextResponse.json({ message: HUMAN_FALLBACK, leadSaved: false })
   }
 
+  const faqs = await getFaqs()
   const messages: GroqMessage[] = [
-    { role: "system", content: systemPrompt() },
+    { role: "system", content: systemPrompt(faqs) },
     ...history,
   ]
 

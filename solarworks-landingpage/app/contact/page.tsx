@@ -1,5 +1,5 @@
 import type { Metadata } from "next"
-import { Phone, MessageCircle, Mail, MapPin, Clock, MessageSquareText } from "lucide-react"
+import { Phone, MessageCircle, Mail } from "lucide-react"
 
 import { siteConfig } from "@/lib/site-config"
 import { Container, Section } from "@/components/section"
@@ -57,32 +57,6 @@ export default async function ContactPage({
                 <ContactRow icon={<MessageCircle className="size-4" />} {...siteConfig.contact.whatsapp} />
                 <ContactRow icon={<Mail className="size-4" />} {...siteConfig.contact.email} />
               </div>
-            </Reveal>
-
-            <Reveal delay={80} className="rounded-2xl border bg-primary/5 p-6">
-              <span className="grid size-10 place-items-center rounded-xl bg-primary/15 text-primary">
-                <MessageSquareText className="size-5" />
-              </span>
-              <h2 className="mt-3 font-semibold">Chat with our Solar Assistant</h2>
-              <p className="mt-1 text-sm text-muted-foreground text-pretty">
-                Have a quick question first? Our AI assistant can help you figure out the right
-                setup and hand you to a human anytime.
-              </p>
-            </Reveal>
-
-            <Reveal delay={120} className="rounded-2xl border bg-card p-6 shadow-sm">
-              <div className="flex items-center gap-2 text-sm font-medium">
-                <Clock className="size-4 text-primary" /> Response time
-              </div>
-              <p className="mt-1 text-sm text-muted-foreground">
-                We typically reply within one business day.
-              </p>
-              <div className="mt-4 flex items-center gap-2 text-sm font-medium">
-                <MapPin className="size-4 text-primary" /> Service areas
-              </div>
-              <p className="mt-1 text-sm text-muted-foreground">
-                {siteConfig.serviceAreas.join(", ")}.
-              </p>
             </Reveal>
           </aside>
         </Container>

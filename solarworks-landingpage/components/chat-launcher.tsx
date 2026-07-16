@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import Link from "next/link"
-import { MessageSquareText, X, Bot, ArrowRight, Phone, Send } from "lucide-react"
+import { MessageSquareText, X, Bot, ArrowRight, Phone, Send, ExternalLink } from "lucide-react"
 
 import { siteConfig } from "@/lib/site-config"
 import { cn } from "@/lib/utils"
@@ -21,10 +21,24 @@ import { Input } from "@/components/ui/input"
 
 type Message = { role: "user" | "assistant"; content: string }
 
+// Public Facebook Page ID — safe to expose, used only to build an m.me deep
+// link. Leave unset to hide the "Continue on Messenger" shortcut.
+const FB_PAGE_ID = process.env.NEXT_PUBLIC_FB_PAGE_ID
+const MESSENGER_HREF = FB_PAGE_ID ? `https://m.me/${FB_PAGE_ID}?ref=web_lead` : null
+
 const GREETING: Message = {
   role: "assistant",
   content: `Hi! I'm the ${siteConfig.name} Solar Assistant. I can help you figure out which setup fits your home or business, then connect you with our team for a proper assessment. Want to get an assessment, or ask a question first?`,
 }
+
+// Quick-start prompts shown before the visitor types anything, so the chat
+// doesn't sit on a blank input waiting for them to think of a question.
+const SUGGESTED_QUESTIONS = [
+  "How much does a solar system cost?",
+  "What warranties do you offer?",
+  "Do I need a battery?",
+  "How long does installation take?",
+]
 
 export function ChatLauncher() {
   const [open, setOpen] = React.useState(false)
@@ -147,6 +161,22 @@ export function ChatLauncher() {
             </div>
           )}
 
+          {/* Quick-start questions — only before the visitor sends their first message. */}
+          {messages.length === 1 && !pending && (
+            <div className="flex flex-wrap gap-2">
+              {SUGGESTED_QUESTIONS.map((q) => (
+                <button
+                  key={q}
+                  type="button"
+                  onClick={() => void send(q)}
+                  className="rounded-full border bg-background px-3 py-1.5 text-xs text-foreground transition hover:bg-muted"
+                >
+                  {q}
+                </button>
+              ))}
+            </div>
+          )}
+
           {/* Persistent shortcuts to the form and a human. */}
           <div className="flex flex-wrap gap-2 pt-1">
             <Button asChild size="sm" variant="outline">
@@ -159,6 +189,13 @@ export function ChatLauncher() {
                 <Phone /> Talk to a human
               </a>
             </Button>
+            {MESSENGER_HREF && (
+              <Button asChild size="sm" variant="outline">
+                <a href={MESSENGER_HREF} target="_blank" rel="noopener noreferrer">
+                  <ExternalLink /> Message on Messenger
+                </a>
+              </Button>
+            )}
           </div>
         </div>
 
