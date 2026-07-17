@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import Link from "next/link"
-import { MessageSquareText, X, Bot, ArrowRight, Phone, Send, ExternalLink } from "lucide-react"
+import { MessageSquareText, X, Bot, ArrowRight, Phone, Send, ExternalLink, ChevronDown } from "lucide-react"
 
 import { siteConfig } from "@/lib/site-config"
 import { cn } from "@/lib/utils"
@@ -10,6 +10,12 @@ import { track, ANALYTICS_EVENTS } from "@/lib/analytics"
 import { getAttribution } from "@/lib/attribution"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 
 /**
  * Floating Solar Assistant — a real AI chat backed by `/api/chat`. It runs the
@@ -189,18 +195,32 @@ export function ChatLauncher() {
                 Assessment form <ArrowRight />
               </Link>
             </Button>
-            <Button asChild size="sm" variant="outline">
-              <a href={siteConfig.contact.viber.href}>
-                <Phone /> Talk to a human
-              </a>
-            </Button>
-            {MESSENGER_HREF && (
-              <Button asChild size="sm" variant="outline">
-                <a href={MESSENGER_HREF} target="_blank" rel="noopener noreferrer">
-                  <ExternalLink /> Message on Messenger
-                </a>
-              </Button>
-            )}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button size="sm" variant="outline">
+                  <Phone /> Talk to a human <ChevronDown />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start">
+                {MESSENGER_HREF && (
+                  <DropdownMenuItem asChild>
+                    <a href={MESSENGER_HREF} target="_blank" rel="noopener noreferrer">
+                      <ExternalLink /> Messenger
+                    </a>
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuItem asChild>
+                  <a href={siteConfig.contact.viber.href}>
+                    <Phone /> Viber
+                  </a>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <a href={siteConfig.contact.phone.href}>
+                    <Phone /> Call {siteConfig.contact.phone.value}
+                  </a>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
 
