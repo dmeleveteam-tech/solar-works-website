@@ -250,6 +250,21 @@ html.lenis body {
   will-change: transform;
 }
 
+/* The viewport is natively scrollable (touch swipe, trackpad, drag the
+   scrollbar) on top of the auto-play loop — .is-scrolling is toggled from JS
+   while the user is actively scrolling it, see testimonial-marquee.tsx. The
+   scrollbar itself is hidden since the mask-image edges already signal more
+   content is off-screen. */
+.marquee-viewport {
+  scrollbar-width: none;
+}
+.marquee-viewport::-webkit-scrollbar {
+  display: none;
+}
+.marquee-viewport.is-scrolling .marquee-track {
+  animation-play-state: paused;
+}
+
 .marquee-card {
   /* hover = ease, ~200ms; strong ease-out on the zoom */
   transition:
@@ -280,13 +295,10 @@ html.lenis body {
   }
 }
 
-/* Reduced motion: stop the auto-loop and let the strip scroll manually, so
-   every testimonial stays reachable without any movement. */
+/* Reduced motion: stop the auto-loop; the strip is already natively
+   scrollable, so every testimonial stays reachable without any movement. */
 @media (prefers-reduced-motion: reduce) {
   .marquee-track {
     animation: none;
-  }
-  .marquee-viewport {
-    overflow-x: auto;
   }
 }

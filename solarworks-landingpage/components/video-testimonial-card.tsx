@@ -105,14 +105,26 @@ export function VideoTestimonialCard({ item }: { item: VideoTestimonial }) {
           </DialogDescription>
         </DialogHeader>
         <div className="relative aspect-video overflow-hidden rounded-xl bg-muted">
-          <iframe
-            className="absolute inset-0 size-full"
-            src={`https://www.youtube-nocookie.com/embed/${item.videoId}`}
-            title={`${item.name} — customer story`}
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-            referrerPolicy="strict-origin-when-cross-origin"
-            allowFullScreen
-          />
+          {item.videoUrl ? (
+            // eslint-disable-next-line jsx-a11y/media-has-caption
+            <video
+              className="absolute inset-0 size-full bg-black object-contain"
+              src={item.videoUrl}
+              poster={item.thumbnail}
+              controls
+              autoPlay
+              playsInline
+            />
+          ) : (
+            <iframe
+              className="absolute inset-0 size-full"
+              src={`https://www.youtube-nocookie.com/embed/${item.videoId}`}
+              title={`${item.name} — customer story`}
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+              referrerPolicy="strict-origin-when-cross-origin"
+              allowFullScreen
+            />
+          )}
         </div>
         <p className="text-pretty text-muted-foreground">{item.summary}</p>
       </DialogContent>

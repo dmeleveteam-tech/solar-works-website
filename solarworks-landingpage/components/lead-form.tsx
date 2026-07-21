@@ -1,12 +1,13 @@
 "use client"
 
 import * as React from "react"
-import { CheckCircle2, Loader2, ShieldCheck, MessageCircle } from "lucide-react"
+import { CheckCircle2, ExternalLink, Loader2, ShieldCheck, MessageCircle } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import { siteConfig } from "@/lib/site-config"
 import { track, ANALYTICS_EVENTS } from "@/lib/analytics"
 import { getAttribution } from "@/lib/attribution"
+import { MESSENGER_HREF } from "@/lib/messenger"
 import { Turnstile, TURNSTILE_SITE_KEY } from "@/components/turnstile"
 import {
   propertyTypes,
@@ -154,6 +155,13 @@ export function LeadForm({ defaultSolution }: { defaultSolution?: string }) {
               <MessageCircle /> Chat on Viber
             </a>
           </Button>
+          {MESSENGER_HREF && (
+            <Button asChild variant="outline">
+              <a href={MESSENGER_HREF} target="_blank" rel="noopener noreferrer">
+                <ExternalLink /> Message us on Messenger
+              </a>
+            </Button>
+          )}
           <Button asChild variant="outline">
             <a href={siteConfig.contact.phone.href}>Call {siteConfig.contact.phone.value}</a>
           </Button>

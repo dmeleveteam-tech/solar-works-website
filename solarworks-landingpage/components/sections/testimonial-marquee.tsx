@@ -143,7 +143,7 @@ function CardBody({
 }
 
 const cardShell =
-  "marquee-card group/card flex h-full w-full flex-col rounded-3xl border bg-card p-7 text-left shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+  "marquee-card group/card flex h-full w-full flex-col rounded-3xl border bg-card p-5 sm:p-7 text-left shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
 
 /**
  * One testimonial card. YouTube stories open in a dialog (privacy-preserving
@@ -163,7 +163,8 @@ function TestimonialCard({
   // Spacing lives on each card (mr) rather than a flex `gap` on the track, so
   // the strip is a perfect repeat of [card + margin] units. That makes the
   // translateX(-50%) loop land exactly on the duplicate with no seam jump.
-  const width = "mr-10 w-[420px] shrink-0 sm:w-[520px] md:w-[580px]"
+  const width =
+    "mr-6 w-[85vw] max-w-[380px] shrink-0 sm:mr-10 sm:w-[420px] sm:max-w-none md:w-[520px] lg:w-[580px]"
   const tabIndex = duplicate ? -1 : undefined
 
   // Muted autoplay (YouTube only). Each card lazy-mounts its player when it
@@ -247,6 +248,30 @@ function TestimonialCard({
 }
 
 export function TestimonialMarquee({ items }: { items: VideoTestimonial[] }) {
+  const viewportRef = React.useRef<HTMLDivElement>(null)
+
+  // The viewport is natively scrollable (touch swipe, trackpad, drag the
+  // scrollbar) alongside the CSS auto-play loop. While the user is actively
+  // scrolling it, pause the loop (via the .is-scrolling class — see
+  // globals.css) so it doesn't fight their input; resume shortly after they
+  // stop. `scroll` already fires for touch/trackpad/scrollbar drag alike, so
+  // no separate pointer handling is needed.
+  React.useEffect(() => {
+    const el = viewportRef.current
+    if (!el) return
+    let resumeTimer: ReturnType<typeof setTimeout>
+    function onScroll() {
+      el!.classList.add("is-scrolling")
+      clearTimeout(resumeTimer)
+      resumeTimer = setTimeout(() => el!.classList.remove("is-scrolling"), 1200)
+    }
+    el.addEventListener("scroll", onScroll, { passive: true })
+    return () => {
+      el.removeEventListener("scroll", onScroll)
+      clearTimeout(resumeTimer)
+    }
+  }, [])
+
   if (items.length === 0) return null
 
   // The loop is two identical halves; animating the track to translateX(-50%)
@@ -260,9 +285,10 @@ export function TestimonialMarquee({ items }: { items: VideoTestimonial[] }) {
 
   return (
     <div
-      className="marquee-viewport relative w-full overflow-hidden py-10 [--marquee-duration:60s] [mask-image:linear-gradient(to_right,transparent,black_6%,black_94%,transparent)] [-webkit-mask-image:linear-gradient(to_right,transparent,black_6%,black_94%,transparent)]"
+      ref={viewportRef}
+      className="marquee-viewport relative w-full overflow-x-auto overflow-y-hidden overscroll-x-contain py-10 [--marquee-duration:60s] [mask-image:linear-gradient(to_right,transparent,black_6%,black_94%,transparent)] [-webkit-mask-image:linear-gradient(to_right,transparent,black_6%,black_94%,transparent)]"
       role="region"
-      aria-label="Customer video testimonials"
+      aria-label="Customer video testimonials — scroll to browse, or wait for the auto-play loop"
     >
       <div className="marquee-track flex w-max">
         {loop.map((item, i) => (

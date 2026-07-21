@@ -13,6 +13,9 @@ export type VideoTestimonial = {
   thumbnail: string
   // Real YouTube video id — embedded as https://www.youtube.com/embed/<videoId>.
   videoId?: string
+  // Uploaded video file URL (from the platform CMS). Takes priority over
+  // videoId when present — played inline with a native <video> element.
+  videoUrl?: string
   // Public Facebook reel/video URL. We link out to it (opens on Facebook) rather
   // than embedding the FB social plugin inline, because browsers' tracking
   // prevention (e.g. Microsoft Edge, on by default) blocks facebook.com plugin

@@ -8,6 +8,7 @@ import { siteConfig } from "@/lib/site-config"
 import { cn } from "@/lib/utils"
 import { track, ANALYTICS_EVENTS } from "@/lib/analytics"
 import { getAttribution } from "@/lib/attribution"
+import { MESSENGER_HREF } from "@/lib/messenger"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
@@ -26,11 +27,6 @@ import {
  */
 
 type Message = { role: "user" | "assistant"; content: string }
-
-// Public Facebook Page ID — safe to expose, used only to build an m.me deep
-// link. Leave unset to hide the "Continue on Messenger" shortcut.
-const FB_PAGE_ID = process.env.NEXT_PUBLIC_FB_PAGE_ID
-const MESSENGER_HREF = FB_PAGE_ID ? `https://m.me/${FB_PAGE_ID}?ref=web_lead` : null
 
 const GREETING: Message = {
   role: "assistant",
