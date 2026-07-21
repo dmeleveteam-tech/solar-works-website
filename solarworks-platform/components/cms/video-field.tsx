@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import { CldUploadWidget } from "next-cloudinary"
-import { ImageIcon, Loader2, Upload, X } from "lucide-react"
+import { Film, Loader2, Upload, X } from "lucide-react"
 import { toast } from "sonner"
 
 import { cn } from "@/lib/utils"
@@ -11,25 +11,20 @@ import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 
 /**
- * CMS image field. Uploads a single image to Cloudinary and stores the
- * resulting URL in a hidden input named `name`, so the surrounding form submits
- * it exactly like the old "paste a URL" input did — the server actions and Zod
- * schemas (which still expect a URL string) are unchanged.
- *
- * Shows a thumbnail of the current image with replace/remove controls. While an
- * upload is in flight the controls are disabled and a spinner is shown.
+ * CMS video field. Uploads a single video file to Cloudinary and stores the
+ * resulting URL in a hidden input named `name`, mirroring `ImageField`. Used
+ * as an alternative to pasting a YouTube/Vimeo id — the uploaded file plays
+ * directly on the marketing site.
  */
-export function ImageField({
+export function VideoField({
   label,
   name,
   defaultValue,
-  required,
   error,
 }: {
   label: string
   name: string
   defaultValue?: string | null
-  required?: boolean
   /** Inline server validation message shown under the field. */
   error?: string
 }) {
@@ -45,7 +40,7 @@ export function ImageField({
 
       <CldUploadWidget
         signatureEndpoint={CLOUDINARY_SIGN_ENDPOINT}
-        options={CLOUDINARY_UPLOAD_OPTIONS.contentImage}
+        options={CLOUDINARY_UPLOAD_OPTIONS.contentVideo}
         onSuccess={(result) => {
           const info = typeof result.info === "object" ? result.info : undefined
           if (info?.secure_url) setUrl(info.secure_url)
@@ -66,10 +61,10 @@ export function ImageField({
               {isLoading ? (
                 <Loader2 className="size-4 animate-spin" />
               ) : url ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={url} alt="" className="size-full object-cover" />
+                // eslint-disable-next-line jsx-a11y/media-has-caption
+                <video src={url} className="size-full object-cover" muted />
               ) : (
-                <ImageIcon className="size-5" />
+                <Film className="size-5" />
               )}
             </div>
 
@@ -83,7 +78,7 @@ export function ImageField({
                 onClick={() => open()}
               >
                 <Upload />
-                {url ? "Replace" : "Upload image"}
+                {url ? "Replace" : "Upload video"}
               </Button>
               {url ? (
                 <Button
@@ -102,9 +97,6 @@ export function ImageField({
         )}
       </CldUploadWidget>
 
-      {required && !url ? (
-        <p className="text-xs text-muted-foreground">Required.</p>
-      ) : null}
       {error ? <p className="text-xs font-medium text-destructive">{error}</p> : null}
     </div>
   )

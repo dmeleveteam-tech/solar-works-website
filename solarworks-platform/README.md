@@ -38,8 +38,13 @@ Required env (see `.env.example`):
 - `BETTER_AUTH_URL` — app base URL (default `http://localhost:3001`)
 - `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` — optional, enables Google sign-in.
   Redirect URI: `${BETTER_AUTH_URL}/api/auth/callback/google`
-- `UPLOADTHING_TOKEN` — optional, enables CMS image uploads (get one at
-  [uploadthing.com](https://uploadthing.com)). Without it the CMS image fields error on upload.
+- `CLOUDINARY_CLOUD_NAME` / `CLOUDINARY_API_KEY` / `CLOUDINARY_API_SECRET` — optional, enables
+  CMS image/video/document uploads (get these from your [Cloudinary](https://cloudinary.com)
+  dashboard). Without them the CMS upload fields error on upload.
+- `NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME` / `NEXT_PUBLIC_CLOUDINARY_API_KEY` — same values as
+  `CLOUDINARY_CLOUD_NAME` / `CLOUDINARY_API_KEY`, exposed to the browser so the upload widget
+  can build signed requests (not secrets — the actual signing key, `CLOUDINARY_API_SECRET`,
+  stays server-only).
 
 ## Create the first superadmin
 

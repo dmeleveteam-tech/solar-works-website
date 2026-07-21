@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { CldUploadWidget } from "next-cloudinary"
 import {
   ChevronDown,
   ExternalLink,
@@ -14,7 +15,7 @@ import {
 import { toast } from "sonner"
 
 import { cn } from "@/lib/utils"
-import { useUploadThing } from "@/lib/uploadthing"
+import { CLOUDINARY_SIGN_ENDPOINT, CLOUDINARY_UPLOAD_OPTIONS } from "@/lib/cloudinary-upload"
 import {
   PROJECT_STAGES,
   STAGE_LABEL,
@@ -354,44 +355,23 @@ function DocumentsEditor({
   const [label, setLabel] = React.useState("")
   const [busy, setBusy] = React.useState(false)
   // Capture the label at upload time so the async completion handler uses the
-  // value as it was when the file was picked (set in onPick, not during render).
+  // value as it was when the widget opened, not whatever it is at render.
   const labelRef = React.useRef("")
 
-  const { startUpload, isUploading } = useUploadThing("customerDocument", {
-    onClientUploadComplete: async (files) => {
-      const url = files[0]?.ufsUrl
-      if (!url) return
-      const res = await addDocument({
-        id: project.id,
-        label: labelRef.current.trim() || "Document",
-        url,
-      })
-      setBusy(false)
-      if (handle(res, onChange, "Document added.")) setLabel("")
-    },
-    onUploadError: (e) => {
-      setBusy(false)
-      toast.error(e.message || "Upload failed.")
-    },
-  })
-
-  function onPick(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
-    e.target.value = ""
-    if (file) {
-      labelRef.current = label
-      setBusy(true)
-      void startUpload([file])
-    }
+  async function onUploadSuccess(url: string) {
+    const res = await addDocument({
+      id: project.id,
+      label: labelRef.current.trim() || "Document",
+      url,
+    })
+    setBusy(false)
+    if (handle(res, onChange, "Document added.")) setLabel("")
   }
 
   async function onRemove(documentId: string) {
     const res = await removeDocument({ id: project.id, documentId })
     handle(res, onChange, "Document removed.")
   }
-
-  const uploadId = `doc-${project.id}`
-  const working = busy || isUploading
 
   return (
     <div className="grid gap-3">
@@ -441,24 +421,37 @@ function DocumentsEditor({
             placeholder="e.g. Proposal (PDF)"
           />
         </div>
-        <input
-          id={uploadId}
-          type="file"
-          accept="application/pdf,image/*"
-          className="sr-only"
-          onChange={onPick}
-          disabled={working}
-        />
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          disabled={working}
-          onClick={() => document.getElementById(uploadId)?.click()}
+        <CldUploadWidget
+          signatureEndpoint={CLOUDINARY_SIGN_ENDPOINT}
+          options={CLOUDINARY_UPLOAD_OPTIONS.customerDocument}
+          onOpen={() => {
+            labelRef.current = label
+            setBusy(true)
+          }}
+          onSuccess={(result) => {
+            const info = typeof result.info === "object" ? result.info : undefined
+            if (info?.secure_url) void onUploadSuccess(info.secure_url)
+            else setBusy(false)
+          }}
+          onError={(err) => {
+            setBusy(false)
+            const message = typeof err === "string" ? err : (err as { statusText?: string })?.statusText
+            toast.error(message || "Upload failed.")
+          }}
         >
-          {working ? <Loader2 className="animate-spin" /> : <Upload />}
-          Upload &amp; add
-        </Button>
+          {({ open, isLoading }) => (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={busy || isLoading}
+              onClick={() => open()}
+            >
+              {busy || isLoading ? <Loader2 className="animate-spin" /> : <Upload />}
+              Upload &amp; add
+            </Button>
+          )}
+        </CldUploadWidget>
       </div>
       <p className="text-xs text-muted-foreground">PDF or image, up to 16MB.</p>
     </div>

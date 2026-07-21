@@ -8,10 +8,8 @@ const nextConfig: NextConfig = {
     remotePatterns: [
       // YouTube thumbnails for testimonial video previews in the CMS.
       { protocol: "https", hostname: "img.youtube.com" },
-      // UploadThing — where real photos uploaded through the CMS are served
-      // (current "*.ufs.sh" app subdomains and the legacy utfs.io host).
-      { protocol: "https", hostname: "utfs.io" },
-      { protocol: "https", hostname: "*.ufs.sh" },
+      // Cloudinary — where real photos uploaded through the CMS are served.
+      { protocol: "https", hostname: "res.cloudinary.com" },
       // Unsplash — placeholder imagery used by the seeded demo content.
       { protocol: "https", hostname: "images.unsplash.com" },
     ],

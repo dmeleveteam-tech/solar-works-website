@@ -224,6 +224,7 @@ const testimonialSchema = z
     summary: z.string().trim().max(1000).optional().or(z.literal("")),
     thumbnail: z.string().trim().max(500).optional().or(z.literal("")),
     videoId: z.string().trim().max(200).optional().or(z.literal("")),
+    videoUrl: z.string().trim().max(500).optional().or(z.literal("")),
     // written
     quote: z.string().trim().max(1000).optional().or(z.literal("")),
     photo: z.string().trim().max(500).optional().or(z.literal("")),
@@ -238,13 +239,13 @@ const testimonialSchema = z
         ctx.addIssue({ code: "custom", path: ["summary"], message: "Summary is required for a video testimonial" })
       if (!v.thumbnail)
         ctx.addIssue({ code: "custom", path: ["thumbnail"], message: "Thumbnail URL is required for a video testimonial" })
-      if (!v.videoId)
-        ctx.addIssue({ code: "custom", path: ["videoId"], message: "Video ID/embed is required for a video testimonial" })
+      if (!v.videoId && !v.videoUrl)
+        ctx.addIssue({ code: "custom", path: ["videoUrl"], message: "Upload a video or paste a YouTube/Vimeo id" })
     } else if (v.kind === "written") {
       if (!v.quote)
         ctx.addIssue({ code: "custom", path: ["quote"], message: "Quote is required for a written testimonial" })
     }
-    for (const [key, val] of [["thumbnail", v.thumbnail], ["photo", v.photo]] as const) {
+    for (const [key, val] of [["thumbnail", v.thumbnail], ["photo", v.photo], ["videoUrl", v.videoUrl]] as const) {
       if (val && !/^https?:\/\//i.test(val)) {
         ctx.addIssue({ code: "custom", path: [key], message: "Must be a valid URL" })
       }
@@ -265,6 +266,7 @@ function testimonialBody(v: z.infer<typeof testimonialSchema>) {
     summary: isVideo ? blank(v.summary) : null,
     thumbnail: isVideo ? blank(v.thumbnail) : null,
     videoId: isVideo ? blank(v.videoId) : null,
+    videoUrl: isVideo ? blank(v.videoUrl) : null,
     quote: isVideo ? null : blank(v.quote),
     photo: isVideo ? null : blank(v.photo),
     published: v.published,

@@ -60,7 +60,7 @@ const stageSchema = z.object({
 const addDocSchema = z.object({
   id: objectId,
   label: z.string().trim().min(1, "Document label is required").max(120),
-  // The URL is produced by our own UploadThing endpoint; constrain to https.
+  // The URL is produced by our own Cloudinary upload flow; constrain to https.
   url: z.string().trim().url().max(500).startsWith("https://", "Must be an https URL"),
 })
 

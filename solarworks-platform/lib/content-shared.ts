@@ -78,6 +78,8 @@ export type TestimonialItem = ContentMeta & {
   summary: string | null
   thumbnail: string | null
   videoId: string | null
+  /** Uploaded video file URL (Cloudinary) — an alternative to `videoId`. */
+  videoUrl: string | null
   // written-only
   quote: string | null
   photo: string | null
@@ -122,6 +124,8 @@ export type PublicVideoTestimonial = {
   summary: string
   thumbnail: string
   videoId: string
+  /** Uploaded video file URL — when present, the site plays this instead of the YouTube embed. */
+  videoUrl?: string
 }
 
 export type PublicWrittenTestimonial = {

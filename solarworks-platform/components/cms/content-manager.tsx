@@ -68,6 +68,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent } from "@/components/ui/card"
 import { ImageField } from "@/components/cms/image-field"
+import { VideoField } from "@/components/cms/video-field"
 import { ContentPreview, type PreviewState } from "@/components/cms/content-preview"
 
 // --- shared field primitives ------------------------------------------------
@@ -704,6 +705,7 @@ function TestimonialsManager({ initial }: { initial: TestimonialItem[] }) {
       summary: str(fd, "summary"),
       thumbnail: str(fd, "thumbnail"),
       videoId: str(fd, "videoId"),
+      videoUrl: str(fd, "videoUrl"),
       quote: str(fd, "quote"),
       photo: str(fd, "photo"),
       published: bool(fd, "published"),
@@ -771,7 +773,13 @@ function TestimonialsManager({ initial }: { initial: TestimonialItem[] }) {
                   <textarea id="t-sum" name="summary" defaultValue={current?.summary ?? ""} className={textareaClass} />
                 </Field>
                 <ImageField label="Thumbnail" name="thumbnail" defaultValue={current?.thumbnail} required error={crud.errors.thumbnail} />
-                <Field label="Video ID / embed" htmlFor="t-vid" name="videoId">
+                <VideoField label="Upload video" name="videoUrl" defaultValue={current?.videoUrl} error={crud.errors.videoUrl} />
+                <Field
+                  label="Or paste a YouTube/Vimeo id — optional"
+                  htmlFor="t-vid"
+                  name="videoId"
+                  className="sm:col-span-2"
+                >
                   <Input id="t-vid" name="videoId" defaultValue={current?.videoId ?? ""} placeholder="YouTube/Vimeo id" />
                 </Field>
               </>

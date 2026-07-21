@@ -13,6 +13,11 @@ const schema = z.object({
   BETTER_AUTH_URL: z.string().url().default("http://localhost:3001"),
   GOOGLE_CLIENT_ID: z.string().optional(),
   GOOGLE_CLIENT_SECRET: z.string().optional(),
+  // Cloudinary — CMS image/video/document uploads. Leave any unset to disable
+  // uploads (the CMS upload fields will error).
+  CLOUDINARY_CLOUD_NAME: z.string().optional(),
+  CLOUDINARY_API_KEY: z.string().optional(),
+  CLOUDINARY_API_SECRET: z.string().optional(),
   // Shared secret the marketing site presents to POST /api/leads. When unset,
   // the public lead-ingest endpoint refuses all requests (deny by default).
   LEADS_INGEST_KEY: z.string().optional(),
@@ -41,6 +46,11 @@ export const env = parsed.data
 
 /** True when Google OAuth is fully configured. */
 export const googleEnabled = Boolean(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET)
+
+/** True when Cloudinary uploads are fully configured. */
+export const cloudinaryEnabled = Boolean(
+  env.CLOUDINARY_CLOUD_NAME && env.CLOUDINARY_API_KEY && env.CLOUDINARY_API_SECRET,
+)
 
 /** True when new-lead email notifications are fully configured. */
 export const leadsNotifyEnabled = Boolean(
