@@ -10,7 +10,7 @@ import { Photo } from "@/components/photo"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Card, CardContent } from "@/components/ui/card"
 import { CtaBand } from "@/components/sections/cta-band"
-
+//
 export const metadata: Metadata = {
   title: "About Us",
   description:
