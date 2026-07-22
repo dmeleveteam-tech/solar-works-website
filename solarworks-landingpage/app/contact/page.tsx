@@ -49,8 +49,8 @@ export default async function ContactPage({
             <Reveal className="rounded-2xl border bg-card p-6 shadow-sm">
               <h2 className="font-semibold">Prefer to talk?</h2>
               <p className="mt-1 text-sm text-muted-foreground">
-                Reach us on whatever channel is easiest.
-              </p>
+                Reach us on whatever channel is easiests.
+              </p> 
               <div className="mt-4 flex flex-col gap-2">
                 <ContactRow icon={<Phone className="size-4" />} {...siteConfig.contact.phone} />
                 <ContactRow icon={<MessageCircle className="size-4" />} {...siteConfig.contact.viber} />
