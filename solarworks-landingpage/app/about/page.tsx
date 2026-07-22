@@ -20,7 +20,7 @@ export const metadata: Metadata = {
 const values = [
   { title: "Honest advice", body: "We'd rather lose a sale than oversell you a system you don't need." },
   { title: "Engineering first", body: "Licensed engineers design every system around real consumption data." },
-  { title: "We stay around", body: "After-sales support for the life of your warranty — not just until the invoice clears." },
+  { title: "We stay around", body: "After-sales support for the life of your warranty — not just until the ,,, invoice clears." },
 ]
 
 const team = [
