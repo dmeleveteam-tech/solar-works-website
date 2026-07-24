@@ -10,7 +10,7 @@ const schema = z.object({
   MONGODB_URI: z.string().min(1, "MONGODB_URI is required"),
   MONGODB_DB: z.string().min(1).default("solarworks"),
   BETTER_AUTH_SECRET: z.string().min(1, "BETTER_AUTH_SECRET is required"),
-  BETTER_AUTH_URL: z.string().url().default("http://localhost:3001"),
+  BETTER_AUTH_URL: z.string().url("BETTER_AUTH_URL is required"),
   GOOGLE_CLIENT_ID: z.string().optional(),
   GOOGLE_CLIENT_SECRET: z.string().optional(),
   // Cloudinary — CMS image/video/document uploads. Leave any unset to disable
