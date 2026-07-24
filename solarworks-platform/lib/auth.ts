@@ -14,6 +14,11 @@ export const auth = betterAuth({
   secret: env.BETTER_AUTH_SECRET,
   database: mongodbAdapter(db),
 
+  // baseURL only trusts its own origin. Vercel preview/branch deployments
+  // (e.g. solar-works-admin-git-main-dm-eleve.vercel.app) get a different
+  // origin per deploy, so widen trust to this project's Vercel URL shape.
+  trustedOrigins: ["https://solar-works-admin-*.vercel.app"],
+
   emailAndPassword: {
     enabled: true,
     // Email verification can be turned on once Resend is wired (Phase 4).
