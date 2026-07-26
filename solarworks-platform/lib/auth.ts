@@ -29,7 +29,19 @@ export const auth = betterAuth({
    * custom domain cannot reintroduce the same bug. The wildcard stays for Vercel
    * preview/branch deploys, which get a fresh origin each time.
    */
-  trustedOrigins: [new URL(env.BETTER_AUTH_URL).origin, "https://solar-works-admin-*.vercel.app"],
+  trustedOrigins: [
+    // The configured origin. First because it is the one that must always work.
+    new URL(env.BETTER_AUTH_URL).origin,
+    // The canonical production origin, literally. Redundant with the line above
+    // when BETTER_AUTH_URL is set correctly — and that redundancy IS the point:
+    // a wrong or stale BETTER_AUTH_URL previously took production login down
+    // while preview deploys kept working, which made it look like a code bug.
+    // Deriving alone left a single point of failure in an env var we cannot read
+    // back from Vercel (it is marked Sensitive).
+    "https://solar-works-admin.vercel.app",
+    // Vercel preview/branch deploys, which get a fresh origin each time.
+    "https://solar-works-admin-*.vercel.app",
+  ],
 
   emailAndPassword: {
     enabled: true,
