@@ -10,6 +10,7 @@
  * seeded as `published: true`. Reads MONGODB_URI / MONGODB_DB from .env.
  */
 import "dotenv/config"
+import "../lib/dns-fix"
 import { MongoClient } from "mongodb"
 
 type Audience = "Residential" | "Commercial" | "Farm"

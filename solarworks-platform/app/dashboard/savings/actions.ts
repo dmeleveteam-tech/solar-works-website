@@ -6,6 +6,7 @@ import { z } from "zod"
 
 import { requireRole } from "@/lib/session"
 import { db } from "@/lib/mongodb"
+import { notify } from "@/lib/notifications"
 import { createCustomerAccount } from "@/lib/customer-accounts"
 import { parseDeyeExport } from "@/lib/savings-parser"
 import {
@@ -13,6 +14,7 @@ import {
   upsertTariff,
   deleteTariff,
   listSavingsPlants,
+  getSavingsPlant,
   insertSavingsPlant,
   setSavingsEmailConsent,
   deleteSavingsPlant,
@@ -204,7 +206,7 @@ const uploadSchema = z.object({
 export async function uploadReadings(
   input: z.input<typeof uploadSchema>,
 ): Promise<ActionResult<MonthlyReading[]>> {
-  await requireRole(...STAFF_ROLES)
+  const session = await requireRole(...STAFF_ROLES)
   const parsed = uploadSchema.safeParse(input)
   if (!parsed.success) {
     return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid upload." }
@@ -215,6 +217,21 @@ export async function uploadReadings(
   if (!result.ok) return { ok: false, error: result.error }
 
   const readings = await saveReadingsForPlant(plantId, result.rows)
+
+  // Tell the customer their figures moved. A missing plant link is impossible
+  // here (the save above would have failed), but it stays a soft skip.
+  const plant = await getSavingsPlant(plantId)
+  if (plant) {
+    await notify({
+      userId: plant.customerUserId,
+      type: "savings_updated",
+      title: "Your savings figures were updated",
+      body: `${readings.length} month${readings.length === 1 ? "" : "s"} of data for ${plant.plantRef}`,
+      href: "/portal",
+      actorId: session.user.id,
+    })
+  }
+
   revalidatePath("/dashboard/savings")
   return { ok: true, data: readings }
 }

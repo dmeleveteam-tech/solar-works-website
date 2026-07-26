@@ -16,10 +16,12 @@ import {
 } from "lucide-react"
 
 import { authClient } from "@/lib/auth-client"
-import { activeNavItem } from "@/lib/active-nav"
+import { activeNavItem, unreadByNavHref } from "@/lib/active-nav"
 import { ROLE_HOME } from "@/lib/permissions"
 import { ROLE_LABEL } from "@/components/role-badge"
-import { Brand } from "@/components/brand"
+import { Brand, BrandMark } from "@/components/brand"
+import { useNotifications } from "@/components/notifications/notifications-provider"
+import { UnreadBadge } from "@/components/notifications/unread-badge"
 import type { NavIconName, NavItem, ShellUser } from "@/components/app-shell"
 import {
   Sidebar,
@@ -29,6 +31,7 @@ import {
   SidebarGroupContent,
   SidebarHeader,
   SidebarMenu,
+  SidebarMenuBadge,
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarRail,
@@ -47,6 +50,10 @@ const NAV_ICONS: Record<NavIconName, LucideIcon> = {
 export function AppSidebar({ user, nav }: { user: ShellUser; nav: NavItem[] }) {
   const pathname = usePathname()
   const active = activeNavItem(pathname, nav)
+  const { items } = useNotifications()
+  // Unread notifications bucketed to the section they point at, so a red dot
+  // tells you *where* the work is before you open the bell.
+  const unread = React.useMemo(() => unreadByNavHref(items, nav), [items, nav])
 
   return (
     <Sidebar variant="inset" collapsible="icon">
@@ -55,8 +62,10 @@ export function AppSidebar({ user, nav }: { user: ShellUser; nav: NavItem[] }) {
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" asChild>
               <Link href={ROLE_HOME[user.role]}>
+                {/* mark stays visible on the collapsed icon rail */}
+                <BrandMark />
                 <span className="grid flex-1 text-left leading-tight group-data-[collapsible=icon]:hidden">
-                  <Brand />
+                  <Brand showMark={false} />
                 </span>
               </Link>
             </SidebarMenuButton>
@@ -70,18 +79,36 @@ export function AppSidebar({ user, nav }: { user: ShellUser; nav: NavItem[] }) {
             <SidebarMenu>
               {nav.map((item) => {
                 const Icon = item.icon ? NAV_ICONS[item.icon] : LayoutDashboard
+                const count = unread[item.href] ?? 0
                 return (
                   <SidebarMenuItem key={item.href}>
                     <SidebarMenuButton
                       asChild
                       isActive={item.href === active?.href}
-                      tooltip={item.label}
+                      tooltip={
+                        count > 0 ? `${item.label} — ${count} unread` : item.label
+                      }
                     >
                       <Link href={item.href}>
                         <Icon />
                         <span>{item.label}</span>
                       </Link>
                     </SidebarMenuButton>
+
+                    {count > 0 ? (
+                      <>
+                        <SidebarMenuBadge className="p-0">
+                          <UnreadBadge count={count} />
+                          <span className="sr-only">{count} unread</span>
+                        </SidebarMenuBadge>
+                        {/* The collapsed icon rail hides label and badge alike,
+                            so mark the icon itself with a bare dot. */}
+                        <span
+                          aria-hidden
+                          className="pointer-events-none absolute top-1 right-1 hidden size-2 rounded-full bg-destructive ring-2 ring-sidebar group-data-[collapsible=icon]:block"
+                        />
+                      </>
+                    ) : null}
                   </SidebarMenuItem>
                 )
               })}

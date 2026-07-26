@@ -6,9 +6,12 @@ import { z } from "zod"
 
 import { requireRole } from "@/lib/session"
 import { db } from "@/lib/mongodb"
+import { notify } from "@/lib/notifications"
 import { createCustomerAccount } from "@/lib/customer-accounts"
 import {
   PROJECT_STAGES,
+  STAGE_LABEL,
+  STAGE_DESCRIPTION,
   insertProject,
   setProjectStage,
   addProjectDocument,
@@ -125,7 +128,7 @@ export async function createProject(
 export async function updateProjectStage(
   input: z.input<typeof stageSchema>,
 ): Promise<ActionResult<CustomerProject>> {
-  await requireRole(...STAFF_ROLES)
+  const session = await requireRole(...STAFF_ROLES)
 
   const parsed = stageSchema.safeParse(input)
   if (!parsed.success) {
@@ -134,6 +137,17 @@ export async function updateProjectStage(
   const { id, stage, stageNote } = parsed.data
   const project = await setProjectStage(id, stage, stageNote ? stageNote : null)
   if (!project) return { ok: false, error: "Project not found." }
+
+  // The customer is the audience here — the staff member made this change.
+  await notify({
+    userId: project.customerUserId,
+    type: "project_updated",
+    title: `${project.displayName} moved to ${STAGE_LABEL[project.stage]}`,
+    body: project.stageNote || STAGE_DESCRIPTION[project.stage],
+    href: "/portal",
+    actorId: session.user.id,
+  })
+
   revalidatePath("/dashboard/projects")
   return { ok: true, data: project }
 }
@@ -141,7 +155,7 @@ export async function updateProjectStage(
 export async function addDocument(
   input: z.input<typeof addDocSchema>,
 ): Promise<ActionResult<CustomerProject>> {
-  await requireRole(...STAFF_ROLES)
+  const session = await requireRole(...STAFF_ROLES)
 
   const parsed = addDocSchema.safeParse(input)
   if (!parsed.success) {
@@ -150,6 +164,16 @@ export async function addDocument(
   const { id, label, url } = parsed.data
   const project = await addProjectDocument(id, { label, url })
   if (!project) return { ok: false, error: "Project not found." }
+
+  await notify({
+    userId: project.customerUserId,
+    type: "project_updated",
+    title: `New document — ${label}`,
+    body: `Shared on ${project.displayName}`,
+    href: "/portal",
+    actorId: session.user.id,
+  })
+
   revalidatePath("/dashboard/projects")
   return { ok: true, data: project }
 }

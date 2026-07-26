@@ -1,4 +1,5 @@
 import "server-only"
+import "./dns-fix"
 import { MongoClient, type Db } from "mongodb"
 
 import { env } from "./env"

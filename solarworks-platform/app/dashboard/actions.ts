@@ -6,12 +6,14 @@ import { z } from "zod"
 
 import { requireRole } from "@/lib/session"
 import { db } from "@/lib/mongodb"
+import { notify } from "@/lib/notifications"
 import {
   leadsCollection,
   serializeLead,
   listLeads,
   LEAD_STATUSES,
   LEAD_SOURCES,
+  SOURCE_LABEL,
   type Lead,
   type LeadDoc,
   type LeadStatus,
@@ -80,7 +82,7 @@ export async function getLeads(input: {
 export async function createLead(
   input: z.input<typeof createSchema>,
 ): Promise<ActionResult<Lead>> {
-  await requireRole(...STAFF_ROLES)
+  const session = await requireRole(...STAFF_ROLES)
 
   const parsed = createSchema.safeParse(input)
   if (!parsed.success) {
@@ -103,6 +105,18 @@ export async function createLead(
   }
 
   await leadsCollection().insertOne(doc)
+
+  // The colleague who typed it in doesn't need telling; `notify` filters the
+  // actor out of the role broadcast.
+  await notify({
+    roles: [...STAFF_ROLES],
+    type: "lead_new",
+    title: `New lead — ${doc.name}`,
+    body: `${SOURCE_LABEL[doc.source]} · added by ${session.user.name || session.user.email}`,
+    href: "/dashboard",
+    actorId: session.user.id,
+  })
+
   revalidatePath("/dashboard")
   return { ok: true, data: serializeLead(doc) }
 }
@@ -130,7 +144,7 @@ export async function updateLeadStatus(
 export async function assignLead(
   input: z.input<typeof assignSchema>,
 ): Promise<ActionResult<Lead>> {
-  await requireRole(...STAFF_ROLES)
+  const session = await requireRole(...STAFF_ROLES)
 
   const parsed = assignSchema.safeParse(input)
   if (!parsed.success) {
@@ -160,6 +174,19 @@ export async function assignLead(
     { returnDocument: "after" },
   )
   if (!result) return { ok: false, error: "Lead not found." }
+
+  // Only the new owner is told, and only when that isn't the person assigning.
+  if (assignedToId) {
+    await notify({
+      userId: assignedToId,
+      type: "lead_assigned",
+      title: `${result.name} was assigned to you`,
+      body: `${SOURCE_LABEL[result.source]} · assigned by ${session.user.name || session.user.email}`,
+      href: "/dashboard",
+      actorId: session.user.id,
+    })
+  }
+
   revalidatePath("/dashboard")
   return { ok: true, data: serializeLead(result) }
 }

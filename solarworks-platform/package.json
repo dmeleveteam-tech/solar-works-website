@@ -16,7 +16,10 @@
     "test": "node --import tsx --test \"lib/**/*.test.ts\"",
     "seed:superadmin": "tsx scripts/seed-superadmin.ts",
     "seed:roles": "tsx scripts/seed-roles.ts",
-    "seed:content": "tsx scripts/seed-content.ts"
+    "seed:content": "tsx scripts/seed-content.ts",
+    "seed:kb": "tsx scripts/seed-kb.ts",
+    "kb:index": "tsx scripts/create-kb-index.ts",
+    "test:kb": "tsx scripts/test-kb-threshold.ts"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

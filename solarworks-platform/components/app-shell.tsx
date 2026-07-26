@@ -1,5 +1,7 @@
 import { AppSidebar } from "@/components/app-sidebar"
 import { ActiveCrumb } from "@/components/active-crumb"
+import { NotificationBell } from "@/components/notifications/notification-bell"
+import { NotificationsProvider } from "@/components/notifications/notifications-provider"
 import { Separator } from "@/components/ui/separator"
 import {
   SidebarInset,
@@ -38,20 +40,27 @@ export function AppShell({
 }) {
   return (
     <TooltipProvider>
-      <SidebarProvider>
-        <AppSidebar user={user} nav={nav} />
-        <SidebarInset>
-          <header className="sticky top-0 z-10 flex h-14 shrink-0 items-center gap-2 rounded-t-xl border-b bg-background/80 px-4 backdrop-blur">
-            <SidebarTrigger className="-ml-1" />
-            <Separator
-              orientation="vertical"
-              className="mr-1 data-[orientation=vertical]:h-4"
-            />
-            <ActiveCrumb nav={nav} />
-          </header>
-          <div className="flex flex-1 flex-col p-4 md:p-6">{children}</div>
-        </SidebarInset>
-      </SidebarProvider>
+      {/* Wraps sidebar and header together so the nav dots and the bell badge
+          come from one poll of the feed instead of two. */}
+      <NotificationsProvider>
+        <SidebarProvider>
+          <AppSidebar user={user} nav={nav} />
+          <SidebarInset>
+            <header className="sticky top-0 z-10 flex h-14 shrink-0 items-center gap-2 rounded-t-xl border-b bg-background/80 px-4 backdrop-blur">
+              <SidebarTrigger className="-ml-1" />
+              <Separator
+                orientation="vertical"
+                className="mr-1 data-[orientation=vertical]:h-4"
+              />
+              <ActiveCrumb nav={nav} />
+              <div className="ml-auto flex items-center gap-1">
+                <NotificationBell />
+              </div>
+            </header>
+            <div className="flex flex-1 flex-col p-4 md:p-6">{children}</div>
+          </SidebarInset>
+        </SidebarProvider>
+      </NotificationsProvider>
     </TooltipProvider>
   )
 }

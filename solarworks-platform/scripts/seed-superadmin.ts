@@ -10,6 +10,7 @@
  * hashed password, then promotes that user's role to `superadmin` directly.
  */
 import "dotenv/config"
+import "../lib/dns-fix"
 import { MongoClient } from "mongodb"
 import { betterAuth } from "better-auth"
 import { mongodbAdapter } from "better-auth/adapters/mongodb"

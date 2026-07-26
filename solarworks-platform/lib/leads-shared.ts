@@ -15,7 +15,7 @@ export const LEAD_STATUSES = [
 ] as const
 export type LeadStatus = (typeof LEAD_STATUSES)[number]
 
-export const LEAD_SOURCES = ["website_form", "chatbot", "manual"] as const
+export const LEAD_SOURCES = ["website_form", "chatbot", "messenger", "manual"] as const
 export type LeadSource = (typeof LEAD_SOURCES)[number]
 
 export const STATUS_LABEL: Record<LeadStatus, string> = {
@@ -28,9 +28,13 @@ export const STATUS_LABEL: Record<LeadStatus, string> = {
 
 // Channel labels exactly as the spec's Leads database defines them
 // ("Website Form" / "Website Chatbot"); QA-03 checks the chatbot wording.
+// "Messenger" is the same Solar Assistant brain reached through the Facebook
+// Page, and is kept a distinct source because the follow-up channel differs —
+// the adviser replies in Messenger, not by phone.
 export const SOURCE_LABEL: Record<LeadSource, string> = {
   website_form: "Website Form",
   chatbot: "Website Chatbot",
+  messenger: "Messenger",
   manual: "Manual",
 }
 

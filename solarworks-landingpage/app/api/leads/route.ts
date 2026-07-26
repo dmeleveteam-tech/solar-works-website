@@ -21,6 +21,13 @@ type FormBody = {
   monthlyBill?: string
   monthlyKwh?: string
   goals?: string[]
+  /** Daytime vs nighttime consumption split. */
+  usageProfile?: string
+  batteryInterest?: string
+  urgency?: string
+  contactTime?: string
+  /** Name and size of the bill the visitor attached, if any. */
+  billAttachment?: string
   utilityProvider?: string
   leadSource?: string
   siteNotes?: string
@@ -123,6 +130,11 @@ export async function POST(req: Request) {
   put("Monthly bill (PHP)", body.monthlyBill)
   put("Monthly consumption (kWh)", body.monthlyKwh)
   put("Goals", body.goals)
+  put("Daytime vs nighttime usage", body.usageProfile)
+  put("Battery storage interest", body.batteryInterest)
+  put("Urgency", body.urgency)
+  put("Best time to contact", body.contactTime)
+  put("Bill attachment", body.billAttachment)
   put("Electricity provider", body.utilityProvider)
   put("Heard about us", body.leadSource)
   put("Preferred contact", body.contactMethod)

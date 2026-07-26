@@ -8,6 +8,7 @@
  * dev password below — fine for local testing, never for production.
  */
 import "dotenv/config"
+import "../lib/dns-fix"
 import { MongoClient } from "mongodb"
 import { betterAuth } from "better-auth"
 import { mongodbAdapter } from "better-auth/adapters/mongodb"
@@ -15,10 +16,10 @@ import { admin } from "better-auth/plugins"
 
 import { ac, roles, ADMIN_ROLES, DEFAULT_ROLE, type Role } from "../lib/permissions"
 
-const DEV_PASSWORD = "password0123"
+const DEV_PASSWORD = "solarworks0123"
 
 const ACCOUNTS: { email: string; name: string; role: Role }[] = [
-  { email: "dm.team@gmail.com", name: "DM Team", role: "superadmin" },
+  { email: "superadmin@solarworks.ph", name: "Super Admin", role: "superadmin" },
   { email: "staff@solarworks.ph", name: "Staff Demo", role: "staff" },
   { email: "editor@solarworks.ph", name: "Content Editor Demo", role: "content_editor" },
   { email: "customer@solarworks.ph", name: "Customer Demo", role: "customer" },

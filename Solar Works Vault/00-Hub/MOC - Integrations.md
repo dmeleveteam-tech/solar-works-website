@@ -13,6 +13,8 @@ External systems the website connects to for lead capture and analytics.
 
 - [[Integration - Google Sheets Lead Database]] — schema, lead ID format, notification and security logic.
 - [[Integration - AI Lead Chatbot]] — placement, conversation flow, guardrails.
+- [[Integration - Google Drive Knowledge Base]] — plan: staff drop files in Drive, synced into Atlas for chatbot retrieval.
+- [[Integration - Facebook Messenger Bot]] — plan: extract the chat brain into the platform, then run the assistant on Messenger.
 - [[Integration - GA4 and Meta Pixel]] — analytics instrumentation.
 
 ## Related

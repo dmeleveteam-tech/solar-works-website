@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { Loader2, Plus, Search, Trash2 } from "lucide-react"
+import { ChevronDown, Loader2, Plus, Search, Trash2 } from "lucide-react"
 import { toast } from "sonner"
 
 import { cn } from "@/lib/utils"
@@ -36,6 +36,17 @@ const STATUS_TONE: Record<LeadStatus, string> = {
   lost: "bg-muted text-muted-foreground",
 }
 
+/** Long-form date for the "Received" row in an expanded lead. */
+const receivedFormat = new Intl.DateTimeFormat("en-PH", {
+  dateStyle: "medium",
+  timeStyle: "short",
+})
+
+function formatReceived(iso: string): string {
+  const date = new Date(iso)
+  return Number.isNaN(date.getTime()) ? "—" : receivedFormat.format(date)
+}
+
 const selectClass = cn(
   "h-9 rounded-md border border-input bg-transparent px-2.5 text-sm shadow-xs outline-none",
   "focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50",
@@ -58,6 +69,17 @@ export function LeadsManager({
   const [busyId, setBusyId] = React.useState<string | null>(null)
   const [creating, setCreating] = React.useState(false)
   const [newSource, setNewSource] = React.useState<(typeof LEAD_SOURCES)[number]>("manual")
+  // Ids of leads whose captured details are expanded. A set, not a single id,
+  // so two enquiries can be compared side by side.
+  const [expanded, setExpanded] = React.useState<ReadonlySet<string>>(new Set())
+
+  function toggleExpanded(id: string) {
+    setExpanded((prev) => {
+      const next = new Set(prev)
+      if (!next.delete(id)) next.add(id)
+      return next
+    })
+  }
 
   const reload = React.useCallback(
     async (status: LeadStatus | "all", searchValue: string) => {
@@ -262,74 +284,122 @@ export function LeadsManager({
             <div className="divide-y">
               {leads.map((lead) => {
                 const busy = busyId === lead.id
+                // Everything the form or chatbot captured beyond the columns
+                // above — address, property type, consumption, goals, consent,
+                // marketing attribution, and so on.
+                const captured = Object.entries(lead.details ?? {})
+                const extras = captured.length + (lead.message ? 1 : 0)
+                const open = expanded.has(lead.id)
+                const panelId = `lead-details-${lead.id}`
+
                 return (
-                  <div
-                    key={lead.id}
-                    className="flex flex-wrap items-center gap-3 px-4 py-3"
-                  >
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2 font-medium">
-                        <span className="truncate">{lead.name}</span>
-                        <span
-                          className={cn(
-                            "rounded-full px-2 py-0.5 text-xs font-medium",
-                            STATUS_TONE[lead.status],
-                          )}
+                  <div key={lead.id}>
+                    <div className="flex flex-wrap items-center gap-3 px-4 py-3">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 font-medium">
+                          <span className="truncate">{lead.name}</span>
+                          <span
+                            className={cn(
+                              "rounded-full px-2 py-0.5 text-xs font-medium",
+                              STATUS_TONE[lead.status],
+                            )}
+                          >
+                            {STATUS_LABEL[lead.status]}
+                          </span>
+                          <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+                            {SOURCE_LABEL[lead.source]}
+                          </span>
+                        </div>
+                        <div className="truncate text-sm text-muted-foreground">
+                          {[lead.email, lead.phone].filter(Boolean).join(" · ") || "—"}
+                        </div>
+                      </div>
+
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => toggleExpanded(lead.id)}
+                        aria-expanded={open}
+                        aria-controls={panelId}
+                        className="text-muted-foreground"
+                      >
+                        <ChevronDown
+                          className={cn("transition-transform", open && "rotate-180")}
+                        />
+                        {extras > 0 ? `Details (${extras})` : "Details"}
+                      </Button>
+
+                      <select
+                        aria-label="Status"
+                        value={lead.status}
+                        disabled={busy}
+                        onChange={(e) => onStatus(lead, e.target.value as LeadStatus)}
+                        className={selectClass}
+                      >
+                        {LEAD_STATUSES.map((s) => (
+                          <option key={s} value={s}>
+                            {STATUS_LABEL[s]}
+                          </option>
+                        ))}
+                      </select>
+
+                      <select
+                        aria-label="Assigned to"
+                        value={lead.assignedToId ?? ""}
+                        disabled={busy}
+                        onChange={(e) => onAssign(lead, e.target.value)}
+                        className={cn(selectClass, "max-w-40")}
+                      >
+                        <option value="">Unassigned</option>
+                        {assignees.map((a) => (
+                          <option key={a.id} value={a.id}>
+                            {a.name || a.email}
+                          </option>
+                        ))}
+                      </select>
+
+                      {busy ? (
+                        <Loader2 className="size-4 animate-spin text-muted-foreground" />
+                      ) : null}
+
+                      {canDelete ? (
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          disabled={busy}
+                          onClick={() => onDelete(lead)}
                         >
-                          {STATUS_LABEL[lead.status]}
-                        </span>
-                        <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
-                          {SOURCE_LABEL[lead.source]}
-                        </span>
-                      </div>
-                      <div className="truncate text-sm text-muted-foreground">
-                        {[lead.email, lead.phone].filter(Boolean).join(" · ") || "—"}
-                      </div>
+                          <Trash2 />
+                          <span className="hidden sm:inline">Delete</span>
+                        </Button>
+                      ) : null}
                     </div>
 
-                    <select
-                      aria-label="Status"
-                      value={lead.status}
-                      disabled={busy}
-                      onChange={(e) => onStatus(lead, e.target.value as LeadStatus)}
-                      className={selectClass}
-                    >
-                      {LEAD_STATUSES.map((s) => (
-                        <option key={s} value={s}>
-                          {STATUS_LABEL[s]}
-                        </option>
-                      ))}
-                    </select>
+                    {open ? (
+                      <div id={panelId} className="bg-muted/40 px-4 pt-3 pb-4 text-sm">
+                        {lead.message ? (
+                          <p className="mb-4 whitespace-pre-wrap">{lead.message}</p>
+                        ) : null}
 
-                    <select
-                      aria-label="Assigned to"
-                      value={lead.assignedToId ?? ""}
-                      disabled={busy}
-                      onChange={(e) => onAssign(lead, e.target.value)}
-                      className={cn(selectClass, "max-w-40")}
-                    >
-                      <option value="">Unassigned</option>
-                      {assignees.map((a) => (
-                        <option key={a.id} value={a.id}>
-                          {a.name || a.email}
-                        </option>
-                      ))}
-                    </select>
+                        <dl className="grid gap-x-8 gap-y-3 sm:grid-cols-2 lg:grid-cols-3">
+                          {captured.map(([label, value]) => (
+                            <div key={label} className="grid gap-0.5">
+                              <dt className="text-xs text-muted-foreground">{label}</dt>
+                              <dd className="break-words">{value}</dd>
+                            </div>
+                          ))}
+                          <div className="grid gap-0.5">
+                            <dt className="text-xs text-muted-foreground">Received</dt>
+                            <dd>{formatReceived(lead.createdAt)}</dd>
+                          </div>
+                        </dl>
 
-                    {busy ? (
-                      <Loader2 className="size-4 animate-spin text-muted-foreground" />
-                    ) : null}
-
-                    {canDelete ? (
-                      <Button
-                        variant="destructive"
-                        size="sm"
-                        disabled={busy}
-                        onClick={() => onDelete(lead)}
-                      >
-                        <Trash2 />
-                        <span className="hidden sm:inline">Delete</span>
-                      </Button>
+                        {extras === 0 ? (
+                          <p className="mt-3 text-muted-foreground">
+                            Nothing else was captured with this lead.
+                          </p>
+                        ) : null}
+                      </div>
                     ) : null}
                   </div>
                 )

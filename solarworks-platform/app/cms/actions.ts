@@ -5,6 +5,7 @@ import { ObjectId, type Collection, type Filter, type UpdateFilter } from "mongo
 import { z } from "zod"
 
 import { requireRole } from "@/lib/session"
+import { notify } from "@/lib/notifications"
 import {
   projectsCollection,
   testimonialsCollection,
@@ -67,6 +68,28 @@ function fieldErrorsFrom(err: z.ZodError): Record<string, string> {
 /** Standard validation failure: a summary message plus per-field messages. */
 function invalid(err: z.ZodError): { ok: false; error: string; fieldErrors: Record<string, string> } {
   return { ok: false, error: firstError(err), fieldErrors: fieldErrorsFrom(err) }
+}
+
+/**
+ * Tell the content team something went live. Only the transition *to* published
+ * is announced — unpublishing is a quiet correction, not news — and the editor
+ * who pressed the button is filtered out when the feed is read.
+ */
+async function notifyPublished(
+  kind: string,
+  name: string,
+  published: boolean,
+  actorId: string,
+): Promise<void> {
+  if (!published) return
+  await notify({
+    roles: [...CONTENT_ROLES],
+    type: "content_published",
+    title: `${kind} published — ${name}`,
+    body: "Now live on the marketing site.",
+    href: "/cms",
+    actorId,
+  })
 }
 
 /**
@@ -185,7 +208,7 @@ export async function updateProject(
 export async function setProjectPublished(
   input: z.input<typeof publishSchema>,
 ): Promise<ActionResult<ProjectItem>> {
-  await requireRole(...CONTENT_ROLES)
+  const session = await requireRole(...CONTENT_ROLES)
   const parsed = publishSchema.safeParse(input)
   if (!parsed.success) return { ok: false, error: "Invalid request." }
   const result = await projectsCollection().findOneAndUpdate(
@@ -194,6 +217,12 @@ export async function setProjectPublished(
     { returnDocument: "after" },
   )
   if (!result) return { ok: false, error: "Project not found." }
+  await notifyPublished(
+    "Project",
+    result.title,
+    parsed.data.published,
+    session.user.id,
+  )
   revalidatePath("/cms")
   return { ok: true, data: serializeProject(result) }
 }
@@ -319,7 +348,7 @@ export async function updateTestimonial(
 export async function setTestimonialPublished(
   input: z.input<typeof publishSchema>,
 ): Promise<ActionResult<TestimonialItem>> {
-  await requireRole(...CONTENT_ROLES)
+  const session = await requireRole(...CONTENT_ROLES)
   const parsed = publishSchema.safeParse(input)
   if (!parsed.success) return { ok: false, error: "Invalid request." }
   const result = await testimonialsCollection().findOneAndUpdate(
@@ -328,6 +357,12 @@ export async function setTestimonialPublished(
     { returnDocument: "after" },
   )
   if (!result) return { ok: false, error: "Testimonial not found." }
+  await notifyPublished(
+    "Testimonial",
+    result.name,
+    parsed.data.published,
+    session.user.id,
+  )
   revalidatePath("/cms")
   return { ok: true, data: serializeTestimonial(result) }
 }
@@ -393,7 +428,7 @@ export async function updateFaq(
 export async function setFaqPublished(
   input: z.input<typeof publishSchema>,
 ): Promise<ActionResult<FaqItem>> {
-  await requireRole(...CONTENT_ROLES)
+  const session = await requireRole(...CONTENT_ROLES)
   const parsed = publishSchema.safeParse(input)
   if (!parsed.success) return { ok: false, error: "Invalid request." }
   const result = await faqsCollection().findOneAndUpdate(
@@ -402,6 +437,7 @@ export async function setFaqPublished(
     { returnDocument: "after" },
   )
   if (!result) return { ok: false, error: "FAQ not found." }
+  await notifyPublished("FAQ", result.question, parsed.data.published, session.user.id)
   revalidatePath("/cms")
   return { ok: true, data: serializeFaq(result) }
 }

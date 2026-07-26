@@ -127,6 +127,13 @@ export async function listSavingsPlantsForCustomer(
   return docs.map(serializeSavingsPlant)
 }
 
+/** A single plant link by id, or null when the id is unknown or malformed. */
+export async function getSavingsPlant(id: string): Promise<SavingsPlant | null> {
+  if (!ObjectId.isValid(id)) return null
+  const doc = await savingsPlantsCollection().findOne({ _id: new ObjectId(id) })
+  return doc ? serializeSavingsPlant(doc) : null
+}
+
 export type CreateSavingsPlantInput = {
   customerUserId: string
   customerName: string

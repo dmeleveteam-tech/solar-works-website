@@ -1,11 +1,10 @@
 import { timingSafeEqual } from "node:crypto"
 import { NextResponse } from "next/server"
-import { ObjectId } from "mongodb"
 import { z } from "zod"
 
 import { env } from "@/lib/env"
-import { leadsCollection, type LeadDoc } from "@/lib/leads"
-import { notifyNewLead } from "@/lib/notifications"
+import { createLead } from "@/lib/leads-ingest"
+import { clientKey, createRateLimiter, rateLimitHeaders } from "@/lib/rate-limit"
 
 /**
  * Public lead-ingest endpoint for the marketing site's contact form.
@@ -14,9 +13,16 @@ import { notifyNewLead } from "@/lib/notifications"
  * `/api/leads` proxy) with a shared `x-ingest-key`. We never trust the caller
  * for anything privileged: the new lead always starts unassigned with status
  * "new", and the payload is fully validated. The caller may declare which
- * public channel it is ("website_form" or "chatbot") but cannot forge the
- * staff-only "manual" source. Spam/abuse controls (Turnstile, rate limiting)
- * live in front of this in the marketing app.
+ * public channel it is ("website_form", "chatbot" or "messenger") but cannot
+ * forge the staff-only "manual" source. The marketing app screens submissions in
+ * front of this (Turnstile, its own limiting); the limit below is a backstop on
+ * the endpoint itself, so a leaked ingest key or a stuck retry loop can't write
+ * unbounded. It sits before the key check because rejecting floods cheaply is
+ * the point — real ingest volume is nowhere near it.
+ *
+ * The write itself lives in `lib/leads-ingest.ts`, so the in-app chat brain can
+ * create a lead directly instead of HTTP-ing back into this same app. This route
+ * is auth + validate + call, and nothing else.
  */
 
 // Bounded labelled extras (address, property type, goals, …). Caps keep a
@@ -25,7 +31,7 @@ const detailsSchema = z.record(z.string().max(80), z.string().max(2000))
 
 // Public channels a caller may legitimately declare. "manual" is staff-only and
 // must never be settable through this endpoint.
-const PUBLIC_SOURCES = ["website_form", "chatbot"] as const
+const PUBLIC_SOURCES = ["website_form", "chatbot", "messenger"] as const
 
 const ingestSchema = z.object({
   name: z.string().trim().min(1, "Name is required").max(120),
@@ -45,7 +51,17 @@ function keyMatches(provided: string | null, expected: string): boolean {
   return timingSafeEqual(a, b)
 }
 
+const limiter = createRateLimiter({ limit: 60, windowMs: 60_000 })
+
 export async function POST(req: Request) {
+  const verdict = limiter.check(clientKey(req.headers))
+  if (!verdict.ok) {
+    return NextResponse.json(
+      { ok: false, error: "Too many requests." },
+      { status: 429, headers: rateLimitHeaders(verdict) },
+    )
+  }
+
   if (!env.LEADS_INGEST_KEY) {
     // Deny by default: no key configured means the endpoint is closed.
     return NextResponse.json(
@@ -69,29 +85,15 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: false, error: "Invalid lead." }, { status: 422 })
   }
   const v = parsed.data
-  const details = v.details && Object.keys(v.details).length ? v.details : null
 
-  const now = new Date()
-  const doc: LeadDoc = {
-    _id: new ObjectId(),
+  const { id } = await createLead({
     name: v.name,
-    email: v.email ? v.email : null,
-    phone: v.phone ? v.phone : null,
-    message: v.message ? v.message : null,
+    email: v.email,
+    phone: v.phone,
+    message: v.message,
+    details: v.details,
     source: v.source,
-    status: "new",
-    assignedToId: null,
-    assignedToName: null,
-    details,
-    createdAt: now,
-    updatedAt: now,
-  }
+  })
 
-  await leadsCollection().insertOne(doc)
-
-  // Fire-and-forget the sales alert; a notification failure must never affect
-  // the captured lead or the response the marketing site sees.
-  void notifyNewLead(doc)
-
-  return NextResponse.json({ ok: true, id: doc._id.toString() }, { status: 201 })
+  return NextResponse.json({ ok: true, id }, { status: 201 })
 }

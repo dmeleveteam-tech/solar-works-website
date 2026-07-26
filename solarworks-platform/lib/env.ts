@@ -31,6 +31,41 @@ const schema = z.object({
   // Public base URL of the platform, used to deep-link the dashboard from the
   // notification email. Falls back to BETTER_AUTH_URL when unset.
   APP_URL: z.string().url().optional(),
+  // Chatbot knowledge base (RAG). COHERE_API_KEY embeds chunks + queries;
+  // KB_SEARCH_KEY is the shared secret the marketing site presents to
+  // POST /api/kb/search. When either is unset, the search endpoint is closed and
+  // the chatbot simply falls back to its existing prompt-only behaviour.
+  COHERE_API_KEY: z.string().optional(),
+  KB_SEARCH_KEY: z.string().optional(),
+  // Similarity cutoff (0–1) below which retrieval is treated as "no good match".
+  // Tuned in Phase 4; defaults to 0.75 in lib/kb.ts when unset.
+  KB_MIN_SCORE: z.coerce.number().min(0).max(1).optional(),
+  // AI chatbot inference. The chat brain lives here now (lib/chat/brain.ts) and
+  // serves both the marketing site's widget and the Messenger bot, so the
+  // provider key belongs to this app. Groq is preferred when both are present:
+  // its free tier needs no credit card, whereas an unfunded xAI key
+  // authenticates fine but fails every request with permission-denied.
+  GROQ_API_KEY: z.string().optional(),
+  GROQ_MODEL: z.string().optional(),
+  XAI_API_KEY: z.string().optional(),
+  XAI_MODEL: z.string().optional(),
+  // Shared secret the marketing site presents to POST /api/chat. Unset = the
+  // endpoint is closed and the site falls back to its human hand-off message.
+  CHAT_API_KEY: z.string().optional(),
+  // Facebook Messenger bot. FB_APP_SECRET verifies the X-Hub-Signature-256 on
+  // every webhook delivery (the endpoint is publicly reachable, so this is not
+  // optional in practice); FB_PAGE_ACCESS_TOKEN sends replies;
+  // FB_WEBHOOK_VERIFY_TOKEN is the string we chose for Meta's subscription
+  // handshake. Leave any unset to disable the bot entirely.
+  FB_APP_SECRET: z.string().optional(),
+  FB_PAGE_ACCESS_TOKEN: z.string().optional(),
+  FB_WEBHOOK_VERIFY_TOKEN: z.string().optional(),
+  // n8n downstream automation. When N8N_LEAD_WEBHOOK_URL is set, every captured
+  // lead is POSTed to it (fire-and-forget) so it flows through the n8n canvas.
+  // Unset = no dispatch (deny by default). N8N_WEBHOOK_SECRET is optional; when
+  // set it is sent as `x-webhook-secret` so the webhook can authenticate us.
+  N8N_LEAD_WEBHOOK_URL: z.string().url().optional(),
+  N8N_WEBHOOK_SECRET: z.string().optional(),
 })
 
 const parsed = schema.safeParse(process.env)
@@ -56,3 +91,30 @@ export const cloudinaryEnabled = Boolean(
 export const leadsNotifyEnabled = Boolean(
   env.RESEND_API_KEY && env.LEADS_NOTIFY_FROM && env.LEADS_NOTIFY_TO,
 )
+
+/** True when the chatbot knowledge-base search endpoint is fully configured. */
+export const kbSearchEnabled = Boolean(env.COHERE_API_KEY && env.KB_SEARCH_KEY)
+
+/**
+ * True when in-process RAG retrieval can run (`lib/chat/brain.ts`).
+ *
+ * Deliberately distinct from `kbSearchEnabled`: that one also requires
+ * KB_SEARCH_KEY, the shared secret guarding the public `/api/kb/search`
+ * endpoint. The brain calls `searchKb()` directly and needs only the embedding
+ * key, so retiring that endpoint must not switch retrieval off.
+ */
+export const kbRetrievalEnabled = Boolean(env.COHERE_API_KEY)
+
+/** True when an LLM provider is configured for the chat brain. */
+export const chatLlmEnabled = Boolean(env.GROQ_API_KEY || env.XAI_API_KEY)
+
+/** True when the marketing site may call POST /api/chat. */
+export const chatApiEnabled = Boolean(chatLlmEnabled && env.CHAT_API_KEY)
+
+/** True when the Messenger bot is fully wired (verify + send + signature). */
+export const messengerEnabled = Boolean(
+  env.FB_APP_SECRET && env.FB_PAGE_ACCESS_TOKEN && env.FB_WEBHOOK_VERIFY_TOKEN,
+)
+
+/** True when captured leads should be dispatched to an n8n workflow. */
+export const n8nDispatchEnabled = Boolean(env.N8N_LEAD_WEBHOOK_URL)

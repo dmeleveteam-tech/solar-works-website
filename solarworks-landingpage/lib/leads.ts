@@ -34,41 +34,57 @@ export function leadIntakeConfigured(): boolean {
   return Boolean(PLATFORM_INGEST_URL && LEADS_INGEST_KEY)
 }
 
+/** Pause between the two attempts — long enough to ride out a cold start. */
+const RETRY_DELAY_MS = 600
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
+
 /**
  * Forward a lead to the platform, server-to-server, with the shared ingest key.
  * Never throws and never leaks the platform's internals to the caller; failures
  * come back as a safe `{ ok: false }` with a visitor-friendly message.
+ *
+ * A server-side or network failure is retried once. The platform inserts the
+ * lead before it does anything else, so a 5xx means the write almost certainly
+ * didn't happen and a second attempt won't duplicate it — whereas giving up
+ * loses a lead the visitor has already consented to and typed out in full.
+ * A 4xx is never retried: the same bytes would be rejected the same way.
  */
 export async function forwardLead(payload: LeadPayload): Promise<ForwardResult> {
   if (!PLATFORM_INGEST_URL || !LEADS_INGEST_KEY) {
     return { ok: false, status: 503, error: "Lead intake is not configured yet." }
   }
 
-  try {
-    const res = await fetch(PLATFORM_INGEST_URL, {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        "x-ingest-key": LEADS_INGEST_KEY,
-      },
-      body: JSON.stringify(payload),
-      cache: "no-store",
-    })
-    if (!res.ok) {
-      console.error("Lead forward failed:", res.status, await res.text().catch(() => ""))
-      return {
-        ok: false,
-        status: 502,
-        error: "We couldn't submit your request. Please try again.",
+  const failed = (error: string): ForwardResult => ({ ok: false, status: 502, error })
+
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    const last = attempt === 2
+    try {
+      const res = await fetch(PLATFORM_INGEST_URL, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-ingest-key": LEADS_INGEST_KEY,
+        },
+        body: JSON.stringify(payload),
+        cache: "no-store",
+      })
+      if (res.ok) return { ok: true }
+
+      console.error(
+        `Lead forward failed (attempt ${attempt}):`,
+        res.status,
+        await res.text().catch(() => ""),
+      )
+      if (res.status < 500 || last) {
+        return failed("We couldn't submit your request. Please try again.")
       }
+    } catch (err) {
+      console.error(`Lead forward error (attempt ${attempt}):`, err)
+      if (last) return failed("We couldn't reach our servers. Please try again.")
     }
-    return { ok: true }
-  } catch (err) {
-    console.error("Lead forward error:", err)
-    return {
-      ok: false,
-      status: 502,
-      error: "We couldn't reach our servers. Please try again.",
-    }
+    await sleep(RETRY_DELAY_MS)
   }
+
+  return failed("We couldn't submit your request. Please try again.")
 }

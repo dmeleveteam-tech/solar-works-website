@@ -253,6 +253,9 @@ export function NativeInquiryForm({ defaultSolution }: { defaultSolution?: strin
       const res = await fetch("/api/leads", {
         method: "POST",
         headers: { "content-type": "application/json" },
+        // Every answer goes over as its own field. They used to be concatenated
+        // into one free-text note, which arrived in the inbox as an unlabelled
+        // blob; the adviser reading the lead needs them as separate rows.
         body: JSON.stringify({
           fullName,
           email,
@@ -261,16 +264,13 @@ export function NativeInquiryForm({ defaultSolution }: { defaultSolution?: strin
           propertyType: structureType,
           solutionInterest: defaultSolution ?? "",
           monthlyBill: billRange,
-          goals: [usageProfile],
-          siteNotes: [
-            battery ? `Battery interest: ${battery}` : "",
-            urgency ? `Urgency (1-5): ${urgency}` : "",
-            contactTime ? `Best contact time: ${contactTime} ${contactAmPm}` : "",
-            billFile ? `Bill attachment: ${billFile.name} (${(billFile.size / 1024).toFixed(0)} KB)` : "",
-          ]
-            .filter(Boolean)
-            .join(" | "),
-          contactMethod: "Email",
+          usageProfile,
+          batteryInterest: battery,
+          urgency: urgency ? `${urgency} of 5 (1 = ASAP)` : "",
+          contactTime: contactTime ? `${contactTime} ${contactAmPm}` : "",
+          billAttachment: billFile
+            ? `${billFile.name} (${(billFile.size / 1024).toFixed(0)} KB)`
+            : "",
           turnstileToken,
           attribution: getAttribution(),
         }),
