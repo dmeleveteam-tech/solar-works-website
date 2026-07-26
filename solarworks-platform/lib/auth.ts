@@ -14,10 +14,22 @@ export const auth = betterAuth({
   secret: env.BETTER_AUTH_SECRET,
   database: mongodbAdapter(db),
 
-  // baseURL only trusts its own origin. Vercel preview/branch deployments
-  // (e.g. solar-works-admin-git-main-dm-eleve.vercel.app) get a different
-  // origin per deploy, so widen trust to this project's Vercel URL shape.
-  trustedOrigins: ["https://solar-works-admin-*.vercel.app"],
+  /**
+   * Origins allowed to POST to /api/auth.
+   *
+   * MUST include the baseURL's own origin explicitly. Supplying this option
+   * REPLACES better-auth's default (which is the baseURL origin) rather than
+   * adding to it — so listing only the wildcard silently un-trusts the canonical
+   * domain. That is not theoretical: `solar-works-admin-*.vercel.app` requires a
+   * hyphen and a suffix, so it never matched `solar-works-admin.vercel.app`, and
+   * every production sign-in failed with 403 INVALID_ORIGIN while preview
+   * deployments worked fine.
+   *
+   * Derived from BETTER_AUTH_URL rather than hardcoded, so pointing the app at a
+   * custom domain cannot reintroduce the same bug. The wildcard stays for Vercel
+   * preview/branch deploys, which get a fresh origin each time.
+   */
+  trustedOrigins: [new URL(env.BETTER_AUTH_URL).origin, "https://solar-works-admin-*.vercel.app"],
 
   emailAndPassword: {
     enabled: true,
