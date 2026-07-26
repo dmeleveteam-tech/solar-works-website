@@ -51,6 +51,39 @@ export const PRIMARY_GOALS = [
 ] as const
 
 /**
+ * Monthly electricity bill brackets, in PHP.
+ *
+ * Asked as a CHOICE rather than a number because most people do not know their
+ * bill to the peso and, asked for an exact figure, either guess badly or drop
+ * out of the flow. A bracket is both easier to answer honestly and entirely
+ * sufficient for sizing — the adviser confirms the real figure from an actual
+ * bill during the assessment.
+ *
+ * "Not sure" is deliberately last and deliberately present: without an escape
+ * hatch the visitor's only honest option is to abandon the question, and an
+ * unanswered bill still lets the lead through (it is not in
+ * REQUIRED_FIELD_LABELS). Do not remove it.
+ *
+ * English like every other canonical option, even though the assistant mirrors
+ * the visitor's language in prose. These strings are DATA, not conversation:
+ * they are matched verbatim by `collectedFields`, stored on the lead, and read
+ * by the sales team in the dashboard. A chip that changed language per visitor
+ * would break the match and fill the dashboard with two spellings of the same
+ * answer.
+ *
+ * Every title must survive Messenger's 20-character quick-reply cap — see the
+ * guard test in lib/messenger/render.test.ts. The longest here is 16.
+ */
+export const MONTHLY_BILL_RANGES = [
+  "Below ₱3,000",
+  "₱3,000 – ₱5,000",
+  "₱5,000 – ₱10,000",
+  "₱10,000 – ₱20,000",
+  "Above ₱20,000",
+  "Not sure",
+] as const
+
+/**
  * Fields the model may turn into chips. The options are canonical and supplied
  * by the server — the model picks the field, never the values — so a typo or a
  * hallucinated option can't reach the lead.
@@ -64,6 +97,13 @@ export const CHOICE_FIELDS = {
   primaryGoal: { label: "Primary goal", options: PRIMARY_GOALS },
   solutionInterest: { label: "Preferred solution", options: SOLUTION_INTERESTS },
   contactMethod: { label: "Preferred contact", options: CONTACT_METHODS },
+  // Shares its LABEL with the free-text `monthlyBill` in DETAIL_FIELDS, and that
+  // is deliberate. The two are the same question asked two ways — chips here,
+  // a typed figure on the web form — and `collectedFields` scans by label, so
+  // answering either marks the field collected and the model stops asking. Give
+  // them different labels and a visitor who taps a bracket gets asked for their
+  // bill a second time.
+  monthlyBill: { label: "Average monthly bill (PHP)", options: MONTHLY_BILL_RANGES },
 } as const
 
 export type ChoiceField = keyof typeof CHOICE_FIELDS
@@ -97,21 +137,21 @@ export const DETAIL_FIELDS = {
     label: "Barangay",
     type: "text",
     autoComplete: "address-level4",
-    placeholder: "Barangay",
+    placeholder: "San Pioquinto",
     required: false,
   },
   city: {
     label: "City / Municipality",
     type: "text",
     autoComplete: "address-level2",
-    placeholder: "City / Municipality",
+    placeholder: "Malvar",
     required: true,
   },
   province: {
     label: "Province",
     type: "text",
     autoComplete: "address-level1",
-    placeholder: "Province",
+    placeholder: "Batangas",
     required: false,
   },
   monthlyBill: {
@@ -128,6 +168,28 @@ export const DETAIL_FIELDS = {
     placeholder: "e.g. 450",
     required: false,
   },
+} as const
+
+/**
+ * Worked examples the assistant shows when asking for a free-text field.
+ *
+ * On the web these are the form's placeholders. On Messenger there IS no form —
+ * the model asks in prose, one field at a time — so without an example a visitor
+ * asked for their location answers "Batangas", which is a province and tells us
+ * nothing about serviceability. Showing the shape gets the barangay and
+ * municipality too, in one turn instead of three.
+ *
+ * Real Batangas place names on purpose: a Manila-centric example reads as
+ * written for someone else, and this is a Batangas/Laguna/Cavite business.
+ *
+ * Referenced by the system prompt, so an edit here reaches both channels — do
+ * not hardcode a second copy in brain.ts.
+ */
+export const FORMAT_EXAMPLES = {
+  location: "San Pioquinto, Malvar, Batangas",
+  mobile: "0917 555 0142",
+  email: "juan@gmail.com",
+  fullName: "Juan Dela Cruz",
 } as const
 
 export type DetailFieldKey = keyof typeof DETAIL_FIELDS

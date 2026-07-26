@@ -4,6 +4,24 @@ import { LONG_WAIT_MS, MAX_MESSAGES, runChatTurn, type ChatMessage } from "@/lib
 import { siteFacts } from "@/lib/chat/site-facts"
 import { CONSENT_ACCEPT_TEXT } from "@/lib/chat/vocab"
 import { env, messengerEnabled } from "@/lib/env"
+import {
+  ALREADY_A_LEAD_TEXT,
+  ASSESSMENT_OPENER,
+  ASSESSMENT_UPDATE_OPENER,
+  GET_STARTED,
+  HUMAN_HANDOFF_TEXT,
+  MENU_ASSESSMENT,
+  MENU_ASSESSMENT_UPDATE,
+  MENU_FAQ,
+  MENU_HUMAN,
+  MENU_PROMPT,
+  MENU_WORK,
+  faqQuickReplies,
+  isMenuPayload,
+  menuQuickReplies,
+  repeatLeadQuickReplies,
+  workAndPricingText,
+} from "@/lib/messenger/menu"
 import { renderChatUi } from "@/lib/messenger/render"
 import { sendAction, sendQuickReplies, sendText } from "@/lib/messenger/send"
 import { claimMid, loadSession, saveSession } from "@/lib/messenger/sessions"
@@ -187,6 +205,84 @@ function visitorText(event: MessagingEvent): string | undefined {
   return text?.trim() || undefined
 }
 
+/**
+ * Outcome of a menu tap: either the turn is finished here, or it continues into
+ * the brain carrying `brainText` in place of the raw payload.
+ */
+type MenuOutcome = { handled: true } | { handled: false; brainText: string }
+
+/**
+ * Handle a `SW_MENU_*` postback.
+ *
+ * Mutates `session` but never persists it — the caller owns that, so a menu tap
+ * and a model turn cannot race each other writing the same document.
+ *
+ * Three of the five branches answer directly and cost no model call at all,
+ * which is the point: navigation should be instant, and the Groq free tier is a
+ * shared budget with the web widget.
+ */
+async function handleMenu(
+  payload: string,
+  psid: string,
+  session: Awaited<ReturnType<typeof loadSession>>,
+): Promise<MenuOutcome> {
+  switch (payload) {
+    case GET_STARTED: {
+      await sendQuickReplies(psid, MENU_PROMPT, menuQuickReplies())
+      return { handled: true }
+    }
+
+    case MENU_HUMAN: {
+      // Stop qualifying. The flag is what the brain reads to decide it must not
+      // save another lead, and it is exactly right here: a visitor asking for a
+      // person should not be walked through a form by a robot.
+      session.leadAlreadySaved = true
+      await sendText(psid, HUMAN_HANDOFF_TEXT)
+      console.log(`[messenger] human hand-off requested: psid=${psid}`)
+      return { handled: true }
+    }
+
+    case MENU_WORK: {
+      await sendQuickReplies(
+        psid,
+        workAndPricingText(env.MARKETING_SITE_URL),
+        menuQuickReplies(),
+      )
+      return { handled: true }
+    }
+
+    case MENU_FAQ: {
+      await sendQuickReplies(psid, "Ano po ang gusto ninyong malaman?", faqQuickReplies())
+      return { handled: true }
+    }
+
+    case MENU_ASSESSMENT: {
+      // Returning visitor: offer to update rather than silently starting a
+      // second identical qualification and creating a duplicate lead.
+      if (session.leadAlreadySaved) {
+        await sendQuickReplies(psid, ALREADY_A_LEAD_TEXT, repeatLeadQuickReplies())
+        return { handled: true }
+      }
+      return { handled: false, brainText: ASSESSMENT_OPENER }
+    }
+
+    case MENU_ASSESSMENT_UPDATE: {
+      // They explicitly asked to revise what we hold, so re-open saving. The
+      // brain's own duplicate guard still applies within the turn; what this
+      // reopens is a deliberate, user-initiated update.
+      session.leadAlreadySaved = false
+      return { handled: false, brainText: ASSESSMENT_UPDATE_OPENER }
+    }
+
+    default:
+      // `isMenuPayload` already narrowed this, so reaching here means a payload
+      // was added to MENU_PAYLOADS without a branch. Fall through to the model
+      // rather than going silent.
+      console.warn(`[messenger] unhandled menu payload: ${payload}`)
+      return { handled: false, brainText: payload }
+  }
+}
+
 async function processEvent(event: MessagingEvent): Promise<void> {
   const psid = event.sender?.id
   if (!psid) return
@@ -246,6 +342,20 @@ async function processEvent(event: MessagingEvent): Promise<void> {
     session.attribution = { ...session.attribution, utm_source: "messenger" }
   }
 
+  // Menu navigation is intercepted BEFORE the model call — see the header of
+  // lib/messenger/menu.ts for why these four are not ordinary user turns.
+  // `handled` ends the turn here; `brainText` substitutes the canonical opener
+  // and falls through to the normal path.
+  let turnText = text
+  if (isMenuPayload(text)) {
+    const outcome = await handleMenu(text, psid, session)
+    if (outcome.handled) {
+      await saveSession(session)
+      return
+    }
+    turnText = outcome.brainText
+  }
+
   // The consent tap IS the consent record — PSID, timestamp and the exact
   // wording accepted. A stronger Data Privacy Act trail than the web widget's
   // client-supplied boolean, which its own comment notes is not tamper-proof.
@@ -260,7 +370,7 @@ async function processEvent(event: MessagingEvent): Promise<void> {
   void sendAction(psid, "mark_seen")
   void sendAction(psid, "typing_on")
 
-  const userTurn: ChatMessage = { role: "user", content: text }
+  const userTurn: ChatMessage = { role: "user", content: turnText }
   const messages = [...session.messages, userTurn].slice(-MAX_MESSAGES)
 
   const result = await runChatTurn({

@@ -19,6 +19,7 @@
     "seed:content": "tsx scripts/seed-content.ts",
     "seed:kb": "tsx scripts/seed-kb.ts",
     "kb:index": "tsx scripts/create-kb-index.ts",
+    "messenger:profile": "tsx scripts/setup-messenger-profile.ts",
     "test:kb": "tsx scripts/test-kb-threshold.ts"
   },
   "dependencies": {

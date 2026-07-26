@@ -60,6 +60,11 @@ const schema = z.object({
   FB_APP_SECRET: z.string().optional(),
   FB_PAGE_ACCESS_TOKEN: z.string().optional(),
   FB_WEBHOOK_VERIFY_TOKEN: z.string().optional(),
+  // Public base URL of the MARKETING site (not this app). The Messenger menu
+  // deep-links visitors to /our-work and /solar-solutions, and the persistent
+  // menu carries a "Visit our website" item. Defaulted rather than optional so
+  // the menu can never render a broken link.
+  MARKETING_SITE_URL: z.string().url().default("https://solar-works-website.vercel.app"),
   // n8n downstream automation. When N8N_LEAD_WEBHOOK_URL is set, every captured
   // lead is POSTed to it (fire-and-forget) so it flows through the n8n canvas.
   // Unset = no dispatch (deny by default). N8N_WEBHOOK_SECRET is optional; when
