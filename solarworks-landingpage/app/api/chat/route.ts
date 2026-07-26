@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 
-import { forwardChatTurn } from "@/lib/chat-proxy"
+import { chatApiConfigured, forwardChatTurn } from "@/lib/chat-proxy"
 import { siteConfig } from "@/lib/site-config"
 
 /**
@@ -133,6 +133,10 @@ export async function POST(req: Request) {
     return NextResponse.json({
       message: HUMAN_FALLBACK,
       leadSaved: false,
+      // Only worth a Retry button if the brain is configured at all: then this is
+      // a transient upstream failure. With no URL or key it would fail forever,
+      // and a button that can't work is worse than none.
+      ...(chatApiConfigured() ? { retryable: true } : {}),
       // Dev only — the visitor must never see internals (NFR-02), but silently
       // swallowing failures made this route very hard to diagnose.
       ...(process.env.NODE_ENV !== "production"
@@ -145,13 +149,25 @@ export async function POST(req: Request) {
   // conversation alive instead of sending them off to a form. The platform's own
   // wording can't name this site's Viber number, so ours replaces it.
   if (result.fallback?.kind === "rate_limited") {
+    const retryAfterMs = result.fallback.retryAfterMs ?? 0
     return NextResponse.json({
-      message: rateLimitFallback(result.fallback.retryAfterMs ?? 0),
+      message: rateLimitFallback(retryAfterMs),
       leadSaved: false,
+      // "Send that again in a moment" is only actionable while the wait is
+      // short; past LONG_WAIT_MS the copy above hands off to a human instead, so
+      // offering a retry would just walk them into the same wall.
+      ...(retryAfterMs < LONG_WAIT_MS ? { retryable: true, retryAfterMs } : {}),
       ...(process.env.NODE_ENV !== "production"
-        ? { debugError: `rate_limited retryAfterMs=${result.fallback.retryAfterMs ?? 0}` }
+        ? { debugError: `rate_limited retryAfterMs=${retryAfterMs}` }
         : {}),
     })
+  }
+
+  // An unexpected failure inside the brain (`kind: "error"`) is transient in the
+  // same way — the transcript is intact, so let them re-send the turn. `no_llm`
+  // is not: no key means every retry lands on the same hand-off.
+  if (result.fallback?.kind === "error") {
+    return NextResponse.json({ ...result, retryable: true })
   }
 
   return NextResponse.json(result)

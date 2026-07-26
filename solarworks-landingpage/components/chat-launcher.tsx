@@ -13,6 +13,7 @@ import {
   ChevronDown,
   Maximize2,
   Minimize2,
+  RotateCcw,
 } from "lucide-react"
 
 import { siteConfig } from "@/lib/site-config"
@@ -54,6 +55,13 @@ import {
  * `suggestions` are the server's tappable follow-ups for a plain prose reply —
  * shown only under the newest message, so the visitor always has something to
  * tap without the transcript filling up with stale chip rows.
+ *
+ * `retryable` marks a turn the server could not complete (rate limit, upstream
+ * failure) but which is worth sending again. It carries a "Try again" button, so
+ * "send that again in a moment" is one tap rather than the visitor having to
+ * retype their answer — or type the word "retry" and confuse the model with it.
+ * `retryAfterMs` is how long the provider asked us to wait, and keeps the button
+ * disabled until then instead of letting them walk straight into the same limit.
  */
 type Message = {
   role: "user" | "assistant"
@@ -61,6 +69,8 @@ type Message = {
   ui?: ChatUi
   resolved?: string
   suggestions?: string[]
+  retryable?: boolean
+  retryAfterMs?: number
 }
 
 const GREETING: Message = {
@@ -110,25 +120,13 @@ export function ChatLauncher() {
   }, [messages, pending])
 
   /**
-   * Send a turn. `resolveIndex` marks a structured block as answered, and
-   * `consentOverride` carries a just-granted consent that state hasn't flushed
-   * yet (setState is async, and this same turn is the one that saves the lead).
+   * Run one turn against `next`, which must already end with the visitor's
+   * message. Split out from `send` so "Try again" can re-run the exact same
+   * transcript minus the failed reply, rather than appending anything new.
    */
-  async function send(text: string, resolveIndex?: number, consentOverride?: boolean) {
-    const content = text.trim()
-    if (!content || pending) return
-
-    const base =
-      resolveIndex === undefined
-        ? messages
-        : messages.map((m, i) => (i === resolveIndex ? { ...m, resolved: content } : m))
-
-    const next = [...base, { role: "user" as const, content }]
+  async function runTurn(next: Message[], consentFlag: boolean) {
     setMessages(next)
-    setInput("")
     setPending(true)
-
-    const consentFlag = consentOverride ?? consentConfirmed
 
     try {
       const res = await fetch("/api/chat", {
@@ -149,13 +147,23 @@ export function ChatLauncher() {
         leadSaved?: boolean
         ui?: ChatUi
         suggestions?: string[]
+        retryable?: boolean
+        retryAfterMs?: number
       }
-      const reply =
-        data.message?.trim() ||
-        "Sorry, something went wrong on my end. Please try again, or reach us on Viber."
+      const reply = data.message?.trim()
       setMessages((m) => [
         ...m,
-        { role: "assistant", content: reply, ui: data.ui, suggestions: data.suggestions },
+        {
+          role: "assistant",
+          content:
+            reply || "Sorry, something went wrong on my end. Please try again, or reach us on Viber.",
+          ui: data.ui,
+          suggestions: data.suggestions,
+          // An empty reply is a failure the server didn't label, so it gets the
+          // button too — that response is exactly the case the copy above covers.
+          retryable: data.retryable === true || !reply,
+          retryAfterMs: data.retryAfterMs,
+        },
       ])
 
       if (data.leadSaved) {
@@ -172,6 +180,7 @@ export function ChatLauncher() {
           role: "assistant",
           content:
             "I couldn't reach our servers just now. Please try again, or message us on Viber and a real person will help you.",
+          retryable: true,
         },
       ])
     } finally {
@@ -179,6 +188,41 @@ export function ChatLauncher() {
       // Return focus to the input for the next turn.
       requestAnimationFrame(() => inputRef.current?.focus())
     }
+  }
+
+  /**
+   * Send a turn. `resolveIndex` marks a structured block as answered, and
+   * `consentOverride` carries a just-granted consent that state hasn't flushed
+   * yet (setState is async, and this same turn is the one that saves the lead).
+   */
+  function send(text: string, resolveIndex?: number, consentOverride?: boolean) {
+    const content = text.trim()
+    if (!content || pending) return
+
+    const base =
+      resolveIndex === undefined
+        ? messages
+        : messages.map((m, i) => (i === resolveIndex ? { ...m, resolved: content } : m))
+
+    setInput("")
+    return runTurn(
+      [...base, { role: "user" as const, content }],
+      consentOverride ?? consentConfirmed,
+    )
+  }
+
+  /**
+   * Re-run the failed turn: drop the failure bubble and send the transcript that
+   * produced it, so the visitor's last answer is re-used as-is. Consent comes
+   * from state here rather than an override — by now the tick has settled.
+   */
+  function retry() {
+    if (pending) return
+    const trimmed = [...messages]
+    while (trimmed.length > 0 && trimmed[trimmed.length - 1].role === "assistant") trimmed.pop()
+    // Nothing to re-send (only the greeting, say) — leave the transcript alone.
+    if (trimmed[trimmed.length - 1]?.role !== "user") return
+    void runTurn(trimmed, consentConfirmed)
   }
 
   function onSubmit(e: React.FormEvent) {
@@ -252,6 +296,16 @@ export function ChatLauncher() {
     return <QuickReplies options={message.suggestions} onAnswer={(value) => void send(value)} />
   }
 
+  /**
+   * "Try again" under the newest assistant message when the server told us the
+   * turn is worth re-sending. Newest only: an older failure has already been
+   * followed by a successful turn, so retrying it would replay ancient history.
+   */
+  function renderRetry(message: Message, index: number) {
+    if (!message.retryable || index !== messages.length - 1 || pending) return null
+    return <RetryButton waitMs={message.retryAfterMs} onRetry={retry} />
+  }
+
   return (
     <>
       {/* Panel */}
@@ -317,6 +371,7 @@ export function ChatLauncher() {
               </div>
               {renderUi(m, i)}
               {renderSuggestions(m, i)}
+              {renderRetry(m, i)}
             </div>
           ))}
 
@@ -394,6 +449,28 @@ export function ChatLauncher() {
         {open ? <X className="size-5" /> : <MessageSquareText className="size-5" />}
       </Button>
     </>
+  )
+}
+
+/**
+ * Re-send the last turn. While the provider's requested wait is still running
+ * the button counts it down and stays disabled, so tapping it can't land on the
+ * same rate limit — the number matches the "about N seconds" in the message
+ * above it.
+ */
+function RetryButton({ waitMs = 0, onRetry }: { waitMs?: number; onRetry: () => void }) {
+  const [remaining, setRemaining] = React.useState(() => Math.ceil(waitMs / 1000))
+
+  React.useEffect(() => {
+    if (remaining <= 0) return
+    const id = setTimeout(() => setRemaining((s) => s - 1), 1000)
+    return () => clearTimeout(id)
+  }, [remaining])
+
+  return (
+    <Button size="sm" variant="outline" disabled={remaining > 0} onClick={onRetry}>
+      <RotateCcw /> {remaining > 0 ? `Try again in ${remaining}s` : "Try again"}
+    </Button>
   )
 }
 
