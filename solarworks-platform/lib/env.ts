@@ -97,6 +97,13 @@ export const leadsNotifyEnabled = Boolean(
   env.RESEND_API_KEY && env.LEADS_NOTIFY_FROM && env.LEADS_NOTIFY_TO,
 )
 
+/**
+ * True when customer-facing project emails (e.g. "your installation is
+ * scheduled") can be sent. Reuses the same Resend sender identity as the
+ * lead alert — no separate "from" address needed for a second Resend use.
+ */
+export const projectEmailEnabled = Boolean(env.RESEND_API_KEY && env.LEADS_NOTIFY_FROM)
+
 /** True when the chatbot knowledge-base search endpoint is fully configured. */
 export const kbSearchEnabled = Boolean(env.COHERE_API_KEY && env.KB_SEARCH_KEY)
 

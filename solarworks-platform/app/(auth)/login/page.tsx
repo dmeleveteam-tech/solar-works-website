@@ -2,14 +2,7 @@ import { Suspense } from "react"
 import { redirect } from "next/navigation"
 
 import { getSession } from "@/lib/session"
-import { googleEnabled } from "@/lib/env"
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
+import { BrandMark } from "@/components/brand"
 import { LoginForm } from "@/components/auth/login-form"
 
 export const metadata = { title: "Sign in" }
@@ -19,16 +12,16 @@ export default async function LoginPage() {
   if (session) redirect("/")
 
   return (
-    <Card>
-      <CardHeader className="text-center">
-        <CardTitle className="text-xl">Welcome back</CardTitle>
-        <CardDescription>Sign in to your Solar Works account.</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <Suspense fallback={null}>
-          <LoginForm googleEnabled={googleEnabled} />
-        </Suspense>
-      </CardContent>
-    </Card>
+    <div className="mx-auto w-full max-w-sm">
+      <div className="mb-8 flex flex-col items-center gap-3 text-center">
+        <BrandMark className="size-14" />
+        <h1 className="font-heading text-2xl font-extrabold tracking-tight text-primary-strong">
+          LOGIN
+        </h1>
+      </div>
+      <Suspense fallback={null}>
+        <LoginForm />
+      </Suspense>
+    </div>
   )
 }

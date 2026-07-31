@@ -3,26 +3,34 @@
 import * as React from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
-import { Loader2 } from "lucide-react"
+import { Loader2, Lock, User } from "lucide-react"
 import { toast } from "sonner"
 
 import { authClient } from "@/lib/auth-client"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
+import { IconField } from "@/components/auth/icon-field"
 
-export function LoginForm({ googleEnabled }: { googleEnabled: boolean }) {
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
+export function LoginForm() {
   const router = useRouter()
   const params = useSearchParams()
   const redirectTo = params.get("redirectTo") || "/"
   const [pending, setPending] = React.useState(false)
-  const [googlePending, setGooglePending] = React.useState(false)
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     const data = new FormData(e.currentTarget)
     const email = String(data.get("email") ?? "").trim()
     const password = String(data.get("password") ?? "")
+
+    if (!email || !password) {
+      toast.error("Email and password are required.")
+      return
+    }
+    if (!EMAIL_PATTERN.test(email)) {
+      toast.error("Enter a valid email address.")
+      return
+    }
 
     setPending(true)
     const { error } = await authClient.signIn.email({ email, password })
@@ -37,76 +45,50 @@ export function LoginForm({ googleEnabled }: { googleEnabled: boolean }) {
     router.refresh()
   }
 
-  async function onGoogle() {
-    setGooglePending(true)
-    const { error } = await authClient.signIn.social({
-      provider: "google",
-      callbackURL: redirectTo,
-    })
-    if (error) {
-      setGooglePending(false)
-      toast.error(error.message ?? "Google sign-in failed.")
-    }
-  }
-
   return (
-    <div className="grid gap-5">
-      <form onSubmit={onSubmit} className="grid gap-4">
-        <div className="grid gap-2">
-          <Label htmlFor="email">Email</Label>
-          <Input
-            id="email"
-            name="email"
-            type="email"
-            autoComplete="email"
-            required
-            placeholder="you@email.com"
-          />
+    <div className="grid gap-6">
+      <form onSubmit={onSubmit} noValidate className="grid gap-6">
+        <IconField
+          icon={User}
+          id="email"
+          name="email"
+          type="email"
+          autoComplete="email"
+          required
+          placeholder="Email"
+        />
+        <IconField
+          icon={Lock}
+          id="password"
+          name="password"
+          type="password"
+          autoComplete="current-password"
+          required
+          placeholder="Password"
+        />
+
+        <div className="flex items-center justify-between gap-4">
+          <button
+            type="button"
+            onClick={() =>
+              toast("Contact your admin to reset your password.")
+            }
+            className="text-xs font-medium text-primary-strong hover:underline"
+          >
+            Forgot Password?
+          </button>
+          <button
+            type="submit"
+            disabled={pending}
+            className="inline-flex items-center gap-2 rounded-full bg-primary px-6 py-2.5 text-sm font-bold text-primary-foreground shadow-sm transition-colors hover:bg-primary/80 disabled:pointer-events-none disabled:opacity-60"
+          >
+            {pending ? <Loader2 className="size-4 animate-spin" /> : null}
+            LOGIN
+          </button>
         </div>
-        <div className="grid gap-2">
-          <Label htmlFor="password">Password</Label>
-          <Input
-            id="password"
-            name="password"
-            type="password"
-            autoComplete="current-password"
-            required
-            placeholder="••••••••"
-          />
-        </div>
-        <Button type="submit" size="lg" disabled={pending} className="w-full">
-          {pending ? (
-            <>
-              <Loader2 className="animate-spin" /> Signing in…
-            </>
-          ) : (
-            "Sign in"
-          )}
-        </Button>
       </form>
 
-      {googleEnabled ? (
-        <>
-          <div className="flex items-center gap-3 text-xs text-muted-foreground">
-            <span className="h-px flex-1 bg-border" />
-            or
-            <span className="h-px flex-1 bg-border" />
-          </div>
-          <Button
-            type="button"
-            variant="outline"
-            size="lg"
-            onClick={onGoogle}
-            disabled={googlePending}
-            className="w-full"
-          >
-            {googlePending ? <Loader2 className="animate-spin" /> : null}
-            Continue with Google
-          </Button>
-        </>
-      ) : null}
-
-      <p className="text-center text-sm text-muted-foreground">
+      <p className="text-center text-sm text-muted-foreground lg:hidden">
         New customer?{" "}
         <Link
           href="/signup"

@@ -5,15 +5,13 @@ import { ObjectId } from "mongodb"
 import { z } from "zod"
 
 import { requireRole } from "@/lib/session"
-import { db } from "@/lib/mongodb"
-import { notify } from "@/lib/notifications"
-import { createCustomerAccount } from "@/lib/customer-accounts"
+import { notifyProjectStageChanged } from "@/lib/email-alerts"
+import { getLeadById, leadsCollection } from "@/lib/leads"
 import {
   PROJECT_STAGES,
-  STAGE_LABEL,
-  STAGE_DESCRIPTION,
   insertProject,
   setProjectStage,
+  getProjectById,
   addProjectDocument,
   removeProjectDocument,
   deleteProject,
@@ -29,36 +27,42 @@ import {
  */
 
 export type ActionResult<T = undefined> =
-  | { ok: true; data: T }
+  | { ok: true; data: T; warning?: string }
   | { ok: false; error: string }
 
 const STAFF_ROLES = ["staff", "superadmin"] as const
 
 const objectId = z.string().refine((v) => ObjectId.isValid(v), "Invalid id")
 
-// Create a project, linking to either an existing customer account or a new one.
-const createSchema = z.intersection(
-  z.object({
-    displayName: z.string().trim().min(1, "Project name is required").max(120),
-    siteAddress: z.string().trim().max(300).optional().or(z.literal("")),
-    linkedLeadId: objectId.optional(),
-  }),
-  z.discriminatedUnion("mode", [
-    z.object({ mode: z.literal("existing"), customerUserId: objectId }),
-    z.object({
-      mode: z.literal("new"),
-      name: z.string().trim().min(1, "Customer name is required").max(120),
-      email: z.string().trim().email("Invalid email").max(200),
-      password: z.string().min(8, "Password must be at least 8 characters").max(200),
-    }),
-  ]),
-)
-
-const stageSchema = z.object({
-  id: objectId,
-  stage: z.enum(PROJECT_STAGES),
-  stageNote: z.string().trim().max(1000).optional().or(z.literal("")),
+// Create a standalone project directly from typed contact info (no lead, no
+// account) — the manual fallback for customers who never went through Leads.
+const createSchema = z.object({
+  name: z.string().trim().min(1, "Customer name is required").max(120),
+  email: z.string().trim().email("Invalid email").max(200),
+  phone: z.string().trim().max(40).optional().or(z.literal("")),
+  displayName: z.string().trim().min(1, "Project name is required").max(120),
+  siteAddress: z.string().trim().max(300).optional().or(z.literal("")),
 })
+
+const convertLeadSchema = z.object({
+  leadId: objectId,
+  displayName: z.string().trim().min(1, "Project name is required").max(120),
+  siteAddress: z.string().trim().max(300).optional().or(z.literal("")),
+})
+
+const stageSchema = z
+  .object({
+    id: objectId,
+    stage: z.enum(PROJECT_STAGES),
+    stageNote: z.string().trim().max(1000).optional().or(z.literal("")),
+    // Datetime-local input value (e.g. "2026-08-14T09:00"). Required when
+    // moving into "scheduled" so the customer email always has a date to send.
+    scheduledAt: z.string().trim().optional().or(z.literal("")),
+  })
+  .refine((v) => v.stage !== "scheduled" || Boolean(v.scheduledAt), {
+    message: "Set a schedule date/time.",
+    path: ["scheduledAt"],
+  })
 
 const addDocSchema = z.object({
   id: objectId,
@@ -85,77 +89,112 @@ export async function createProject(
   }
   const v = parsed.data
 
-  let customerUserId: string
-  let customerName: string
-  let customerEmail: string
+  const project = await insertProject({
+    customerName: v.name,
+    customerEmail: v.email.trim().toLowerCase(),
+    customerPhone: v.phone ? v.phone : null,
+    displayName: v.displayName,
+    siteAddress: v.siteAddress ? v.siteAddress : null,
+    linkedLeadId: null,
+  })
+  revalidatePath("/dashboard/projects")
+  return { ok: true, data: project }
+}
 
-  if (v.mode === "new") {
-    const created = await createCustomerAccount({
-      name: v.name,
-      email: v.email,
-      password: v.password,
-    })
-    if (!created.ok) return { ok: false, error: created.error }
-    customerUserId = created.userId
-    customerName = v.name
-    customerEmail = v.email.trim().toLowerCase()
-  } else {
-    // Confirm the selected account exists and really is a customer.
-    const user = await db
-      .collection("user")
-      .findOne(
-        { _id: new ObjectId(v.customerUserId), role: "customer" },
-        { projection: { name: 1, email: 1 } },
-      )
-    if (!user) return { ok: false, error: "That account isn't a customer." }
-    customerUserId = v.customerUserId
-    customerName = (user.name as string | undefined) ?? ""
-    customerEmail = (user.email as string | undefined) ?? ""
+/**
+ * Turn a lead into a customer project. The lead's name/email/phone seed the
+ * project's contact fields; `linkedLeadId` records the origin. Requires the
+ * lead to have an email — the project's only notification channel
+ * (`notifyProjectStageChanged`) sends to `customerEmail`, so a project
+ * without one would silently never notify anybody.
+ */
+export async function convertLeadToProject(
+  input: z.input<typeof convertLeadSchema>,
+): Promise<ActionResult<CustomerProject>> {
+  await requireRole(...STAFF_ROLES)
+
+  const parsed = convertLeadSchema.safeParse(input)
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid request." }
+  }
+  const { leadId, displayName, siteAddress } = parsed.data
+
+  const lead = await getLeadById(leadId)
+  if (!lead) return { ok: false, error: "Lead not found." }
+  if (!lead.email) {
+    return { ok: false, error: "This lead has no email on file; add one before converting." }
   }
 
   const project = await insertProject({
-    customerUserId,
-    customerName,
-    customerEmail,
-    displayName: v.displayName,
-    siteAddress: v.siteAddress ? v.siteAddress : null,
-    linkedLeadId: v.linkedLeadId ?? null,
+    customerName: lead.name,
+    customerEmail: lead.email,
+    customerPhone: lead.phone,
+    displayName,
+    siteAddress: siteAddress ? siteAddress : null,
+    linkedLeadId: lead.id,
   })
+
+  // Converting is the sales outcome "won" represents — flip the lead's status
+  // so the pipeline and the projects list agree without a second manual step.
+  // Staff can still override it via the existing status dropdown.
+  await leadsCollection().updateOne(
+    { _id: new ObjectId(leadId) },
+    { $set: { status: "won", updatedAt: new Date() } },
+  )
+
   revalidatePath("/dashboard/projects")
+  revalidatePath("/dashboard")
   return { ok: true, data: project }
 }
 
 export async function updateProjectStage(
   input: z.input<typeof stageSchema>,
 ): Promise<ActionResult<CustomerProject>> {
-  const session = await requireRole(...STAFF_ROLES)
+  await requireRole(...STAFF_ROLES)
 
   const parsed = stageSchema.safeParse(input)
   if (!parsed.success) {
     return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid update." }
   }
-  const { id, stage, stageNote } = parsed.data
-  const project = await setProjectStage(id, stage, stageNote ? stageNote : null)
+  const { id, stage, stageNote, scheduledAt } = parsed.data
+
+  // Captured before the write so the notification can say what the stage
+  // actually changed *from* — findOneAndUpdate only ever hands back one side.
+  const before = await getProjectById(id)
+  if (!before) return { ok: false, error: "Project not found." }
+  const previousStage = before.stage
+
+  const project = await setProjectStage(
+    id,
+    stage,
+    stageNote ? stageNote : null,
+    // Leave the stored schedule untouched when the field wasn't submitted
+    // (i.e. the stage editor was showing a non-"scheduled" stage).
+    scheduledAt ? new Date(scheduledAt) : undefined,
+  )
   if (!project) return { ok: false, error: "Project not found." }
 
-  // The customer is the audience here — the staff member made this change.
-  await notify({
-    userId: project.customerUserId,
-    type: "project_updated",
-    title: `${project.displayName} moved to ${STAGE_LABEL[project.stage]}`,
-    body: project.stageNote || STAGE_DESCRIPTION[project.stage],
-    href: "/portal",
-    actorId: session.user.id,
-  })
+  // Email the customer on every stage transition (not just moves into
+  // "scheduled") — an in-app notification alone is easy to miss. A note-only
+  // save with no stage change doesn't re-send the email.
+  let warning: string | undefined
+  if (project.stage !== previousStage) {
+    const emailResult = await notifyProjectStageChanged(project, previousStage)
+    if (!emailResult.sent) {
+      warning = `Stage updated, but the customer email wasn't sent (${
+        emailResult.error ?? emailResult.skippedReason ?? "unknown reason"
+      }).`
+    }
+  }
 
   revalidatePath("/dashboard/projects")
-  return { ok: true, data: project }
+  return { ok: true, data: project, warning }
 }
 
 export async function addDocument(
   input: z.input<typeof addDocSchema>,
 ): Promise<ActionResult<CustomerProject>> {
-  const session = await requireRole(...STAFF_ROLES)
+  await requireRole(...STAFF_ROLES)
 
   const parsed = addDocSchema.safeParse(input)
   if (!parsed.success) {
@@ -164,15 +203,6 @@ export async function addDocument(
   const { id, label, url } = parsed.data
   const project = await addProjectDocument(id, { label, url })
   if (!project) return { ok: false, error: "Project not found." }
-
-  await notify({
-    userId: project.customerUserId,
-    type: "project_updated",
-    title: `New document — ${label}`,
-    body: `Shared on ${project.displayName}`,
-    href: "/portal",
-    actorId: session.user.id,
-  })
 
   revalidatePath("/dashboard/projects")
   return { ok: true, data: project }

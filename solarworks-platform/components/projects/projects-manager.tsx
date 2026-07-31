@@ -30,7 +30,6 @@ import {
   removeProject,
   type ActionResult,
 } from "@/app/dashboard/projects/actions"
-import type { LinkableCustomer } from "@/lib/customer-projects"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -42,13 +41,18 @@ const controlClass = cn(
   "disabled:pointer-events-none disabled:opacity-50",
 )
 
+// `next-cloudinary`'s CldUploadWidget throws during render (not just on
+// upload) when this is unset, which used to take the whole expanded project
+// card down with it — including the status editor rendered next to it. Guard
+// on the same public env var so a missing Cloudinary config degrades to a
+// disabled button instead of crashing the row.
+const CLOUDINARY_CLOUD_NAME = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME
+
 export function ProjectsManager({
   initialProjects,
-  customers,
   canDelete,
 }: {
   initialProjects: CustomerProject[]
-  customers: LinkableCustomer[]
   canDelete: boolean
 }) {
   const [projects, setProjects] = React.useState(initialProjects)
@@ -72,7 +76,6 @@ export function ProjectsManager({
 
       {adding ? (
         <CreateProjectForm
-          customers={customers}
           onCreated={(project) => {
             setProjects((prev) => [project, ...prev])
             setAdding(false)
@@ -83,7 +86,8 @@ export function ProjectsManager({
       {projects.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center text-sm text-muted-foreground">
-            No customer projects yet. Create one to give a customer portal access.
+            No customer projects yet. Convert a lead from the Leads inbox, or
+            create one directly below.
           </CardContent>
         </Card>
       ) : (
@@ -106,34 +110,22 @@ export function ProjectsManager({
 // --- create -----------------------------------------------------------------
 
 function CreateProjectForm({
-  customers,
   onCreated,
 }: {
-  customers: LinkableCustomer[]
   onCreated: (project: CustomerProject) => void
 }) {
-  const [mode, setMode] = React.useState<"existing" | "new">(
-    customers.length > 0 ? "existing" : "new",
-  )
   const [saving, setSaving] = React.useState(false)
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     const fd = new FormData(e.currentTarget)
-    const displayName = String(fd.get("displayName") ?? "").trim()
-    const siteAddress = String(fd.get("siteAddress") ?? "").trim()
-
-    const base = { displayName, siteAddress }
-    const input =
-      mode === "existing"
-        ? { ...base, mode: "existing" as const, customerUserId: String(fd.get("customerUserId") ?? "") }
-        : {
-            ...base,
-            mode: "new" as const,
-            name: String(fd.get("name") ?? "").trim(),
-            email: String(fd.get("email") ?? "").trim(),
-            password: String(fd.get("password") ?? ""),
-          }
+    const input = {
+      name: String(fd.get("name") ?? "").trim(),
+      email: String(fd.get("email") ?? "").trim(),
+      phone: String(fd.get("phone") ?? "").trim(),
+      displayName: String(fd.get("displayName") ?? "").trim(),
+      siteAddress: String(fd.get("siteAddress") ?? "").trim(),
+    }
 
     setSaving(true)
     const res = await createProject(input)
@@ -150,53 +142,20 @@ function CreateProjectForm({
     <Card>
       <CardContent className="grid gap-4 py-5">
         <form onSubmit={onSubmit} className="grid gap-4">
-          <div className="flex gap-2">
-            <Button
-              type="button"
-              size="sm"
-              variant={mode === "existing" ? "default" : "outline"}
-              onClick={() => setMode("existing")}
-              disabled={customers.length === 0}
-            >
-              Existing customer
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              variant={mode === "new" ? "default" : "outline"}
-              onClick={() => setMode("new")}
-            >
-              New customer account
-            </Button>
-          </div>
-
-          {mode === "existing" ? (
+          <div className="grid gap-4 sm:grid-cols-3">
             <div className="grid gap-1.5">
-              <Label htmlFor="customerUserId">Customer</Label>
-              <select id="customerUserId" name="customerUserId" className={controlClass} required>
-                {customers.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name ? `${c.name} — ${c.email}` : c.email}
-                  </option>
-                ))}
-              </select>
+              <Label htmlFor="name">Customer name</Label>
+              <Input id="name" name="name" required maxLength={120} />
             </div>
-          ) : (
-            <div className="grid gap-4 sm:grid-cols-3">
-              <div className="grid gap-1.5">
-                <Label htmlFor="name">Customer name</Label>
-                <Input id="name" name="name" required maxLength={120} />
-              </div>
-              <div className="grid gap-1.5">
-                <Label htmlFor="email">Email</Label>
-                <Input id="email" name="email" type="email" required maxLength={200} />
-              </div>
-              <div className="grid gap-1.5">
-                <Label htmlFor="password">Temporary password</Label>
-                <Input id="password" name="password" type="text" required minLength={8} maxLength={200} />
-              </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="email">Email</Label>
+              <Input id="email" name="email" type="email" required maxLength={200} />
             </div>
-          )}
+            <div className="grid gap-1.5">
+              <Label htmlFor="phone">Phone (optional)</Label>
+              <Input id="phone" name="phone" maxLength={40} />
+            </div>
+          </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="grid gap-1.5">
@@ -214,13 +173,6 @@ function CreateProjectForm({
               <Input id="siteAddress" name="siteAddress" maxLength={300} />
             </div>
           </div>
-
-          {mode === "new" ? (
-            <p className="text-xs text-muted-foreground">
-              This creates a customer login. Share the email and temporary password with
-              them; they can sign in at the portal.
-            </p>
-          ) : null}
 
           <div>
             <Button type="submit" size="sm" disabled={saving}>
@@ -287,6 +239,14 @@ function ProjectCard({
   )
 }
 
+/** ISO datetime → the local value a `<input type="datetime-local">` expects. */
+function toDatetimeLocal(iso: string | null): string {
+  if (!iso) return ""
+  const d = new Date(iso)
+  const pad = (n: number) => String(n).padStart(2, "0")
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
 function StageEditor({
   project,
   onChange,
@@ -296,11 +256,17 @@ function StageEditor({
 }) {
   const [stage, setStage] = React.useState<ProjectStage>(project.stage)
   const [note, setNote] = React.useState(project.stageNote ?? "")
+  const [scheduledAt, setScheduledAt] = React.useState(toDatetimeLocal(project.scheduledAt))
   const [saving, setSaving] = React.useState(false)
 
   async function onSave() {
     setSaving(true)
-    const res = await updateProjectStage({ id: project.id, stage, stageNote: note })
+    const res = await updateProjectStage({
+      id: project.id,
+      stage,
+      stageNote: note,
+      scheduledAt: stage === "scheduled" ? scheduledAt : "",
+    })
     setSaving(false)
     handle(res, onChange, "Stage updated.")
   }
@@ -335,8 +301,28 @@ function StageEditor({
           />
         </div>
       </div>
+      {stage === "scheduled" ? (
+        <div className="grid gap-1.5 sm:max-w-[16rem]">
+          <Label htmlFor={`sched-${project.id}`}>Installation date &amp; time</Label>
+          <Input
+            id={`sched-${project.id}`}
+            type="datetime-local"
+            className={controlClass}
+            value={scheduledAt}
+            onChange={(e) => setScheduledAt(e.target.value)}
+            required
+          />
+          <p className="text-xs text-muted-foreground">
+            Saving this emails the customer their schedule.
+          </p>
+        </div>
+      ) : null}
       <div>
-        <Button size="sm" onClick={onSave} disabled={saving}>
+        <Button
+          size="sm"
+          onClick={onSave}
+          disabled={saving || (stage === "scheduled" && !scheduledAt)}
+        >
           {saving ? <Loader2 className="animate-spin" /> : null}
           Save status
         </Button>
@@ -421,39 +407,50 @@ function DocumentsEditor({
             placeholder="e.g. Proposal (PDF)"
           />
         </div>
-        <CldUploadWidget
-          signatureEndpoint={CLOUDINARY_SIGN_ENDPOINT}
-          options={CLOUDINARY_UPLOAD_OPTIONS.customerDocument}
-          onOpen={() => {
-            labelRef.current = label
-            setBusy(true)
-          }}
-          onSuccess={(result) => {
-            const info = typeof result.info === "object" ? result.info : undefined
-            if (info?.secure_url) void onUploadSuccess(info.secure_url)
-            else setBusy(false)
-          }}
-          onError={(err) => {
-            setBusy(false)
-            const message = typeof err === "string" ? err : (err as { statusText?: string })?.statusText
-            toast.error(message || "Upload failed.")
-          }}
-        >
-          {({ open, isLoading }) => (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              disabled={busy || isLoading}
-              onClick={() => open()}
-            >
-              {busy || isLoading ? <Loader2 className="animate-spin" /> : <Upload />}
-              Upload &amp; add
-            </Button>
-          )}
-        </CldUploadWidget>
+        {CLOUDINARY_CLOUD_NAME ? (
+          <CldUploadWidget
+            signatureEndpoint={CLOUDINARY_SIGN_ENDPOINT}
+            options={CLOUDINARY_UPLOAD_OPTIONS.customerDocument}
+            onOpen={() => {
+              labelRef.current = label
+              setBusy(true)
+            }}
+            onSuccess={(result) => {
+              const info = typeof result.info === "object" ? result.info : undefined
+              if (info?.secure_url) void onUploadSuccess(info.secure_url)
+              else setBusy(false)
+            }}
+            onError={(err) => {
+              setBusy(false)
+              const message = typeof err === "string" ? err : (err as { statusText?: string })?.statusText
+              toast.error(message || "Upload failed.")
+            }}
+          >
+            {({ open, isLoading }) => (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={busy || isLoading}
+                onClick={() => open()}
+              >
+                {busy || isLoading ? <Loader2 className="animate-spin" /> : <Upload />}
+                Upload &amp; add
+              </Button>
+            )}
+          </CldUploadWidget>
+        ) : (
+          <Button type="button" variant="outline" size="sm" disabled>
+            <Upload />
+            Uploads not configured
+          </Button>
+        )}
       </div>
-      <p className="text-xs text-muted-foreground">PDF or image, up to 16MB.</p>
+      <p className="text-xs text-muted-foreground">
+        {CLOUDINARY_CLOUD_NAME
+          ? "PDF or image, up to 16MB."
+          : "Set NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME to enable document uploads."}
+      </p>
     </div>
   )
 }
@@ -518,6 +515,10 @@ function handle(
     return false
   }
   onChange(res.data)
-  toast.success(successMessage)
+  if (res.warning) {
+    toast.warning(res.warning)
+  } else {
+    toast.success(successMessage)
+  }
   return true
 }

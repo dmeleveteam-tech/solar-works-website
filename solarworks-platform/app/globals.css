@@ -169,4 +169,36 @@
     letter-spacing: -0.02em;
     text-wrap: balance;
   }
+
+  /* Soft grid backdrop — barely-there guide lines, matches the marketing site. */
+  .bg-grid {
+    background-image:
+      linear-gradient(to right, color-mix(in oklch, var(--foreground) 5%, transparent) 1px, transparent 1px),
+      linear-gradient(to bottom, color-mix(in oklch, var(--foreground) 5%, transparent) 1px, transparent 1px);
+    background-size: 56px 56px;
+  }
+
+  /* Warm radial glow in the brand amber, for hero/auth/header surfaces that
+     would otherwise be flat white. */
+  .bg-solar-glow {
+    background-image: radial-gradient(
+      ellipse 80% 60% at 50% -10%,
+      color-mix(in oklch, var(--primary) 22%, transparent),
+      transparent 70%
+    );
+  }
+
+  /* Grid + glow combined into one background-image list — .bg-grid and
+     .bg-solar-glow can't be stacked on the same element (each sets
+     background-image and the second silently wins the whole property). */
+  .bg-solar-hero {
+    background-image:
+      radial-gradient(ellipse 80% 60% at 50% -10%, color-mix(in oklch, var(--primary) 22%, transparent), transparent 70%),
+      linear-gradient(to right, color-mix(in oklch, var(--foreground) 5%, transparent) 1px, transparent 1px),
+      linear-gradient(to bottom, color-mix(in oklch, var(--foreground) 5%, transparent) 1px, transparent 1px);
+    background-size:
+      100% 100%,
+      56px 56px,
+      56px 56px;
+  }
 }

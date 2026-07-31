@@ -20,6 +20,7 @@ import {
   assignLead,
   deleteLead,
 } from "@/app/dashboard/actions"
+import { convertLeadToProject } from "@/app/dashboard/projects/actions"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -72,9 +73,23 @@ export function LeadsManager({
   // Ids of leads whose captured details are expanded. A set, not a single id,
   // so two enquiries can be compared side by side.
   const [expanded, setExpanded] = React.useState<ReadonlySet<string>>(new Set())
+  // Ids of leads showing the inline "convert to project" form.
+  const [converting, setConverting] = React.useState<ReadonlySet<string>>(new Set())
+  const [convertBusyId, setConvertBusyId] = React.useState<string | null>(null)
+  // Ids already converted this session — guards against an accidental
+  // double-click creating two projects for the same lead.
+  const [converted, setConverted] = React.useState<ReadonlySet<string>>(new Set())
 
   function toggleExpanded(id: string) {
     setExpanded((prev) => {
+      const next = new Set(prev)
+      if (!next.delete(id)) next.add(id)
+      return next
+    })
+  }
+
+  function toggleConverting(id: string) {
+    setConverting((prev) => {
       const next = new Set(prev)
       if (!next.delete(id)) next.add(id)
       return next
@@ -173,6 +188,29 @@ export function LeadsManager({
     }
     toast.success("Lead deleted")
     setLeads((prev) => prev.filter((l) => l.id !== lead.id))
+  }
+
+  async function onConvert(lead: Lead, e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    const fd = new FormData(e.currentTarget)
+    const displayName = String(fd.get("displayName") ?? "").trim()
+    const siteAddress = String(fd.get("siteAddress") ?? "").trim()
+
+    setConvertBusyId(lead.id)
+    const res = await convertLeadToProject({ leadId: lead.id, displayName, siteAddress })
+    setConvertBusyId(null)
+    if (!res.ok) {
+      toast.error(res.error)
+      return
+    }
+    toast.success(`Project created: ${res.data.displayName}`)
+    toggleConverting(lead.id)
+    setConverted((prev) => new Set(prev).add(lead.id))
+    // The action also flips the lead's status to "won" server-side; reflect
+    // it locally so the pill and filter update without a reload.
+    setLeads((prev) =>
+      prev.map((l) => (l.id === lead.id ? { ...l, status: "won" as LeadStatus } : l)),
+    )
   }
 
   return (
@@ -362,6 +400,17 @@ export function LeadsManager({
                         <Loader2 className="size-4 animate-spin text-muted-foreground" />
                       ) : null}
 
+                      {!converted.has(lead.id) ? (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={busy}
+                          onClick={() => toggleConverting(lead.id)}
+                        >
+                          Convert to project
+                        </Button>
+                      ) : null}
+
                       {canDelete ? (
                         <Button
                           variant="destructive"
@@ -374,6 +423,47 @@ export function LeadsManager({
                         </Button>
                       ) : null}
                     </div>
+
+                    {converting.has(lead.id) ? (
+                      <div className="border-t bg-muted/20 px-4 pt-3 pb-4">
+                        <form
+                          onSubmit={(e) => onConvert(lead, e)}
+                          className="grid gap-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end"
+                        >
+                          <div className="grid gap-1.5">
+                            <Label htmlFor={`convert-name-${lead.id}`}>Project name</Label>
+                            <Input
+                              id={`convert-name-${lead.id}`}
+                              name="displayName"
+                              required
+                              maxLength={120}
+                              defaultValue={lead.name ? `${lead.name} residence` : ""}
+                            />
+                          </div>
+                          <div className="grid gap-1.5">
+                            <Label htmlFor={`convert-address-${lead.id}`}>
+                              Site address (optional)
+                            </Label>
+                            <Input
+                              id={`convert-address-${lead.id}`}
+                              name="siteAddress"
+                              maxLength={300}
+                            />
+                          </div>
+                          <Button type="submit" size="sm" disabled={convertBusyId === lead.id}>
+                            {convertBusyId === lead.id ? (
+                              <Loader2 className="animate-spin" />
+                            ) : null}
+                            Create project
+                          </Button>
+                        </form>
+                        {!lead.email ? (
+                          <p className="mt-2 text-xs text-destructive">
+                            This lead has no email on file — add one before converting.
+                          </p>
+                        ) : null}
+                      </div>
+                    ) : null}
 
                     {open ? (
                       <div id={panelId} className="bg-muted/40 px-4 pt-3 pb-4 text-sm">

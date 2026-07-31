@@ -46,7 +46,7 @@ export function AppShell({
         <SidebarProvider>
           <AppSidebar user={user} nav={nav} />
           <SidebarInset>
-            <header className="sticky top-0 z-10 flex h-14 shrink-0 items-center gap-2 rounded-t-xl border-b bg-background/80 px-4 backdrop-blur">
+            <header className="sticky top-0 z-10 flex h-14 shrink-0 items-center gap-2 rounded-t-xl border-b border-primary/15 bg-gradient-to-r from-primary/10 via-background/90 to-background/90 px-4 backdrop-blur">
               <SidebarTrigger className="-ml-1" />
               <Separator
                 orientation="vertical"

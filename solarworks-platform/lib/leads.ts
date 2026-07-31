@@ -82,6 +82,12 @@ export async function listLeads(query: LeadQuery = {}): Promise<Lead[]> {
   return docs.map(serializeLead)
 }
 
+/** A single lead by id, unscoped (staff/admin view). */
+export async function getLeadById(id: string): Promise<Lead | null> {
+  const doc = await leadsCollection().findOne({ _id: new ObjectId(id) })
+  return doc ? serializeLead(doc) : null
+}
+
 /** A staff/superadmin user a lead can be assigned to. */
 export type Assignee = { id: string; name: string; email: string }
 

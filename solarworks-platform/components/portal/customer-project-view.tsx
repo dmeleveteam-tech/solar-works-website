@@ -71,6 +71,15 @@ export function CustomerProjectView({ project }: { project: CustomerProject }) {
                     <p className="text-sm text-muted-foreground">
                       {STAGE_DESCRIPTION[stage]}
                     </p>
+                    {active && stage === "scheduled" && project.scheduledAt ? (
+                      <p className="mt-1 text-sm font-medium">
+                        {new Date(project.scheduledAt).toLocaleString("en-PH", {
+                          dateStyle: "full",
+                          timeStyle: "short",
+                          timeZone: "Asia/Manila",
+                        })}
+                      </p>
+                    ) : null}
                     {active && project.stageNote ? (
                       <p className="mt-1 rounded-md bg-muted px-3 py-2 text-sm">
                         {project.stageNote}

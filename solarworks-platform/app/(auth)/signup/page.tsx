@@ -2,13 +2,7 @@ import { redirect } from "next/navigation"
 
 import { getSession } from "@/lib/session"
 import { googleEnabled } from "@/lib/env"
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
+import { BrandMark } from "@/components/brand"
 import { SignupForm } from "@/components/auth/signup-form"
 
 export const metadata = { title: "Create account" }
@@ -18,16 +12,17 @@ export default async function SignupPage() {
   if (session) redirect("/")
 
   return (
-    <Card>
-      <CardHeader className="text-center">
-        <CardTitle className="text-xl">Create your account</CardTitle>
-        <CardDescription>
+    <div className="mx-auto w-full max-w-sm">
+      <div className="mb-8 flex flex-col items-center gap-3 text-center">
+        <BrandMark className="size-14" />
+        <h1 className="font-heading text-2xl font-extrabold tracking-tight text-primary-strong">
+          SIGN UP
+        </h1>
+        <p className="text-sm text-muted-foreground">
           Track your solar assessment, quotes, and installation.
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <SignupForm googleEnabled={googleEnabled} />
-      </CardContent>
-    </Card>
+        </p>
+      </div>
+      <SignupForm googleEnabled={googleEnabled} />
+    </div>
   )
 }

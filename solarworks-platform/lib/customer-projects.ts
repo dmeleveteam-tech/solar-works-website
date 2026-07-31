@@ -26,15 +26,15 @@ export * from "./customer-projects-shared"
 /** Stored document shape. */
 export type CustomerProjectDoc = {
   _id: ObjectId
-  /** better-auth `user._id` (string) of the owning customer. */
-  customerUserId: string
   customerName: string
   customerEmail: string
+  customerPhone: string | null
   displayName: string
   siteAddress: string | null
   stage: ProjectStage
   stageNote: string | null
   stageUpdatedAt: Date
+  scheduledAt: Date | null
   documents: ProjectDocument[]
   linkedLeadId: string | null
   createdAt: Date
@@ -73,14 +73,15 @@ export function serializeCustomerProject(
 ): CustomerProject {
   return {
     id: doc._id.toString(),
-    customerUserId: doc.customerUserId,
     customerName: doc.customerName,
     customerEmail: doc.customerEmail,
+    customerPhone: doc.customerPhone,
     displayName: doc.displayName,
     siteAddress: doc.siteAddress,
     stage: doc.stage,
     stageNote: doc.stageNote,
     stageUpdatedAt: doc.stageUpdatedAt.toISOString(),
+    scheduledAt: doc.scheduledAt ? doc.scheduledAt.toISOString() : null,
     documents: doc.documents ?? [],
     linkedLeadId: doc.linkedLeadId,
     createdAt: doc.createdAt.toISOString(),
@@ -112,29 +113,18 @@ export async function listAllProjects(): Promise<CustomerProject[]> {
   return docs.map(serializeCustomerProject)
 }
 
-/** A customer account a project can be linked to. */
-export type LinkableCustomer = { id: string; name: string; email: string }
-
-/** Users with the `customer` role, for the staff project-linking picker. */
-export async function listLinkableCustomers(): Promise<LinkableCustomer[]> {
-  const docs = await db
-    .collection("user")
-    .find({ role: "customer" }, { projection: { name: 1, email: 1 } })
-    .sort({ name: 1 })
-    .toArray()
-  return docs.map((d) => ({
-    id: String(d._id),
-    name: (d.name as string | undefined) ?? "",
-    email: (d.email as string | undefined) ?? "",
-  }))
+/** A single project by id, unscoped (staff/admin view). */
+export async function getProjectById(id: string): Promise<CustomerProject | null> {
+  const doc = await customerProjectsCollection().findOne({ _id: new ObjectId(id) })
+  return doc ? serializeCustomerProject(doc) : null
 }
 
 // --- staff writes -----------------------------------------------------------
 
 export type CreateProjectInput = {
-  customerUserId: string
   customerName: string
   customerEmail: string
+  customerPhone: string | null
   displayName: string
   siteAddress: string | null
   linkedLeadId: string | null
@@ -146,14 +136,15 @@ export async function insertProject(
   const now = new Date()
   const doc: CustomerProjectDoc = {
     _id: new ObjectId(),
-    customerUserId: input.customerUserId,
     customerName: input.customerName,
     customerEmail: input.customerEmail,
+    customerPhone: input.customerPhone,
     displayName: input.displayName,
     siteAddress: input.siteAddress,
     stage: "assessment",
     stageNote: null,
     stageUpdatedAt: now,
+    scheduledAt: null,
     documents: [],
     linkedLeadId: input.linkedLeadId,
     createdAt: now,
@@ -167,11 +158,15 @@ export async function setProjectStage(
   id: string,
   stage: ProjectStage,
   stageNote: string | null,
+  /** Omit to leave the existing schedule untouched; pass null to clear it. */
+  scheduledAt?: Date | null,
 ): Promise<CustomerProject | null> {
   const now = new Date()
+  const set: Record<string, unknown> = { stage, stageNote, stageUpdatedAt: now, updatedAt: now }
+  if (scheduledAt !== undefined) set.scheduledAt = scheduledAt
   const result = await customerProjectsCollection().findOneAndUpdate(
     { _id: new ObjectId(id) },
-    { $set: { stage, stageNote, stageUpdatedAt: now, updatedAt: now } },
+    { $set: set },
     { returnDocument: "after" },
   )
   return result ? serializeCustomerProject(result) : null

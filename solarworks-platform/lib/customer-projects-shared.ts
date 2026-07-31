@@ -62,14 +62,16 @@ export type ProjectDocument = {
 /** Plain, client-safe project shape (ObjectId / Date serialized to strings). */
 export type CustomerProject = {
   id: string
-  customerUserId: string
   customerName: string
   customerEmail: string
+  customerPhone: string | null
   displayName: string
   siteAddress: string | null
   stage: ProjectStage
   stageNote: string | null
   stageUpdatedAt: string
+  /** Installation date/time the staff has set, shown once the stage is "Scheduled". */
+  scheduledAt: string | null
   documents: ProjectDocument[]
   linkedLeadId: string | null
   createdAt: string

@@ -3,13 +3,12 @@
 import * as React from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
-import { Loader2 } from "lucide-react"
+import { Loader2, Lock, Mail, User as UserIcon } from "lucide-react"
 import { toast } from "sonner"
 
 import { authClient } from "@/lib/auth-client"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
+import { IconField } from "@/components/auth/icon-field"
 
 export function SignupForm({ googleEnabled }: { googleEnabled: boolean }) {
   const router = useRouter()
@@ -55,35 +54,35 @@ export function SignupForm({ googleEnabled }: { googleEnabled: boolean }) {
 
   return (
     <div className="grid gap-5">
-      <form onSubmit={onSubmit} className="grid gap-4">
-        <div className="grid gap-2">
-          <Label htmlFor="name">Full name</Label>
-          <Input id="name" name="name" autoComplete="name" required placeholder="Juan Dela Cruz" />
-        </div>
-        <div className="grid gap-2">
-          <Label htmlFor="email">Email</Label>
-          <Input
-            id="email"
-            name="email"
-            type="email"
-            autoComplete="email"
-            required
-            placeholder="you@email.com"
-          />
-        </div>
-        <div className="grid gap-2">
-          <Label htmlFor="password">Password</Label>
-          <Input
-            id="password"
-            name="password"
-            type="password"
-            autoComplete="new-password"
-            required
-            minLength={8}
-            placeholder="At least 8 characters"
-          />
-        </div>
-        <Button type="submit" size="lg" disabled={pending} className="w-full">
+      <form onSubmit={onSubmit} className="grid gap-6">
+        <IconField
+          icon={UserIcon}
+          id="name"
+          name="name"
+          autoComplete="name"
+          required
+          placeholder="Full name"
+        />
+        <IconField
+          icon={Mail}
+          id="email"
+          name="email"
+          type="email"
+          autoComplete="email"
+          required
+          placeholder="Email"
+        />
+        <IconField
+          icon={Lock}
+          id="password"
+          name="password"
+          type="password"
+          autoComplete="new-password"
+          required
+          minLength={8}
+          placeholder="At least 8 characters"
+        />
+        <Button type="submit" size="lg" disabled={pending} className="w-full rounded-full">
           {pending ? (
             <>
               <Loader2 className="animate-spin" /> Creating account…
@@ -115,7 +114,7 @@ export function SignupForm({ googleEnabled }: { googleEnabled: boolean }) {
         </>
       ) : null}
 
-      <p className="text-center text-sm text-muted-foreground">
+      <p className="text-center text-sm text-muted-foreground lg:hidden">
         Already have an account?{" "}
         <Link
           href="/login"

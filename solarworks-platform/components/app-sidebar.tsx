@@ -57,7 +57,7 @@ export function AppSidebar({ user, nav }: { user: ShellUser; nav: NavItem[] }) {
 
   return (
     <Sidebar variant="inset" collapsible="icon">
-      <SidebarHeader>
+      <SidebarHeader className="bg-gradient-to-b from-primary/12 to-transparent">
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" asChild>
@@ -85,6 +85,7 @@ export function AppSidebar({ user, nav }: { user: ShellUser; nav: NavItem[] }) {
                     <SidebarMenuButton
                       asChild
                       isActive={item.href === active?.href}
+                      className="data-active:!bg-primary/15 data-active:!text-primary-strong data-active:[&_svg]:text-primary-strong"
                       tooltip={
                         count > 0 ? `${item.label} — ${count} unread` : item.label
                       }
@@ -121,7 +122,7 @@ export function AppSidebar({ user, nav }: { user: ShellUser; nav: NavItem[] }) {
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" className="cursor-default hover:bg-transparent">
-              <span className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-accent text-xs font-semibold text-sidebar-accent-foreground">
+              <span className="flex aspect-square size-8 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-primary-strong text-xs font-semibold text-primary-foreground">
                 {initials(user)}
               </span>
               <span className="grid flex-1 text-left text-sm leading-tight group-data-[collapsible=icon]:hidden">
