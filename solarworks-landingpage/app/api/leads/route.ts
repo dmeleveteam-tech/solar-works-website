@@ -32,6 +32,8 @@ type FormBody = {
   leadSource?: string
   siteNotes?: string
   contactMethod?: string
+  /** The visitor ticked the privacy-notice consent box. Must be literally true. */
+  consent?: boolean
   turnstileToken?: string
   attribution?: Record<string, unknown>
 }
@@ -99,6 +101,23 @@ export async function POST(req: Request) {
     )
   }
 
+  /**
+   * The consent gate. Both forms disable submission until the box is ticked,
+   * but that check lives in the browser and anyone can post straight here — so
+   * this is where consent is actually enforced. `=== true` is deliberate: a
+   * missing field, "false", or a truthy string all fail closed.
+   *
+   * This is the spec's requirement that a lead is only stored and notified on
+   * after consent is recorded. The chatbot has its own equivalent gate in
+   * `save_lead` (platform `lib/chat/brain.ts`).
+   */
+  if (body.consent !== true) {
+    return NextResponse.json(
+      { ok: false, error: "Please agree to the Privacy Notice before submitting." },
+      { status: 422 },
+    )
+  }
+
   // Spam gate before we touch the platform. The header is set by the hosting
   // edge (Vercel/Cloudflare); fall back to null when absent.
   const ip =
@@ -138,6 +157,10 @@ export async function POST(req: Request) {
   put("Electricity provider", body.utilityProvider)
   put("Heard about us", body.leadSource)
   put("Preferred contact", body.contactMethod)
+  // Record the consent we just verified, so downstream (the inbox, the sales
+  // email, the Google Sheets `Consent Status` column) reads a value that was
+  // actually checked rather than one inferred from the channel.
+  details["Consent"] = "Yes — consent box ticked on the website form"
 
   // Marketing attribution (L-04): only the whitelisted keys, each capped.
   if (body.attribution && typeof body.attribution === "object") {
@@ -154,6 +177,8 @@ export async function POST(req: Request) {
     message: str(body.siteNotes) || undefined,
     details,
     source: "website_form",
+    // Verified above; the platform enforces it again at the write.
+    consent: true,
   })
   if (!result.ok) {
     return NextResponse.json({ ok: false, error: result.error }, { status: result.status })

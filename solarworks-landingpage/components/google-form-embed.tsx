@@ -3,11 +3,14 @@
 import * as React from "react"
 import { Loader2, ExternalLink } from "lucide-react"
 
+// Our own Form, owned by dmeleve.team@gmail.com and bridged to /api/leads by
+// `google-form/lead-bridge.gs`. The Form this replaced was owned by an account
+// we don't control, so its submissions could never become leads.
 const GOOGLE_FORM_URL =
-  "https://docs.google.com/forms/d/e/1FAIpQLSfnxoQXaPeN2wFy7SeBySsHDj7Y60exE-slAS7H8RF_vz6nnA/viewform?embedded=true"
+  "https://docs.google.com/forms/d/e/1FAIpQLSfiwCR-yK7djNaPJ7BbhfhXJlCyb399237QWWFFFJFpa1DV6w/viewform?embedded=true"
 
 const GOOGLE_FORM_LINK =
-  "https://docs.google.com/forms/d/e/1FAIpQLSfnxoQXaPeN2wFy7SeBySsHDj7Y60exE-slAS7H8RF_vz6nnA/viewform"
+  "https://docs.google.com/forms/d/e/1FAIpQLSfiwCR-yK7djNaPJ7BbhfhXJlCyb399237QWWFFFJFpa1DV6w/viewform"
 
 export function GoogleFormEmbed() {
   const [loaded, setLoaded] = React.useState(false)

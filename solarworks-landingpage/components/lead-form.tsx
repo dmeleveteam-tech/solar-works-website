@@ -118,6 +118,9 @@ export function LeadForm({ defaultSolution }: { defaultSolution?: string }) {
           leadSource: String(data.get("leadSource") ?? ""),
           siteNotes: String(data.get("siteNotes") ?? ""),
           contactMethod,
+          // The server re-checks this and refuses the lead without it; the
+          // validation above is only there to tell the visitor first.
+          consent,
           turnstileToken,
           attribution: getAttribution(),
         }),

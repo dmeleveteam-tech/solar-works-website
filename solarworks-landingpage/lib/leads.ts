@@ -20,6 +20,12 @@ export type LeadPayload = {
   /** Labelled free-form extras (address, property type, goals, …). */
   details?: Record<string, string>
   source: LeadSource
+  /**
+   * Recorded consent. The platform requires this to be literally `true` and
+   * rejects the lead otherwise, so callers must have verified it — never
+   * hard-code it to satisfy the type.
+   */
+  consent: true
 }
 
 export type ForwardResult =

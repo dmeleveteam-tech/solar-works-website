@@ -10,6 +10,7 @@ import { getAttribution } from "@/lib/attribution"
 import { MESSENGER_HREF } from "@/lib/messenger"
 import { Turnstile, TURNSTILE_SITE_KEY } from "@/components/turnstile"
 import { Button } from "@/components/ui/button"
+import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
@@ -53,7 +54,15 @@ const batteryOptions = [
 /* ── Validation types ───────────────────────────────────────── */
 type Errors = Partial<
   Record<
-    "fullName" | "email" | "phone" | "address" | "billRange" | "usageProfile" | "structureType" | "battery",
+    | "fullName"
+    | "email"
+    | "phone"
+    | "address"
+    | "billRange"
+    | "usageProfile"
+    | "structureType"
+    | "battery"
+    | "consent",
     string
   >
 >
@@ -192,6 +201,7 @@ function BillUpload({
 export function NativeInquiryForm({ defaultSolution }: { defaultSolution?: string }) {
   const [urgency, setUrgency] = React.useState(0)
   const [billFile, setBillFile] = React.useState<File | null>(null)
+  const [consent, setConsent] = React.useState(false)
   const [errors, setErrors] = React.useState<Errors>({})
   const [status, setStatus] = React.useState<"idle" | "submitting" | "success">("idle")
   const [submitError, setSubmitError] = React.useState<string | null>(null)
@@ -230,6 +240,7 @@ export function NativeInquiryForm({ defaultSolution }: { defaultSolution?: strin
     if (!usageProfile) next.usageProfile = "Please select your usage profile."
     if (!structureType) next.structureType = "Please select the structure type."
     if (!battery) next.battery = "Please select a battery storage option."
+    if (!consent) next.consent = "Please agree before we contact you."
 
     setErrors(next)
     if (Object.keys(next).length > 0) {
@@ -271,6 +282,9 @@ export function NativeInquiryForm({ defaultSolution }: { defaultSolution?: strin
           billAttachment: billFile
             ? `${billFile.name} (${(billFile.size / 1024).toFixed(0)} KB)`
             : "",
+          // The server re-checks this and refuses the lead without it; the
+          // validation above is only there to tell the visitor first.
+          consent,
           turnstileToken,
           attribution: getAttribution(),
         }),
@@ -485,6 +499,32 @@ export function NativeInquiryForm({ defaultSolution }: { defaultSolution?: strin
         >
           <BillUpload file={billFile} onFile={setBillFile} />
         </Field>
+
+        {/* Consent (spec: no lead is stored or acted on without it). The server
+            enforces this too — see app/api/leads/route.ts. */}
+        <div className="flex items-start gap-3 rounded-lg border bg-muted/30 p-4">
+          <Checkbox
+            id="inquiry-consent"
+            checked={consent}
+            onCheckedChange={(v) => setConsent(v === true)}
+            data-field="consent"
+            className="mt-0.5"
+          />
+          <Label htmlFor="inquiry-consent" className="text-sm font-normal leading-relaxed">
+            I agree to let {siteConfig.name} contact me and store my information for assessment
+            purposes, as described in the{" "}
+            <a
+              href="/privacy"
+              className="font-medium text-primary-strong underline-offset-2 hover:underline"
+            >
+              Privacy Notice
+            </a>
+            .
+          </Label>
+        </div>
+        {errors.consent ? (
+          <p className="-mt-2 text-sm text-destructive">{errors.consent}</p>
+        ) : null}
 
         {/* Spam protection */}
         {TURNSTILE_SITE_KEY ? (
