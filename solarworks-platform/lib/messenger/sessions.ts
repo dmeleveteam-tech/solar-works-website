@@ -114,6 +114,39 @@ export async function loadSession(psid: string): Promise<MessengerSession> {
 }
 
 /**
+ * Clear a session back to a fresh conversation, IN PLACE. The caller persists.
+ *
+ * This is what the "Start over" menu action runs, and it is deliberately not
+ * `deleteSession`. Two fields have to survive a reset:
+ *
+ *  - `seenMids`, because it is the idempotency ledger. Dropping it would let a
+ *    Meta retry of any delivery still in flight be processed a second time —
+ *    re-opening the duplicate-lead race `claimMid` exists to close, at the one
+ *    moment the visitor is about to be re-qualified. (`saveSession` never writes
+ *    `seenMids`, so simply not touching it here is enough.)
+ *  - `attribution`, because it records how this person found us, which starting
+ *    a new assessment does not change. Losing it would silently re-attribute a
+ *    campaign lead to plain organic Messenger traffic.
+ *
+ * Everything else goes, consent included: a cleared thread must re-consent
+ * before another lead can be written, or we would be saving against a record the
+ * visitor can no longer see.
+ */
+export function resetSession(session: MessengerSession): MessengerSession {
+  session.messages = []
+  session.consentConfirmed = false
+  session.consentAt = null
+  session.consentText = null
+  session.leadAlreadySaved = false
+  return session
+}
+
+/** True when a reset would actually discard something worth confirming first. */
+export function hasResettableState(session: MessengerSession): boolean {
+  return session.messages.length > 0 || session.consentConfirmed || session.leadAlreadySaved
+}
+
+/**
  * Erase everything we hold for one PSID — the conversation, the consent record,
  * the attribution and the claimed message ids — by dropping the document.
  *

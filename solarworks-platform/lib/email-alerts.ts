@@ -74,6 +74,9 @@ function formatSchedule(iso: string): string {
 
 function renderRows(lead: LeadDoc): string {
   const rows: Array<[string, string]> = [
+    // First, so the reference the sales team will quote back — and find in the
+    // spreadsheet mirror — is the first thing they see.
+    ["Lead ID", lead.refId ?? "—"],
     ["Name", lead.name],
     ["Mobile", lead.phone ?? "—"],
     ["Email", lead.email ?? "—"],

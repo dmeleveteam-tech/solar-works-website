@@ -182,9 +182,42 @@ days-to-weeks for approval before public launch.
 
 ## 7b. Going live — remaining switches
 
-- [ ] Point the Meta callback URL at `https://solar-works-admin.vercel.app/api/messenger/webhook`
-      (dev currently uses a `cloudflared` quick tunnel, whose URL dies with the
-      process). Vercel already holds every `FB_*` var for Production and Preview.
+- [x] **2026-07-28** — Meta callback URL now points at
+      `https://solar-works-admin.vercel.app/api/messenger/webhook`.
+
+      > **The silent-bot failure this fixed.** The callback was still the
+      > `cloudflared` quick tunnel from the 26th. Those hostnames die with the
+      > process, and it was long gone — so Meta accepted every message, POSTed it
+      > into a black hole, and the thread just sat there. Nothing surfaces this:
+      > the Page stays subscribed, the token stays valid, and no console anywhere
+      > shows a delivery error. It reads exactly like "the bot is ignoring me".
+      >
+      > Diagnose in this order, because each step rules out a different culprit:
+      > ```
+      > # 1. token healthy and on the right Page?
+      > curl "https://graph.facebook.com/v21.0/debug_token?input_token=$T&access_token=$T"
+      > # 2. Page actually subscribed?  {"data":[]} = the subscription trap
+      > curl "https://graph.facebook.com/v21.0/$FB_PAGE_ID/subscribed_apps?access_token=$T"
+      > # 3. where is Meta POSTing?  <- this is the one that caught it
+      > curl "https://graph.facebook.com/v21.0/$APP_ID/subscriptions?access_token=$APP_ID|$FB_APP_SECRET"
+      > # 4. is that URL alive?  curl exit 000 = dead tunnel
+      > curl "$CALLBACK?hub.mode=subscribe&hub.verify_token=$FB_WEBHOOK_VERIFY_TOKEN&hub.challenge=ping"
+      > ```
+      > Repoint without touching the console (Meta re-runs the GET handshake, so
+      > `{"success":true}` also proves the new URL verified):
+      > ```
+      > curl -X POST "https://graph.facebook.com/v21.0/$APP_ID/subscriptions" \
+      >   -d "object=page" -d "callback_url=$NEW_URL" \
+      >   -d "verify_token=$FB_WEBHOOK_VERIFY_TOKEN" \
+      >   -d "fields=messages,messaging_postbacks,messaging_optins,messaging_referrals" \
+      >   -d "access_token=$APP_ID|$FB_APP_SECRET"
+      > ```
+      > Changing the app-level callback does **not** disturb the Page's own
+      > `subscribed_apps` entry — that survives, and still has to be right.
+
+      Local testing now needs a deliberate repoint back to a fresh tunnel, and a
+      repoint to production again afterwards. Vercel holds every `FB_*` var for
+      Production and Preview.
 - [ ] Re-run `pnpm messenger:profile` against the live Solar Works Page after
       swapping `FB_PAGE_ACCESS_TOKEN` / `FB_PAGE_ID` to it
 - [ ] Set `MARKETING_SITE_URL` to the real marketing domain once it is off

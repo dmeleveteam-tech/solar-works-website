@@ -7,6 +7,7 @@ import { env, messengerEnabled } from "@/lib/env"
 import {
   ALREADY_A_LEAD_TEXT,
   ASSESSMENT_OPENER,
+  ASSESSMENT_RESTART_OPENER,
   ASSESSMENT_UPDATE_OPENER,
   GET_STARTED,
   HUMAN_HANDOFF_TEXT,
@@ -15,16 +16,28 @@ import {
   MENU_FAQ,
   MENU_HUMAN,
   MENU_PROMPT,
+  MENU_RESET,
+  MENU_RESET_CONFIRM,
   MENU_WORK,
+  RESET_CONFIRM_TEXT,
+  RESET_DONE_TEXT,
+  RESET_NOTHING_TEXT,
   faqQuickReplies,
   isMenuPayload,
   menuQuickReplies,
   repeatLeadQuickReplies,
+  resetConfirmQuickReplies,
   workAndPricingText,
 } from "@/lib/messenger/menu"
 import { renderChatUi } from "@/lib/messenger/render"
 import { sendAction, sendQuickReplies, sendText } from "@/lib/messenger/send"
-import { claimMid, loadSession, saveSession } from "@/lib/messenger/sessions"
+import {
+  claimMid,
+  hasResettableState,
+  loadSession,
+  resetSession,
+  saveSession,
+} from "@/lib/messenger/sessions"
 import { verifySignature } from "@/lib/messenger/verify"
 import { createRateLimiter } from "@/lib/rate-limit"
 
@@ -55,15 +68,20 @@ export const runtime = "nodejs"
 // answered by then; this only bounds the `after()` work.
 export const maxDuration = 60
 
-/** Preserved verbatim from the landing route — see the web_lead branch below. */
+/**
+ * The web_lead hand-off greeting — see that branch below.
+ *
+ * Was preserved verbatim from the landing route in Tagalog; now English, with
+ * the rest of this channel's fixed copy.
+ */
 const WELCOME_MESSAGE =
-  "Salamat sa pag-inquire sa Solar Works! Nakuha na namin ang mga detalye mo sa website. Dito mo na rin kami pwedeng tanungin — sasagutin ka ng team namin dito sa Messenger."
+  "Thanks for your inquiry with Solar Works! We've received your details from the website. Feel free to ask us anything here — our team will reply to you on Messenger."
 
 const ATTACHMENT_REPLY =
-  "Pasensya na po — hindi ko mabasa ang mga larawan o file dito. Pwede po ninyong i-type ang tanong ninyo?"
+  "Sorry — I can't read images or files here. Could you type your question instead?"
 
 const THROTTLED_REPLY =
-  "Sandali lang po — ang bilis ng mga mensahe. Pakisubukan ulit sa ilang segundo."
+  "One moment — those messages came in very quickly. Please try again in a few seconds."
 
 /**
  * The brain's default degraded copy tells the visitor to tap "Assessment form
@@ -80,7 +98,7 @@ const THROTTLED_REPLY =
  * left the exhausted-daily-budget case pointing Messenger visitors at a button
  * they cannot see.
  */
-const CHANNEL_FALLBACK = `Pasensya na po — hindi ako makasagot nang maayos ngayon. Ang team namin po ay available pa rin: tumawag o mag-Viber sa ${siteFacts.contact.whatsapp}, o i-type ninyo lang po dito ang inyong pangalan, numero at lungsod at babalikan namin kayo.`
+const CHANNEL_FALLBACK = `Sorry — I can't answer properly right now. Our team is still available: call or Viber ${siteFacts.contact.whatsapp}, or just type your name, number and city here and we'll get back to you.`
 
 /**
  * Per-PSID limiter. Generous enough that no real conversation touches it; it is
@@ -214,12 +232,13 @@ type MenuOutcome = { handled: true } | { handled: false; brainText: string }
 /**
  * Handle a `SW_MENU_*` postback.
  *
- * Mutates `session` but never persists it — the caller owns that, so a menu tap
- * and a model turn cannot race each other writing the same document.
+ * Mutates `session`; the caller owns persistence, so a menu tap and a model turn
+ * cannot race each other writing the same document. `MENU_RESET_CONFIRM` is the
+ * single documented exception — see the comment on that branch.
  *
- * Three of the five branches answer directly and cost no model call at all,
- * which is the point: navigation should be instant, and the Groq free tier is a
- * shared budget with the web widget.
+ * Most branches answer directly and cost no model call at all, which is the
+ * point: navigation should be instant, and the Groq free tier is a shared budget
+ * with the web widget.
  */
 async function handleMenu(
   payload: string,
@@ -272,6 +291,40 @@ async function handleMenu(
       // reopens is a deliberate, user-initiated update.
       session.leadAlreadySaved = false
       return { handled: false, brainText: ASSESSMENT_UPDATE_OPENER }
+    }
+
+    case MENU_RESET: {
+      // ASKS ONLY — never clears. This payload sits in the persistent menu, one
+      // tap away at every moment including mid-qualification, so it must not be
+      // able to destroy a transcript and a consent record on a single mis-tap.
+      // MENU_RESET_CONFIRM below is the only thing that actually wipes.
+      if (!hasResettableState(session)) {
+        // Nothing to lose, so the confirmation would be pure friction: answer
+        // the question they actually asked and start the assessment.
+        await sendText(psid, RESET_NOTHING_TEXT)
+        return { handled: false, brainText: ASSESSMENT_OPENER }
+      }
+      await sendQuickReplies(psid, RESET_CONFIRM_TEXT, resetConfirmQuickReplies())
+      return { handled: true }
+    }
+
+    case MENU_RESET_CONFIRM: {
+      resetSession(session)
+
+      // The ONE place this function persists, breaking its own contract on
+      // purpose. Every other branch can safely leave the write to the caller
+      // because a failure there just loses a menu tap. Here the visitor has
+      // already been told their thread is cleared, and the model call that
+      // follows can throw (provider error, rate limit) — which would abandon the
+      // turn before the caller's save and leave the old transcript, the old
+      // consent flag and the old `leadAlreadySaved` intact behind a message
+      // promising otherwise. Saving now makes the promise true first; the
+      // caller's later save is then a harmless second write of the same state.
+      await saveSession(session)
+      console.log(`[messenger] session reset: psid=${psid}`)
+
+      await sendText(psid, RESET_DONE_TEXT)
+      return { handled: false, brainText: ASSESSMENT_RESTART_OPENER }
     }
 
     default:

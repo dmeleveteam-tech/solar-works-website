@@ -19,6 +19,8 @@ export * from "./leads-shared"
 /** Stored document shape. */
 export type LeadDoc = {
   _id: ObjectId
+  /** `SW-YYYYMMDD-####`. Absent on documents written before this existed. */
+  refId?: string | null
   name: string
   email: string | null
   phone: string | null
@@ -39,6 +41,7 @@ export function leadsCollection(): Collection<LeadDoc> {
 export function serializeLead(doc: LeadDoc): Lead {
   return {
     id: doc._id.toString(),
+    refId: doc.refId ?? null,
     name: doc.name,
     email: doc.email,
     phone: doc.phone,
@@ -55,7 +58,7 @@ export function serializeLead(doc: LeadDoc): Lead {
 
 export type LeadQuery = {
   status?: LeadStatus
-  /** Case-insensitive match against name / email / phone. */
+  /** Case-insensitive match against name / email / phone / lead reference. */
   search?: string
   limit?: number
 }
@@ -70,7 +73,9 @@ export async function listLeads(query: LeadQuery = {}): Promise<Lead[]> {
     // Escape regex metacharacters so user input is matched literally.
     const safe = search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
     const rx = { $regex: safe, $options: "i" }
-    filter.$or = [{ name: rx }, { email: rx }, { phone: rx }]
+    // refId is included so staff can paste a Lead ID straight off the
+    // spreadsheet or the sales email and land on the right lead.
+    filter.$or = [{ name: rx }, { email: rx }, { phone: rx }, { refId: rx }]
   }
 
   const docs = await leadsCollection()

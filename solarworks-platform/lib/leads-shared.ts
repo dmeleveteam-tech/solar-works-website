@@ -15,7 +15,13 @@ export const LEAD_STATUSES = [
 ] as const
 export type LeadStatus = (typeof LEAD_STATUSES)[number]
 
-export const LEAD_SOURCES = ["website_form", "chatbot", "messenger", "manual"] as const
+export const LEAD_SOURCES = [
+  "website_form",
+  "google_form",
+  "chatbot",
+  "messenger",
+  "manual",
+] as const
 export type LeadSource = (typeof LEAD_SOURCES)[number]
 
 export const STATUS_LABEL: Record<LeadStatus, string> = {
@@ -31,8 +37,15 @@ export const STATUS_LABEL: Record<LeadStatus, string> = {
 // "Messenger" is the same Solar Assistant brain reached through the Facebook
 // Page, and is kept a distinct source because the follow-up channel differs —
 // the adviser replies in Messenger, not by phone.
+//
+// "Google Form" is separate from "Website Form" for the same reason: both are
+// forms, but the Google one is also handed out directly as a link, carries no
+// UTM attribution, and its answers arrive through the Apps Script bridge. An
+// adviser seeing "Website Form" on a lead that never touched the website has no
+// way to tell where it really came from.
 export const SOURCE_LABEL: Record<LeadSource, string> = {
   website_form: "Website Form",
+  google_form: "Google Form",
   chatbot: "Website Chatbot",
   messenger: "Messenger",
   manual: "Manual",
@@ -48,6 +61,13 @@ export type LeadDetails = Record<string, string>
 /** Plain, client-safe shape (ObjectId / Date serialized to strings). */
 export type Lead = {
   id: string
+  /**
+   * Human-readable reference, `SW-YYYYMMDD-####` (the spec's Lead ID). Assigned
+   * at capture and never reused, so the Mongo document, the sales email and the
+   * Google Sheets row all name the same lead. Null on leads captured before the
+   * reference existed.
+   */
+  refId: string | null
   name: string
   email: string | null
   phone: string | null

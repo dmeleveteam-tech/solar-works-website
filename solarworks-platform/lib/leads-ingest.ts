@@ -2,6 +2,7 @@ import "server-only"
 import { ObjectId } from "mongodb"
 
 import { notifyNewLead } from "./email-alerts"
+import { nextLeadRefId } from "./lead-ref"
 import { SOURCE_LABEL, leadsCollection, type LeadDoc, type LeadSource } from "./leads"
 import { dispatchLeadToN8n } from "./n8n"
 import { notify } from "./notifications"
@@ -36,8 +37,16 @@ export async function createLead(input: CreateLeadInput): Promise<{ id: string }
   const details = input.details && Object.keys(input.details).length ? input.details : null
 
   const now = new Date()
+  const id = new ObjectId()
+  // Awaited before the insert so the reference is part of the document from the
+  // start — the spreadsheet row, the sales email and the inbox must all name
+  // the lead the same way, and a second write to backfill it could lose a race
+  // with the downstream consumers below.
+  const refId = await nextLeadRefId(now, id)
+
   const doc: LeadDoc = {
-    _id: new ObjectId(),
+    _id: id,
+    refId,
     name: input.name,
     email: input.email ? input.email : null,
     phone: input.phone ? input.phone : null,

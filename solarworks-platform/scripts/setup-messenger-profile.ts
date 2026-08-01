@@ -30,8 +30,11 @@ import { TITLE_MAX } from "../lib/messenger/render"
 
 const args = new Set(process.argv.slice(2))
 
+// MARKETING_SITE_URL is deliberately NOT read here any more. Nothing in the Page
+// profile embeds it since "Visit our website" left the persistent menu, and
+// reading it would imply this script has to be re-run when the marketing domain
+// changes — it does not. `workAndPricingText` picks the URL up at request time.
 const TOKEN = process.env.FB_PAGE_ACCESS_TOKEN
-const SITE_URL = process.env.MARKETING_SITE_URL ?? "https://solar-works-website.vercel.app"
 
 async function main(): Promise<void> {
   if (!TOKEN) {
@@ -53,7 +56,7 @@ async function main(): Promise<void> {
 
   // Validate before sending: Meta rejects the WHOLE profile update when one
   // title is too long, and its error does not name the offending item.
-  const actions = messengerProfilePayload(SITE_URL).persistent_menu[0].call_to_actions
+  const actions = messengerProfilePayload().persistent_menu[0].call_to_actions
 
   if (actions.length > PERSISTENT_MENU_MAX) {
     throw new Error(
@@ -68,7 +71,7 @@ async function main(): Promise<void> {
     }
   }
 
-  await applyMessengerProfile(TOKEN, SITE_URL)
+  await applyMessengerProfile(TOKEN)
 
   // Read back rather than trusting the write: Meta returns success for a POST
   // whose persistent_menu it then declines to surface.
@@ -76,7 +79,6 @@ async function main(): Promise<void> {
   console.log(JSON.stringify(await readMessengerProfile(TOKEN), null, 2))
   console.log(
     `\nMenu items: ${Object.values(MENU_TITLES).join(" · ")}` +
-      `\nWebsite link: ${SITE_URL}` +
       `\n\nOpen the Page in Messenger and confirm the hamburger menu shows all of them.`,
   )
 }

@@ -31,7 +31,7 @@ const detailsSchema = z.record(z.string().max(80), z.string().max(2000))
 
 // Public channels a caller may legitimately declare. "manual" is staff-only and
 // must never be settable through this endpoint.
-const PUBLIC_SOURCES = ["website_form", "chatbot", "messenger"] as const
+const PUBLIC_SOURCES = ["website_form", "google_form", "chatbot", "messenger"] as const
 
 const ingestSchema = z.object({
   name: z.string().trim().min(1, "Name is required").max(120),
@@ -40,6 +40,19 @@ const ingestSchema = z.object({
   message: z.string().trim().max(5000).optional().or(z.literal("")),
   details: detailsSchema.optional(),
   source: z.enum(PUBLIC_SOURCES).default("website_form"),
+  /**
+   * The consent gate, enforced a second time here.
+   *
+   * The marketing site already refuses a lead without it, but this endpoint is
+   * reachable by anything holding the ingest key, so the rule that matters —
+   * no stored lead and no sales alert without recorded consent — is restated
+   * where the write actually happens. `z.literal(true)` fails closed: absent,
+   * false, and "true"-the-string are all rejected.
+   *
+   * The chatbot and Messenger paths don't come through here at all; the brain
+   * calls `createLead` directly and runs its own gate in `save_lead`.
+   */
+  consent: z.literal(true),
 })
 
 /** Constant-time key comparison that tolerates differing lengths. */
@@ -82,7 +95,17 @@ export async function POST(req: Request) {
 
   const parsed = ingestSchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json({ ok: false, error: "Invalid lead." }, { status: 422 })
+    // Consent gets its own message: it is the one rejection a correctly-built
+    // caller can hit, and "Invalid lead." would send someone hunting through
+    // field validation for it.
+    const consentFailed = parsed.error.issues.some((i) => i.path[0] === "consent")
+    return NextResponse.json(
+      {
+        ok: false,
+        error: consentFailed ? "Consent is required to store this lead." : "Invalid lead.",
+      },
+      { status: 422 },
+    )
   }
   const v = parsed.data
 

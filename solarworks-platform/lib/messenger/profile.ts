@@ -54,12 +54,16 @@ async function call(
   }
 }
 
-/** Push Get Started, greeting and persistent menu to the Page. */
-export function applyMessengerProfile(
-  token: string | undefined | null,
-  siteUrl: string,
-): Promise<unknown> {
-  return call(token, "POST", messengerProfilePayload(siteUrl))
+/**
+ * Push Get Started, greeting and persistent menu to the Page.
+ *
+ * Took a `siteUrl` until the persistent menu's "Visit our website" item was
+ * displaced by "Start over" (see `messengerProfilePayload`) — nothing in the
+ * profile is site-dependent any more. The marketing URL still reaches visitors,
+ * via `workAndPricingText` at runtime rather than baked into the Page profile.
+ */
+export function applyMessengerProfile(token: string | undefined | null): Promise<unknown> {
+  return call(token, "POST", messengerProfilePayload())
 }
 
 /** Read back what Meta currently holds, so the script can verify rather than assume. */
