@@ -19,6 +19,20 @@
     --color-chart-3: var(--chart-3);
     --color-chart-2: var(--chart-2);
     --color-chart-1: var(--chart-1);
+    /* Semantic status ramp. Every "this went well / this needs attention /
+       this is stalled" signal in the app resolves through these four so the
+       inbox, the projects board and the charts speak one language instead of
+       each reaching for a raw tailwind sky-500 / violet-700 / emerald-600. */
+    --color-success: var(--success);
+    --color-success-soft: var(--success-soft);
+    --color-warning: var(--warning);
+    --color-warning-soft: var(--warning-soft);
+    --color-info: var(--info);
+    --color-info-soft: var(--info-soft);
+    --color-neutral-soft: var(--neutral-soft);
+    --shadow-e1: var(--elevation-1);
+    --shadow-e2: var(--elevation-2);
+    --shadow-e3: var(--elevation-3);
     --color-ring: var(--ring);
     --color-input: var(--input);
     --color-border: var(--border);
@@ -73,6 +87,27 @@
     --chart-4: oklch(0.554 0.135 66.442);
     --chart-5: oklch(0.476 0.114 61.907);
     --radius: 0.45rem;
+
+    /* Status ramp — all pulled toward the warm hue family (chroma held under
+       0.16) so they read as members of the amber palette rather than four
+       unrelated brand colours dropped into the same table. */
+    --success: oklch(0.52 0.108 158);
+    --success-soft: oklch(0.955 0.032 158);
+    --warning: oklch(0.55 0.126 62);
+    --warning-soft: oklch(0.962 0.042 78);
+    --info: oklch(0.52 0.086 236);
+    --info-soft: oklch(0.955 0.024 236);
+    --neutral-soft: oklch(0.955 0.004 106.5);
+
+    /* Shadows carry the page's warm hue instead of neutral black, and step in
+       spread rather than opacity so stacked surfaces stay distinguishable. */
+    --elevation-1: 0 1px 2px -1px oklch(0.35 0.04 80 / 0.10),
+      0 1px 3px oklch(0.35 0.04 80 / 0.06);
+    --elevation-2: 0 2px 4px -2px oklch(0.35 0.04 80 / 0.12),
+      0 6px 14px -4px oklch(0.35 0.04 80 / 0.10);
+    --elevation-3: 0 4px 8px -4px oklch(0.35 0.04 80 / 0.14),
+      0 16px 32px -12px oklch(0.35 0.04 80 / 0.14);
+
     --sidebar: oklch(0.988 0.003 106.5);
     --sidebar-foreground: oklch(0.153 0.006 107.1);
     --sidebar-primary: oklch(0.681 0.162 75.834);
@@ -103,11 +138,33 @@
     --border: oklch(1 0 0 / 10%);
     --input: oklch(1 0 0 / 15%);
     --ring: oklch(0.58 0.031 107.3);
+
+    --success: oklch(0.76 0.132 158);
+    --success-soft: oklch(0.32 0.048 158);
+    --warning: oklch(0.80 0.140 72);
+    --warning-soft: oklch(0.33 0.052 72);
+    --info: oklch(0.74 0.094 236);
+    --info-soft: oklch(0.31 0.040 236);
+    --neutral-soft: oklch(0.30 0.010 106.5);
+
+    /* Dark surfaces get lift from a light inner hairline, not a heavier drop
+       shadow — a black shadow on a near-black background does nothing. */
+    --elevation-1: 0 1px 2px oklch(0 0 0 / 0.4), inset 0 1px 0 oklch(1 0 0 / 0.04);
+    --elevation-2: 0 4px 12px -4px oklch(0 0 0 / 0.5),
+      inset 0 1px 0 oklch(1 0 0 / 0.05);
+    --elevation-3: 0 12px 32px -12px oklch(0 0 0 / 0.6),
+      inset 0 1px 0 oklch(1 0 0 / 0.06);
+
+    /* The light ramp descends into darkness, which inverts against a dark card
+       — its last two steps would sit below the surface they're drawn on. Dark
+       mode keeps the same hue progression but holds lightness above the card
+       (L 0.228) throughout, so every series stays legible. */
     --chart-1: oklch(0.905 0.182 98.111);
-    --chart-2: oklch(0.795 0.184 86.047);
-    --chart-3: oklch(0.681 0.162 75.834);
-    --chart-4: oklch(0.554 0.135 66.442);
-    --chart-5: oklch(0.476 0.114 61.907);
+    --chart-2: oklch(0.828 0.170 88);
+    --chart-3: oklch(0.752 0.156 78);
+    --chart-4: oklch(0.676 0.140 68);
+    --chart-5: oklch(0.606 0.124 60);
+
     --sidebar: oklch(0.228 0.013 107.4);
     --sidebar-foreground: oklch(0.988 0.003 106.5);
     --sidebar-primary: oklch(0.795 0.184 86.047);
@@ -127,7 +184,31 @@
     }
   html {
     @apply font-sans;
+    scroll-behavior: smooth;
     }
+
+  /* Every number in an admin tool sits in a column next to another number.
+     Proportional figures make those columns jitter, so lock digits to a fixed
+     advance width globally and let prose opt back out. */
+  table,
+  time,
+  [data-slot="stat-value"],
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
 }
 
 @media (pointer: fine) {
@@ -151,6 +232,12 @@
   }
   ::-webkit-scrollbar-thumb:hover {
     background-color: color-mix(in oklch, var(--foreground) 32%, transparent);
+  }
+}
+
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
   }
 }
 
@@ -186,6 +273,37 @@
       color-mix(in oklch, var(--primary) 22%, transparent),
       transparent 70%
     );
+  }
+
+  /* Fixed, non-interactive film grain. Breaks the plastic flatness of large
+     empty card surfaces without costing an image request — the noise is an
+     inline SVG turbulence, so it scales and themes for free. */
+  .grain::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0.035;
+    mix-blend-mode: multiply;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+  .dark .grain::after {
+    opacity: 0.06;
+    mix-blend-mode: screen;
+  }
+
+  /* One shared row rhythm for the leads / users / projects lists so a row in
+     one reads at the same density as a row in another. */
+  .data-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding-inline: 1rem;
+    padding-block: 0.75rem;
+    transition: background-color 200ms cubic-bezier(0.23, 1, 0.32, 1);
+  }
+  .data-row:hover {
+    background-color: color-mix(in oklch, var(--foreground) 3%, transparent);
   }
 
   /* Grid + glow combined into one background-image list — .bg-grid and

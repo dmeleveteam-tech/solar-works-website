@@ -3,13 +3,16 @@
 import * as React from "react"
 import { CldUploadWidget } from "next-cloudinary"
 import {
+  CalendarClock,
   ChevronDown,
   ExternalLink,
   FileText,
+  FolderKanban,
   Loader2,
   Plus,
   Trash2,
   Upload,
+  UserRound,
   X,
 } from "lucide-react"
 import { toast } from "sonner"
@@ -19,6 +22,7 @@ import { CLOUDINARY_SIGN_ENDPOINT, CLOUDINARY_UPLOAD_OPTIONS } from "@/lib/cloud
 import {
   PROJECT_STAGES,
   STAGE_LABEL,
+  stageIndex,
   type CustomerProject,
   type ProjectStage,
 } from "@/lib/customer-projects-shared"
@@ -33,13 +37,11 @@ import {
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Badge } from "@/components/ui/badge"
+import { Select } from "@/components/ui/select"
+import { EmptyState } from "@/components/ui/empty-state"
+import { ConfirmButton } from "@/components/ui/confirm-button"
 import { Card, CardContent } from "@/components/ui/card"
-
-const controlClass = cn(
-  "h-9 w-full rounded-md border border-input bg-transparent px-2.5 text-sm shadow-xs outline-none",
-  "focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50",
-  "disabled:pointer-events-none disabled:opacity-50",
-)
 
 // `next-cloudinary`'s CldUploadWidget throws during render (not just on
 // upload) when this is unset, which used to take the whole expanded project
@@ -47,6 +49,43 @@ const controlClass = cn(
 // on the same public env var so a missing Cloudinary config degrades to a
 // disabled button instead of crashing the row.
 const CLOUDINARY_CLOUD_NAME = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME
+
+/**
+ * Stage → semantic tone. The ramp tracks progress rather than labelling each
+ * stage a different colour for its own sake: cool and quiet while the job is
+ * still paperwork, warm once it's a committed date, green once power flows.
+ */
+const STAGE_TONE: Record<ProjectStage, React.ComponentProps<typeof Badge>["tone"]> = {
+  assessment: "neutral",
+  proposal: "info",
+  scheduled: "warning",
+  installed: "brand",
+  energized: "success",
+  after_sales: "success",
+}
+
+/** Fill for the *current* segment of the progress bar, matching STAGE_TONE. */
+const STAGE_FILL: Record<ProjectStage, string> = {
+  assessment: "bg-muted-foreground",
+  proposal: "bg-info",
+  scheduled: "bg-warning",
+  installed: "bg-primary",
+  energized: "bg-success",
+  after_sales: "bg-success",
+}
+
+/**
+ * Installation times are always quoted in Philippine time — pinning the zone
+ * (rather than rendering in the viewer's) also keeps the server and client
+ * markup identical, so this can render inside the SSR'd row without a mismatch.
+ */
+function formatSchedule(iso: string, style: "short" | "long" = "short") {
+  return new Date(iso).toLocaleString("en-PH", {
+    dateStyle: style === "short" ? "medium" : "full",
+    timeStyle: "short",
+    timeZone: "Asia/Manila",
+  })
+}
 
 export function ProjectsManager({
   initialProjects,
@@ -57,21 +96,86 @@ export function ProjectsManager({
 }) {
   const [projects, setProjects] = React.useState(initialProjects)
   const [adding, setAdding] = React.useState(false)
+  const [filter, setFilter] = React.useState<ProjectStage | "all">("all")
 
   function upsert(updated: CustomerProject) {
     setProjects((prev) => prev.map((p) => (p.id === updated.id ? updated : p)))
   }
 
+  const counts = React.useMemo(() => {
+    const map = {} as Record<ProjectStage, number>
+    for (const stage of PROJECT_STAGES) map[stage] = 0
+    for (const p of projects) map[p.stage] += 1
+    return map
+  }, [projects])
+
+  const visible = React.useMemo(
+    () => (filter === "all" ? projects : projects.filter((p) => p.stage === filter)),
+    [projects, filter],
+  )
+
+  const scheduledCount = counts.scheduled
+  const liveCount = counts.energized + counts.after_sales
+
+  const newProjectButton = (
+    <Button size="sm" onClick={() => setAdding((v) => !v)}>
+      {adding ? <X /> : <Plus />}
+      {adding ? "Cancel" : "New project"}
+    </Button>
+  )
+
   return (
     <div className="grid gap-4">
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-muted-foreground">
-          {projects.length} customer {projects.length === 1 ? "project" : "projects"}
-        </p>
-        <Button size="sm" onClick={() => setAdding((v) => !v)}>
-          {adding ? <X /> : <Plus />}
-          {adding ? "Cancel" : "New project"}
-        </Button>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div className="grid gap-1.5">
+          <p className="section-label">Pipeline</p>
+          <p className="text-sm text-muted-foreground">
+            <span className="tabular font-medium text-foreground">
+              {projects.length}
+            </span>{" "}
+            {projects.length === 1 ? "project" : "projects"}
+            {scheduledCount > 0 ? (
+              <>
+                {" · "}
+                <span className="tabular font-medium text-foreground">
+                  {scheduledCount}
+                </span>{" "}
+                scheduled
+              </>
+            ) : null}
+            {liveCount > 0 ? (
+              <>
+                {" · "}
+                <span className="tabular font-medium text-foreground">
+                  {liveCount}
+                </span>{" "}
+                energized
+              </>
+            ) : null}
+          </p>
+        </div>
+
+        <div className="flex items-end gap-2">
+          <div className="grid gap-1.5">
+            <Label htmlFor="stage-filter" className="sr-only">
+              Filter by stage
+            </Label>
+            <Select
+              id="stage-filter"
+              className="sm:w-52"
+              value={filter}
+              onChange={(e) => setFilter(e.target.value as ProjectStage | "all")}
+            >
+              <option value="all">All stages ({projects.length})</option>
+              {PROJECT_STAGES.map((s) => (
+                <option key={s} value={s}>
+                  {STAGE_LABEL[s]} ({counts[s]})
+                </option>
+              ))}
+            </Select>
+          </div>
+          {newProjectButton}
+        </div>
       </div>
 
       {adding ? (
@@ -79,19 +183,35 @@ export function ProjectsManager({
           onCreated={(project) => {
             setProjects((prev) => [project, ...prev])
             setAdding(false)
+            setFilter("all")
           }}
         />
       ) : null}
 
       {projects.length === 0 ? (
         <Card>
-          <CardContent className="py-12 text-center text-sm text-muted-foreground">
-            No customer projects yet. Convert a lead from the Leads inbox, or
-            create one directly below.
-          </CardContent>
+          <EmptyState
+            icon={FolderKanban}
+            title="No customer projects yet"
+            description="Convert a lead from the leads inbox, or create a project directly for a customer you already know."
+            action={newProjectButton}
+          />
+        </Card>
+      ) : visible.length === 0 ? (
+        <Card>
+          <EmptyState
+            icon={FolderKanban}
+            title={`Nothing at ${STAGE_LABEL[filter as ProjectStage].toLowerCase()}`}
+            description="No project sits at this stage right now. Pick another stage to keep looking."
+            action={
+              <Button size="sm" variant="outline" onClick={() => setFilter("all")}>
+                Show all stages
+              </Button>
+            }
+          />
         </Card>
       ) : (
-        projects.map((project) => (
+        visible.map((project) => (
           <ProjectCard
             key={project.id}
             project={project}
@@ -103,6 +223,37 @@ export function ProjectsManager({
           />
         ))
       )}
+    </div>
+  )
+}
+
+/**
+ * Segmented progress along the stage timeline. Collapsed rows carry it so staff
+ * can scan how far every job has got without opening a single disclosure.
+ */
+function StageProgress({ stage, className }: { stage: ProjectStage; className?: string }) {
+  const current = stageIndex(stage)
+  const total = PROJECT_STAGES.length
+
+  return (
+    <div className={cn("flex items-center gap-2", className)}>
+      <span aria-hidden className="flex flex-1 gap-0.5">
+        {PROJECT_STAGES.map((s, i) => (
+          <span
+            key={s}
+            className={cn(
+              "h-1.5 flex-1 rounded-full transition-colors duration-300",
+              i < current && "bg-primary/45",
+              i === current && STAGE_FILL[stage],
+              i > current && "bg-border",
+            )}
+          />
+        ))}
+      </span>
+      <span className="tabular text-[11px] text-muted-foreground">
+        <span className="sr-only">Stage </span>
+        {current + 1}/{total}
+      </span>
     </div>
   )
 }
@@ -139,46 +290,67 @@ function CreateProjectForm({
   }
 
   return (
-    <Card>
-      <CardContent className="grid gap-4 py-5">
-        <form onSubmit={onSubmit} className="grid gap-4">
-          <div className="grid gap-4 sm:grid-cols-3">
-            <div className="grid gap-1.5">
-              <Label htmlFor="name">Customer name</Label>
-              <Input id="name" name="name" required maxLength={120} />
-            </div>
-            <div className="grid gap-1.5">
-              <Label htmlFor="email">Email</Label>
-              <Input id="email" name="email" type="email" required maxLength={200} />
-            </div>
-            <div className="grid gap-1.5">
-              <Label htmlFor="phone">Phone (optional)</Label>
-              <Input id="phone" name="phone" maxLength={40} />
-            </div>
-          </div>
+    <Card className="gap-0 py-0 shadow-e2">
+      <div className="relative grain flex items-center gap-3 border-b bg-solar-glow px-6 py-4">
+        <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-primary/15 text-primary-strong ring-1 ring-primary/20">
+          <FolderKanban className="size-4.5" />
+        </span>
+        <div className="min-w-0">
+          <p className="font-heading text-sm font-semibold">New customer project</p>
+          <p className="text-sm text-muted-foreground">
+            The customer signs in with this email to follow their installation.
+          </p>
+        </div>
+      </div>
 
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="grid gap-1.5">
-              <Label htmlFor="displayName">Project name</Label>
-              <Input
-                id="displayName"
-                name="displayName"
-                required
-                maxLength={120}
-                placeholder="e.g. Dela Cruz residence — hybrid 8kW"
-              />
+      <CardContent className="py-5">
+        <form onSubmit={onSubmit} className="grid gap-5">
+          <fieldset className="grid gap-3">
+            <legend className="section-label mb-1">Customer</legend>
+            <div className="grid gap-4 sm:grid-cols-3">
+              <div className="grid gap-1.5">
+                <Label htmlFor="name">Customer name</Label>
+                <Input id="name" name="name" required maxLength={120} />
+              </div>
+              <div className="grid gap-1.5">
+                <Label htmlFor="email">Email</Label>
+                <Input id="email" name="email" type="email" required maxLength={200} />
+              </div>
+              <div className="grid gap-1.5">
+                <Label htmlFor="phone">Phone (optional)</Label>
+                <Input id="phone" name="phone" maxLength={40} />
+              </div>
             </div>
-            <div className="grid gap-1.5">
-              <Label htmlFor="siteAddress">Site address (optional)</Label>
-              <Input id="siteAddress" name="siteAddress" maxLength={300} />
-            </div>
-          </div>
+          </fieldset>
 
-          <div>
+          <fieldset className="grid gap-3">
+            <legend className="section-label mb-1">Installation</legend>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="grid gap-1.5">
+                <Label htmlFor="displayName">Project name</Label>
+                <Input
+                  id="displayName"
+                  name="displayName"
+                  required
+                  maxLength={120}
+                  placeholder="e.g. Dela Cruz residence — hybrid 8kW"
+                />
+              </div>
+              <div className="grid gap-1.5">
+                <Label htmlFor="siteAddress">Site address (optional)</Label>
+                <Input id="siteAddress" name="siteAddress" maxLength={300} />
+              </div>
+            </div>
+          </fieldset>
+
+          <div className="flex items-center gap-3 border-t pt-4">
             <Button type="submit" size="sm" disabled={saving}>
               {saving ? <Loader2 className="animate-spin" /> : <Plus />}
               Create project
             </Button>
+            <p className="text-xs text-muted-foreground">
+              Starts at assessment. You can move the stage right after.
+            </p>
           </div>
         </form>
       </CardContent>
@@ -200,41 +372,75 @@ function ProjectCard({
   onDeleted: (id: string) => void
 }) {
   const [open, setOpen] = React.useState(false)
+  const panelId = `project-panel-${project.id}`
 
   return (
-    <Card>
-      <CardContent className="py-4">
-        <button
-          type="button"
-          onClick={() => setOpen((v) => !v)}
-          className="flex w-full items-center gap-3 text-left"
-          aria-expanded={open}
-        >
+    <Card size="sm" className="gap-0 py-0">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className={cn(
+          "w-full cursor-pointer px-4 py-3.5 text-left transition-colors duration-200",
+          "hover:bg-[color-mix(in_oklch,var(--foreground)_3%,transparent)]",
+          "focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none",
+          open && "bg-[color-mix(in_oklch,var(--foreground)_2%,transparent)]",
+        )}
+        aria-expanded={open}
+        aria-controls={panelId}
+      >
+        <div className="flex items-center gap-3">
           <div className="min-w-0 flex-1">
             <p className="truncate font-medium">{project.displayName}</p>
-            <p className="truncate text-sm text-muted-foreground">
-              {project.customerName ? `${project.customerName} · ` : ""}
-              {project.customerEmail}
+            <p className="mt-0.5 flex items-center gap-1.5 truncate text-sm text-muted-foreground">
+              <UserRound className="size-3.5 shrink-0" aria-hidden />
+              <span className="truncate">
+                {project.customerName ? `${project.customerName} · ` : ""}
+                {project.customerEmail}
+              </span>
             </p>
           </div>
-          <span className="rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium text-foreground">
-            {STAGE_LABEL[project.stage]}
-          </span>
-          <ChevronDown
-            className={cn("size-4 shrink-0 transition-transform", open && "rotate-180")}
-          />
-        </button>
 
-        {open ? (
-          <div className="mt-4 grid gap-5 border-t pt-4">
-            <StageEditor project={project} onChange={onChange} />
-            <DocumentsEditor project={project} onChange={onChange} />
-            {canDelete ? (
-              <DeleteProject project={project} onDeleted={onDeleted} />
-            ) : null}
-          </div>
+          {/* A booked install is a commitment — it stays on the collapsed row
+              rather than hiding behind the disclosure. */}
+          {project.stage === "scheduled" && project.scheduledAt ? (
+            <Badge tone="warning" className="hidden md:inline-flex">
+              <CalendarClock aria-hidden />
+              <span className="tabular">{formatSchedule(project.scheduledAt)}</span>
+            </Badge>
+          ) : null}
+
+          <Badge tone={STAGE_TONE[project.stage]} shape="pill">
+            {STAGE_LABEL[project.stage]}
+          </Badge>
+
+          <ChevronDown
+            aria-hidden
+            className={cn(
+              "size-4 shrink-0 text-muted-foreground transition-transform duration-300 ease-[cubic-bezier(0.23,1,0.32,1)]",
+              open && "rotate-180",
+            )}
+          />
+        </div>
+
+        <StageProgress stage={project.stage} className="mt-3" />
+
+        {project.stage === "scheduled" && project.scheduledAt ? (
+          <p className="tabular mt-2 flex items-center gap-1.5 text-xs text-muted-foreground md:hidden">
+            <CalendarClock className="size-3.5" aria-hidden />
+            {formatSchedule(project.scheduledAt)}
+          </p>
         ) : null}
-      </CardContent>
+      </button>
+
+      {open ? (
+        <div id={panelId} className="grid gap-6 border-t px-4 py-5">
+          <StageEditor project={project} onChange={onChange} />
+          <DocumentsEditor project={project} onChange={onChange} />
+          {canDelete ? (
+            <DeleteProject project={project} onDeleted={onDeleted} />
+          ) : null}
+        </div>
+      ) : null}
     </Card>
   )
 }
@@ -272,14 +478,13 @@ function StageEditor({
   }
 
   return (
-    <div className="grid gap-3">
-      <p className="text-sm font-medium">Status</p>
+    <section className="grid gap-3">
+      <p className="section-label">Status</p>
       <div className="grid gap-3 sm:grid-cols-[12rem_1fr]">
         <div className="grid gap-1.5">
           <Label htmlFor={`stage-${project.id}`}>Stage</Label>
-          <select
+          <Select
             id={`stage-${project.id}`}
-            className={controlClass}
             value={stage}
             onChange={(e) => setStage(e.target.value as ProjectStage)}
           >
@@ -288,7 +493,7 @@ function StageEditor({
                 {STAGE_LABEL[s]}
               </option>
             ))}
-          </select>
+          </Select>
         </div>
         <div className="grid gap-1.5">
           <Label htmlFor={`note-${project.id}`}>Note to customer (optional)</Label>
@@ -302,14 +507,14 @@ function StageEditor({
         </div>
       </div>
       {stage === "scheduled" ? (
-        <div className="grid gap-1.5 sm:max-w-[16rem]">
+        <div className="grid gap-1.5 rounded-lg bg-warning-soft/60 p-3 sm:max-w-[22rem]">
           <Label htmlFor={`sched-${project.id}`}>Installation date &amp; time</Label>
           <Input
             id={`sched-${project.id}`}
             type="datetime-local"
-            className={controlClass}
             value={scheduledAt}
             onChange={(e) => setScheduledAt(e.target.value)}
+            className="bg-background"
             required
           />
           <p className="text-xs text-muted-foreground">
@@ -327,7 +532,7 @@ function StageEditor({
           Save status
         </Button>
       </div>
-    </div>
+    </section>
   )
 }
 
@@ -360,30 +565,44 @@ function DocumentsEditor({
   }
 
   return (
-    <div className="grid gap-3">
-      <p className="text-sm font-medium">Documents</p>
+    <section className="grid gap-3 border-t pt-5">
+      <div className="flex items-center gap-2">
+        <p className="section-label">Documents</p>
+        {project.documents.length > 0 ? (
+          <Badge tone="neutral" shape="pill" size="sm" className="tabular">
+            {project.documents.length}
+          </Badge>
+        ) : null}
+      </div>
 
       {project.documents.length > 0 ? (
-        <ul className="grid gap-2">
+        <ul className="grid gap-1.5">
           {project.documents.map((doc) => (
             <li
               key={doc.id}
-              className="flex items-center gap-3 rounded-md border px-3 py-2 text-sm"
+              className="group/doc flex items-center gap-3 rounded-lg border px-2.5 py-2 text-sm transition-colors duration-200 hover:border-primary/30 hover:bg-primary/5"
             >
-              <FileText className="size-4 shrink-0 text-muted-foreground" />
+              <span className="grid size-8 shrink-0 place-items-center rounded-md bg-neutral-soft text-muted-foreground transition-colors group-hover/doc:bg-primary/15 group-hover/doc:text-primary-strong">
+                <FileText className="size-4" aria-hidden />
+              </span>
               <a
                 href={doc.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="min-w-0 flex-1 truncate hover:underline"
+                className="min-w-0 flex-1 truncate rounded-sm font-medium outline-none hover:underline focus-visible:ring-3 focus-visible:ring-ring/50"
               >
                 {doc.label}
+                <ExternalLink
+                  aria-hidden
+                  className="ml-1.5 inline size-3.5 align-[-2px] text-muted-foreground"
+                />
+                <span className="sr-only">(opens in a new tab)</span>
               </a>
-              <ExternalLink className="size-3.5 shrink-0 text-muted-foreground" />
               <Button
                 type="button"
                 variant="ghost"
-                size="sm"
+                size="icon-sm"
+                aria-label={`Remove ${doc.label}`}
                 onClick={() => onRemove(doc.id)}
                 className="text-destructive hover:text-destructive"
               >
@@ -451,7 +670,7 @@ function DocumentsEditor({
           ? "PDF or image, up to 16MB."
           : "Set NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME to enable document uploads."}
       </p>
-    </div>
+    </section>
   )
 }
 
@@ -462,13 +681,8 @@ function DeleteProject({
   project: CustomerProject
   onDeleted: (id: string) => void
 }) {
-  const [confirming, setConfirming] = React.useState(false)
-  const [busy, setBusy] = React.useState(false)
-
   async function onDelete() {
-    setBusy(true)
     const res = await removeProject({ id: project.id })
-    setBusy(false)
     if (!res.ok) {
       toast.error(res.error)
       return
@@ -479,27 +693,13 @@ function DeleteProject({
 
   return (
     <div className="flex items-center gap-2 border-t pt-4">
-      {confirming ? (
-        <>
-          <span className="text-sm text-muted-foreground">Delete this project permanently?</span>
-          <Button size="sm" variant="destructive" onClick={onDelete} disabled={busy}>
-            {busy ? <Loader2 className="animate-spin" /> : <Trash2 />}
-            Confirm delete
-          </Button>
-          <Button size="sm" variant="ghost" onClick={() => setConfirming(false)} disabled={busy}>
-            Cancel
-          </Button>
-        </>
-      ) : (
-        <Button
-          size="sm"
-          variant="ghost"
-          onClick={() => setConfirming(true)}
-          className="text-destructive hover:text-destructive"
-        >
-          <Trash2 /> Delete project
-        </Button>
-      )}
+      <ConfirmButton
+        question="Delete this project permanently?"
+        confirmLabel="Delete"
+        onConfirm={onDelete}
+      >
+        <Trash2 /> Delete project
+      </ConfirmButton>
     </div>
   )
 }

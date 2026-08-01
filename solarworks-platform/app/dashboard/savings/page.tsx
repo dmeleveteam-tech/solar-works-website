@@ -31,6 +31,7 @@ export default async function SavingsPage() {
   return (
     <>
       <PageHeading
+        eyebrow="Customer savings"
         title="Savings tracker"
         description="Maintain utility tariffs and link customers to their Deye plant. Upload becomes available once the export parser is configured."
       />

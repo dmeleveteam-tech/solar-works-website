@@ -16,6 +16,10 @@ export function LoginForm() {
   const params = useSearchParams()
   const redirectTo = params.get("redirectTo") || "/"
   const [pending, setPending] = React.useState(false)
+  // Validation belongs next to the field it describes. A toast that fades after
+  // four seconds is the wrong place to tell someone their email is malformed —
+  // by the time they look back at the input, the reason is gone.
+  const [error, setError] = React.useState<string | null>(null)
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -23,21 +27,28 @@ export function LoginForm() {
     const email = String(data.get("email") ?? "").trim()
     const password = String(data.get("password") ?? "")
 
+    setError(null)
+
     if (!email || !password) {
-      toast.error("Email and password are required.")
+      setError("Enter both your email and password.")
       return
     }
     if (!EMAIL_PATTERN.test(email)) {
-      toast.error("Enter a valid email address.")
+      setError("That doesn't look like a valid email address.")
       return
     }
 
     setPending(true)
-    const { error } = await authClient.signIn.email({ email, password })
+    const { error: signInError } = await authClient.signIn.email({
+      email,
+      password,
+    })
     setPending(false)
 
-    if (error) {
-      toast.error(error.message ?? "Could not sign you in. Check your details.")
+    if (signInError) {
+      setError(
+        signInError.message ?? "We couldn't sign you in. Check your details.",
+      )
       return
     }
     // Root route fans out to the correct home for the user's role.
@@ -67,23 +78,30 @@ export function LoginForm() {
           placeholder="Password"
         />
 
+        {error ? (
+          <p
+            role="alert"
+            className="rounded-md bg-destructive/8 px-3 py-2 text-sm text-destructive ring-1 ring-destructive/20"
+          >
+            {error}
+          </p>
+        ) : null}
+
         <div className="flex items-center justify-between gap-4">
           <button
             type="button"
-            onClick={() =>
-              toast("Contact your admin to reset your password.")
-            }
-            className="text-xs font-medium text-primary-strong hover:underline"
+            onClick={() => toast("Contact your admin to reset your password.")}
+            className="rounded-sm text-xs font-medium text-primary-strong underline-offset-2 outline-none hover:underline focus-visible:ring-3 focus-visible:ring-ring/50"
           >
-            Forgot Password?
+            Forgot password?
           </button>
           <button
             type="submit"
             disabled={pending}
-            className="inline-flex items-center gap-2 rounded-full bg-primary px-6 py-2.5 text-sm font-bold text-primary-foreground shadow-sm transition-colors hover:bg-primary/80 disabled:pointer-events-none disabled:opacity-60"
+            className="inline-flex items-center gap-2 rounded-full bg-primary px-7 py-2.5 text-sm font-semibold text-primary-foreground shadow-e1 transition-[background-color,box-shadow,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] outline-none hover:bg-primary/85 hover:shadow-e2 focus-visible:ring-3 focus-visible:ring-ring/50 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-60"
           >
             {pending ? <Loader2 className="size-4 animate-spin" /> : null}
-            LOGIN
+            {pending ? "Signing in" : "Log in"}
           </button>
         </div>
       </form>

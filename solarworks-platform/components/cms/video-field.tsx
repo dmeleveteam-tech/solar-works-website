@@ -54,8 +54,8 @@ export function VideoField({
           <div className="flex items-center gap-3">
             <div
               className={cn(
-                "flex size-16 shrink-0 items-center justify-center overflow-hidden rounded-md border bg-muted",
-                "text-muted-foreground",
+                "flex size-16 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-neutral-soft",
+                "text-muted-foreground ring-1 ring-border",
               )}
             >
               {isLoading ? (

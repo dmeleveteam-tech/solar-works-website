@@ -5,9 +5,13 @@ import {
   ChevronDown,
   Loader2,
   Plus,
+  PlugZap,
+  ShieldAlert,
   ShieldCheck,
   Trash2,
+  TriangleAlert,
   Upload,
+  Wrench,
   X,
 } from "lucide-react"
 import { toast } from "sonner"
@@ -33,13 +37,11 @@ import {
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Select } from "@/components/ui/select"
+import { Badge } from "@/components/ui/badge"
+import { EmptyState } from "@/components/ui/empty-state"
+import { ConfirmButton } from "@/components/ui/confirm-button"
 import { Card, CardContent } from "@/components/ui/card"
-
-const controlClass = cn(
-  "h-9 w-full rounded-md border border-input bg-transparent px-2.5 text-sm shadow-xs outline-none",
-  "focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50",
-  "disabled:pointer-events-none disabled:opacity-50",
-)
 
 export function SavingsManager({
   initialTariffs,
@@ -60,7 +62,7 @@ export function SavingsManager({
   const providerNames = tariffs.map((t) => t.provider)
 
   return (
-    <div className="grid gap-8">
+    <div className="grid gap-10">
       <BasisNotice />
       <TariffSection
         tariffs={tariffs}
@@ -79,19 +81,61 @@ export function SavingsManager({
   )
 }
 
-/** Surfaces the still-pending "what counts as saved" decision to staff. */
+/** One heading shape for every section on the page. */
+function SectionHeading({
+  label,
+  title,
+  description,
+  action,
+}: {
+  label: string
+  title: string
+  description: string
+  action?: React.ReactNode
+}) {
+  return (
+    <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
+      <div className="min-w-0">
+        <p className="section-label mb-2">{label}</p>
+        <h2 className="font-heading text-lg font-semibold">{title}</h2>
+        <p className="mt-1 max-w-[62ch] text-sm text-pretty text-muted-foreground">
+          {description}
+        </p>
+      </div>
+      {action ? <div className="shrink-0">{action}</div> : null}
+    </div>
+  )
+}
+
+/**
+ * Surfaces the still-pending "what counts as saved" decision to staff. This is
+ * a caveat on every peso figure downstream, so it gets the full advisory
+ * treatment — accent rail, icon, warning ramp — rather than a tinted card that
+ * disappears into the app's own amber background.
+ */
 function BasisNotice() {
   return (
-    <Card className="border-amber-300/60 bg-amber-50/50 dark:bg-amber-950/20">
-      <CardContent className="py-4 text-sm">
-        <p className="font-medium">Savings basis: {SAVINGS_BASIS_LABEL[DEFAULT_SAVINGS_BASIS]} (provisional)</p>
-        <p className="mt-1 text-muted-foreground">
+    <div
+      role="note"
+      className="relative grain flex gap-3.5 overflow-hidden rounded-xl border-l-4 border-warning bg-warning-soft p-4 ring-1 ring-warning/25"
+    >
+      <TriangleAlert className="mt-0.5 size-5 shrink-0 text-warning" aria-hidden />
+      <div className="min-w-0">
+        <div className="flex flex-wrap items-center gap-2">
+          <p className="text-sm font-semibold text-warning">
+            Savings basis: {SAVINGS_BASIS_LABEL[DEFAULT_SAVINGS_BASIS]}
+          </p>
+          <Badge tone="warning" size="sm" className="ring-1 ring-warning/30">
+            Provisional
+          </Badge>
+        </div>
+        <p className="mt-1.5 text-sm leading-relaxed text-pretty text-foreground/80">
           {SAVINGS_BASIS_DESCRIPTION[DEFAULT_SAVINGS_BASIS]} The final basis is
           pending the client&apos;s decision. Every peso figure is shown as an
           estimate.
         </p>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   )
 }
 
@@ -107,6 +151,7 @@ function TariffSection({
   canDelete: boolean
 }) {
   const [saving, setSaving] = React.useState(false)
+  const providerRef = React.useRef<HTMLInputElement>(null)
 
   function upsert(t: Tariff) {
     setTariffs((prev) => {
@@ -146,48 +191,58 @@ function TariffSection({
   }
 
   return (
-    <section className="grid gap-3">
-      <div>
-        <h2 className="font-heading text-lg font-semibold">Utility tariffs</h2>
-        <p className="text-sm text-muted-foreground">
-          Flat ₱/kWh rate per provider. Used to price each customer&apos;s savings.
-        </p>
-      </div>
+    <section className="grid gap-4">
+      <SectionHeading
+        label="Rates"
+        title="Utility tariffs"
+        description="Flat ₱/kWh rate per provider. Used to price each customer's savings."
+      />
 
       <Card>
-        <CardContent className="grid gap-4 py-5">
+        <CardContent className="grid gap-5">
           {tariffs.length > 0 ? (
-            <ul className="grid gap-2">
+            <ul className="divide-y divide-border/60 overflow-hidden rounded-lg ring-1 ring-border">
               {tariffs.map((t) => (
-                <li
-                  key={t.id}
-                  className="flex items-center gap-3 rounded-md border px-3 py-2 text-sm"
-                >
-                  <span className="min-w-0 flex-1 truncate font-medium">{t.provider}</span>
-                  <span className="tabular-nums">₱{t.ratePerKwh.toFixed(2)}/kWh</span>
+                <li key={t.id} className="data-row text-sm">
+                  <span className="min-w-0 flex-1 truncate font-medium">
+                    {t.provider}
+                  </span>
+                  {/* Fixed-width tabular column so rates line up decimal-to-decimal
+                      and can be compared by scanning straight down. */}
+                  <span className="tabular w-28 shrink-0 text-right">
+                    ₱{t.ratePerKwh.toFixed(2)}
+                    <span className="text-muted-foreground">/kWh</span>
+                  </span>
                   {canDelete ? (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => onDelete(t)}
-                      className="text-destructive hover:text-destructive"
-                      aria-label={`Remove ${t.provider} tariff`}
+                    <ConfirmButton
+                      question={`Remove the ${t.provider} tariff?`}
+                      confirmLabel="Remove"
+                      onConfirm={() => onDelete(t)}
                     >
-                      <X />
-                    </Button>
+                      <X /> Remove
+                    </ConfirmButton>
                   ) : null}
                 </li>
               ))}
             </ul>
           ) : (
-            <p className="text-sm text-muted-foreground">No tariffs yet.</p>
+            <EmptyState
+              icon={PlugZap}
+              title="No tariffs yet"
+              description="Add the ₱/kWh rate for each utility your customers buy from. Savings can't be priced without one."
+              action={
+                <Button size="sm" onClick={() => providerRef.current?.focus()}>
+                  <Plus /> Add the first tariff
+                </Button>
+              }
+            />
           )}
 
           <form onSubmit={onSubmit} className="flex flex-wrap items-end gap-2">
             <div className="grid flex-1 gap-1.5">
               <Label htmlFor="provider">Provider</Label>
               <Input
+                ref={providerRef}
                 id="provider"
                 name="provider"
                 list="provider-suggestions"
@@ -211,6 +266,7 @@ function TariffSection({
                 min="0"
                 required
                 placeholder="12.50"
+                className="tabular"
               />
             </div>
             <Button type="submit" size="sm" disabled={saving}>
@@ -248,19 +304,18 @@ function PlantSection({
   }
 
   return (
-    <section className="grid gap-3">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="font-heading text-lg font-semibold">Customer plants</h2>
-          <p className="text-sm text-muted-foreground">
-            Link a customer account to their Deye plant and utility provider.
-          </p>
-        </div>
-        <Button size="sm" onClick={() => setAdding((v) => !v)}>
-          {adding ? <X /> : <Plus />}
-          {adding ? "Cancel" : "Link plant"}
-        </Button>
-      </div>
+    <section className="grid gap-4">
+      <SectionHeading
+        label="Links"
+        title="Customer plants"
+        description="Link a customer account to their Deye plant and utility provider."
+        action={
+          <Button size="sm" onClick={() => setAdding((v) => !v)}>
+            {adding ? <X /> : <Plus />}
+            {adding ? "Cancel" : "Link plant"}
+          </Button>
+        }
+      />
 
       {adding ? (
         <CreatePlantForm
@@ -275,21 +330,34 @@ function PlantSection({
 
       {plants.length === 0 ? (
         <Card>
-          <CardContent className="py-12 text-center text-sm text-muted-foreground">
-            No plants linked yet.
+          <CardContent className="px-0">
+            <EmptyState
+              icon={PlugZap}
+              title="No plants linked yet"
+              description="Linking a customer to their Deye plant is what lets their portal show generation and savings."
+              action={
+                adding ? undefined : (
+                  <Button size="sm" onClick={() => setAdding(true)}>
+                    <Plus /> Link a plant
+                  </Button>
+                )
+              }
+            />
           </CardContent>
         </Card>
       ) : (
-        plants.map((plant) => (
-          <PlantCard
-            key={plant.id}
-            plant={plant}
-            canDelete={canDelete}
-            parserReady={parserReady}
-            onChange={upsert}
-            onDeleted={(id) => setPlants((prev) => prev.filter((p) => p.id !== id))}
-          />
-        ))
+        <div className="grid gap-3">
+          {plants.map((plant) => (
+            <PlantCard
+              key={plant.id}
+              plant={plant}
+              canDelete={canDelete}
+              parserReady={parserReady}
+              onChange={upsert}
+              onDeleted={(id) => setPlants((prev) => prev.filter((p) => p.id !== id))}
+            />
+          ))}
+        </div>
       )}
     </section>
   )
@@ -340,93 +408,100 @@ function CreatePlantForm({
 
   return (
     <Card>
-      <CardContent className="grid gap-4 py-5">
-        <form onSubmit={onSubmit} className="grid gap-4">
-          <div className="flex gap-2">
-            <Button
-              type="button"
-              size="sm"
-              variant={mode === "existing" ? "default" : "outline"}
-              onClick={() => setMode("existing")}
-              disabled={customers.length === 0}
-            >
-              Existing customer
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              variant={mode === "new" ? "default" : "outline"}
-              onClick={() => setMode("new")}
-            >
-              New customer account
-            </Button>
+      <CardContent>
+        <form onSubmit={onSubmit} className="grid gap-6">
+          <div role="group" aria-label="Customer" className="grid gap-3">
+            <p className="section-label">Customer</p>
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                size="sm"
+                variant={mode === "existing" ? "default" : "outline"}
+                onClick={() => setMode("existing")}
+                disabled={customers.length === 0}
+                aria-pressed={mode === "existing"}
+              >
+                Existing customer
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant={mode === "new" ? "default" : "outline"}
+                onClick={() => setMode("new")}
+                aria-pressed={mode === "new"}
+              >
+                New customer account
+              </Button>
+            </div>
+
+            {mode === "existing" ? (
+              <div className="grid gap-1.5">
+                <Label htmlFor="customerUserId">Customer</Label>
+                <Select id="customerUserId" name="customerUserId" required>
+                  {customers.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name ? `${c.name} — ${c.email}` : c.email}
+                    </option>
+                  ))}
+                </Select>
+              </div>
+            ) : (
+              <>
+                <div className="grid gap-4 sm:grid-cols-3">
+                  <div className="grid gap-1.5">
+                    <Label htmlFor="name">Customer name</Label>
+                    <Input id="name" name="name" required maxLength={120} />
+                  </div>
+                  <div className="grid gap-1.5">
+                    <Label htmlFor="email">Email</Label>
+                    <Input id="email" name="email" type="email" required maxLength={200} />
+                  </div>
+                  <div className="grid gap-1.5">
+                    <Label htmlFor="password">Temporary password</Label>
+                    <Input id="password" name="password" type="text" required minLength={8} maxLength={200} />
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  This creates a customer login. Share the email and temporary
+                  password with them; they can sign in at the portal.
+                </p>
+              </>
+            )}
           </div>
 
-          {mode === "existing" ? (
-            <div className="grid gap-1.5">
-              <Label htmlFor="customerUserId">Customer</Label>
-              <select id="customerUserId" name="customerUserId" className={controlClass} required>
-                {customers.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name ? `${c.name} — ${c.email}` : c.email}
-                  </option>
-                ))}
-              </select>
-            </div>
-          ) : (
-            <div className="grid gap-4 sm:grid-cols-3">
+          <div role="group" aria-label="Plant" className="grid gap-3 border-t pt-5">
+            <p className="section-label">Plant</p>
+            <div className="grid gap-4 sm:grid-cols-2">
               <div className="grid gap-1.5">
-                <Label htmlFor="name">Customer name</Label>
-                <Input id="name" name="name" required maxLength={120} />
+                <Label htmlFor="plantRef">Deye plant reference</Label>
+                <Input
+                  id="plantRef"
+                  name="plantRef"
+                  required
+                  maxLength={120}
+                  placeholder="e.g. Solarman plant ID or site name"
+                />
               </div>
               <div className="grid gap-1.5">
-                <Label htmlFor="email">Email</Label>
-                <Input id="email" name="email" type="email" required maxLength={200} />
+                <Label htmlFor="plant-provider">Utility provider</Label>
+                <Input
+                  id="plant-provider"
+                  name="provider"
+                  list="plant-provider-suggestions"
+                  required
+                  maxLength={80}
+                  placeholder="e.g. Meralco"
+                />
+                <datalist id="plant-provider-suggestions">
+                  {providerNames.map((p) => (
+                    <option key={p} value={p} />
+                  ))}
+                </datalist>
               </div>
-              <div className="grid gap-1.5">
-                <Label htmlFor="password">Temporary password</Label>
-                <Input id="password" name="password" type="text" required minLength={8} maxLength={200} />
-              </div>
-            </div>
-          )}
-
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="grid gap-1.5">
-              <Label htmlFor="plantRef">Deye plant reference</Label>
-              <Input
-                id="plantRef"
-                name="plantRef"
-                required
-                maxLength={120}
-                placeholder="e.g. Solarman plant ID or site name"
-              />
-            </div>
-            <div className="grid gap-1.5">
-              <Label htmlFor="plant-provider">Utility provider</Label>
-              <Input
-                id="plant-provider"
-                name="provider"
-                list="plant-provider-suggestions"
-                required
-                maxLength={80}
-                placeholder="e.g. Meralco"
-              />
-              <datalist id="plant-provider-suggestions">
-                {providerNames.map((p) => (
-                  <option key={p} value={p} />
-                ))}
-              </datalist>
             </div>
           </div>
 
-          {mode === "new" ? (
-            <p className="text-xs text-muted-foreground">
-              This creates a customer login. Share the email and temporary password with
-              them; they can sign in at the portal.
-            </p>
-          ) : null}
-
-          <div>
+          <div className="flex justify-end border-t pt-5">
             <Button type="submit" size="sm" disabled={saving}>
               {saving ? <Loader2 className="animate-spin" /> : <Plus />}
               Link plant
@@ -435,6 +510,23 @@ function CreatePlantForm({
         </form>
       </CardContent>
     </Card>
+  )
+}
+
+/**
+ * Consent gates every savings email (NFR-03), so its absence is the state staff
+ * need to notice — it gets the warning ramp and a ring, while the satisfied
+ * state stays quiet.
+ */
+function ConsentBadge({ consented }: { consented: boolean }) {
+  return consented ? (
+    <Badge tone="success">
+      <ShieldCheck aria-hidden /> Email consent given
+    </Badge>
+  ) : (
+    <Badge tone="warning" className="ring-1 ring-warning/35">
+      <ShieldAlert aria-hidden /> No email consent
+    </Badge>
   )
 }
 
@@ -452,15 +544,20 @@ function PlantCard({
   onDeleted: (id: string) => void
 }) {
   const [open, setOpen] = React.useState(false)
+  const panelId = React.useId()
 
   return (
-    <Card>
-      <CardContent className="py-4">
+    <Card size="sm">
+      <CardContent>
         <button
           type="button"
           onClick={() => setOpen((v) => !v)}
-          className="flex w-full items-center gap-3 text-left"
+          className={cn(
+            "-mx-2 flex w-full items-center gap-3 rounded-md px-2 py-1.5 text-left transition-colors",
+            "hover:bg-muted/60 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none",
+          )}
           aria-expanded={open}
+          aria-controls={panelId}
         >
           <div className="min-w-0 flex-1">
             <p className="truncate font-medium">
@@ -471,28 +568,25 @@ function PlantCard({
               {plant.customerEmail} · {plant.provider}
             </p>
           </div>
-          <span
-            className={cn(
-              "rounded-full px-2.5 py-1 text-xs font-medium",
-              plant.emailConsentAt
-                ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
-                : "bg-muted text-muted-foreground",
-            )}
-          >
-            {plant.emailConsentAt ? "Email consent given" : "No email consent"}
-          </span>
+          <ConsentBadge consented={Boolean(plant.emailConsentAt)} />
           <ChevronDown
-            className={cn("size-4 shrink-0 transition-transform", open && "rotate-180")}
+            aria-hidden
+            className={cn(
+              "size-4 shrink-0 text-muted-foreground transition-transform",
+              open && "rotate-180",
+            )}
           />
         </button>
 
-        {open ? (
-          <div className="mt-4 grid gap-5 border-t pt-4">
-            <ConsentToggle plant={plant} onChange={onChange} />
-            <UploadReadings plant={plant} parserReady={parserReady} onChange={onChange} />
-            {canDelete ? <DeletePlant plant={plant} onDeleted={onDeleted} /> : null}
-          </div>
-        ) : null}
+        <div id={panelId} hidden={!open}>
+          {open ? (
+            <div className="mt-4 grid gap-6 border-t pt-5">
+              <ConsentToggle plant={plant} onChange={onChange} />
+              <UploadReadings plant={plant} parserReady={parserReady} onChange={onChange} />
+              {canDelete ? <DeletePlant plant={plant} onDeleted={onDeleted} /> : null}
+            </div>
+          ) : null}
+        </div>
       </CardContent>
     </Card>
   )
@@ -522,11 +616,12 @@ function ConsentToggle({
 
   return (
     <div className="grid gap-2">
-      <p className="text-sm font-medium">Savings email consent</p>
-      <p className="text-sm text-muted-foreground">
-        Required before sending any savings email to this customer (privacy / NFR-03).
+      <p className="section-label">Savings email consent</p>
+      <p className="max-w-[62ch] text-sm text-pretty text-muted-foreground">
+        Required before sending any savings email to this customer (privacy /
+        NFR-03).
       </p>
-      <div>
+      <div className="mt-1">
         <Button size="sm" variant={consented ? "outline" : "default"} onClick={onToggle} disabled={busy}>
           {busy ? <Loader2 className="animate-spin" /> : <ShieldCheck />}
           {consented ? "Withdraw consent" : "Record consent"}
@@ -568,14 +663,27 @@ function UploadReadings({
 
   return (
     <div className="grid gap-2">
-      <p className="text-sm font-medium">Monthly Deye export</p>
-      {!parserReady ? (
-        <p className="rounded-md border border-dashed px-3 py-2 text-sm text-muted-foreground">
-          Upload is parked until the Deye export parser is configured from two real
-          sample files. The flow is wired end-to-end — only the parser remains.
+      <p className="section-label">Monthly Deye export</p>
+      {parserReady ? (
+        <p className="max-w-[62ch] text-sm text-pretty text-muted-foreground">
+          Upload the monthly CSV or XLSX export from Solarman for this plant.
         </p>
-      ) : null}
-      <div>
+      ) : (
+        <div className="flex gap-3 rounded-lg bg-info-soft/60 p-3.5 ring-1 ring-info/20">
+          <Wrench className="mt-0.5 size-4 shrink-0 text-info" aria-hidden />
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-info">Parser not configured yet</p>
+            <p className="mt-1 max-w-[62ch] text-sm text-pretty text-muted-foreground">
+              Upload stays disabled until the Deye export parser is configured
+              from two real sample files. The rest of the flow is wired
+              end-to-end — only the parser remains.
+            </p>
+          </div>
+        </div>
+      )}
+      <div className="mt-1">
+        {/* Visually hidden but still in the a11y tree; the button below opens the
+            OS picker, so both pointer and keyboard reach the same input. */}
         <input
           id={uploadId}
           type="file"
@@ -606,13 +714,8 @@ function DeletePlant({
   plant: SavingsPlant
   onDeleted: (id: string) => void
 }) {
-  const [confirming, setConfirming] = React.useState(false)
-  const [busy, setBusy] = React.useState(false)
-
   async function onDelete() {
-    setBusy(true)
     const res = await removePlant({ id: plant.id })
-    setBusy(false)
     if (!res.ok) {
       toast.error(res.error)
       return
@@ -622,30 +725,17 @@ function DeletePlant({
   }
 
   return (
-    <div className="flex items-center gap-2 border-t pt-4">
-      {confirming ? (
-        <>
-          <span className="text-sm text-muted-foreground">
-            Delete this plant link and its readings?
-          </span>
-          <Button size="sm" variant="destructive" onClick={onDelete} disabled={busy}>
-            {busy ? <Loader2 className="animate-spin" /> : <Trash2 />}
-            Confirm delete
-          </Button>
-          <Button size="sm" variant="ghost" onClick={() => setConfirming(false)} disabled={busy}>
-            Cancel
-          </Button>
-        </>
-      ) : (
-        <Button
-          size="sm"
-          variant="ghost"
-          onClick={() => setConfirming(true)}
-          className="text-destructive hover:text-destructive"
-        >
-          <Trash2 /> Delete plant link
-        </Button>
-      )}
+    <div className="flex items-center justify-between gap-3 border-t pt-4">
+      <p className="text-sm text-muted-foreground">
+        Deleting removes the link and every reading imported for it.
+      </p>
+      <ConfirmButton
+        question="Delete this plant link and its readings?"
+        confirmLabel="Delete"
+        onConfirm={onDelete}
+      >
+        <Trash2 /> Delete plant link
+      </ConfirmButton>
     </div>
   )
 }

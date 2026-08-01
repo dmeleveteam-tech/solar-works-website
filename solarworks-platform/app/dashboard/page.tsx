@@ -13,7 +13,7 @@ export default async function StaffDashboardPage() {
     <>
       <PageHeading
         title="Leads"
-        description="Incoming enquiries from the website form, chatbot, and manual entry."
+        description="Incoming enquiries from the website form, chatbot, Google Form and manual entry. Anything still waiting on a first reply is pinned to the top."
       />
       <LeadsManager
         initialLeads={leads}

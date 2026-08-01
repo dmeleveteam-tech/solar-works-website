@@ -14,6 +14,9 @@ export function SignupForm({ googleEnabled }: { googleEnabled: boolean }) {
   const router = useRouter()
   const [pending, setPending] = React.useState(false)
   const [googlePending, setGooglePending] = React.useState(false)
+  // Kept next to the form rather than in a toast, so the reason is still on
+  // screen when the person looks back at the field it refers to.
+  const [error, setError] = React.useState<string | null>(null)
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -22,18 +25,24 @@ export function SignupForm({ googleEnabled }: { googleEnabled: boolean }) {
     const email = String(data.get("email") ?? "").trim()
     const password = String(data.get("password") ?? "")
 
+    setError(null)
+
     if (password.length < 8) {
-      toast.error("Password must be at least 8 characters.")
+      setError("Choose a password of at least 8 characters.")
       return
     }
 
     setPending(true)
     // New public sign-ups are always customers (server enforces defaultRole).
-    const { error } = await authClient.signUp.email({ name, email, password })
+    const { error: signUpError } = await authClient.signUp.email({
+      name,
+      email,
+      password,
+    })
     setPending(false)
 
-    if (error) {
-      toast.error(error.message ?? "Could not create your account.")
+    if (signUpError) {
+      setError(signUpError.message ?? "We couldn't create your account.")
       return
     }
     router.push("/portal")
@@ -82,7 +91,21 @@ export function SignupForm({ googleEnabled }: { googleEnabled: boolean }) {
           minLength={8}
           placeholder="At least 8 characters"
         />
-        <Button type="submit" size="lg" disabled={pending} className="w-full rounded-full">
+        {error ? (
+          <p
+            role="alert"
+            className="rounded-md bg-destructive/8 px-3 py-2 text-sm text-destructive ring-1 ring-destructive/20"
+          >
+            {error}
+          </p>
+        ) : null}
+
+        <Button
+          type="submit"
+          size="lg"
+          disabled={pending}
+          className="w-full rounded-full shadow-e1 hover:shadow-e2"
+        >
           {pending ? (
             <>
               <Loader2 className="animate-spin" /> Creating account…

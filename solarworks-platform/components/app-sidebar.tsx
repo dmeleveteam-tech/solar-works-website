@@ -4,6 +4,7 @@ import * as React from "react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import {
+  ChartNoAxesCombined,
   FileText,
   FolderKanban,
   Inbox,
@@ -40,6 +41,7 @@ import {
 const NAV_ICONS: Record<NavIconName, LucideIcon> = {
   overview: LayoutDashboard,
   leads: Inbox,
+  insights: ChartNoAxesCombined,
   users: Users,
   content: FileText,
   portal: LayoutDashboard,
@@ -57,7 +59,9 @@ export function AppSidebar({ user, nav }: { user: ShellUser; nav: NavItem[] }) {
 
   return (
     <Sidebar variant="inset" collapsible="icon">
-      <SidebarHeader className="bg-gradient-to-b from-primary/12 to-transparent">
+      {/* A radial wash rather than a linear fade: the even 180° gradient read as
+          a banded strip against the flat sidebar below it. */}
+      <SidebarHeader className="bg-[radial-gradient(ellipse_120%_100%_at_20%_0%,color-mix(in_oklch,var(--primary)_18%,transparent),transparent_70%)]">
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" asChild>
@@ -85,12 +89,22 @@ export function AppSidebar({ user, nav }: { user: ShellUser; nav: NavItem[] }) {
                     <SidebarMenuButton
                       asChild
                       isActive={item.href === active?.href}
-                      className="data-active:!bg-primary/15 data-active:!text-primary-strong data-active:[&_svg]:text-primary-strong"
+                      // A tint alone is easy to miss at a glance across six
+                      // items, so the active row also grows a solid rail on its
+                      // leading edge — which survives the collapsed icon mode,
+                      // where the label that would otherwise carry the emphasis
+                      // is hidden.
+                      className="relative font-medium data-active:!bg-primary/12 data-active:!font-semibold data-active:!text-primary-strong data-active:before:absolute data-active:before:inset-y-1.5 data-active:before:-left-1 data-active:before:w-[3px] data-active:before:rounded-full data-active:before:bg-primary-strong data-active:[&_svg]:text-primary-strong"
                       tooltip={
                         count > 0 ? `${item.label} — ${count} unread` : item.label
                       }
                     >
-                      <Link href={item.href}>
+                      <Link
+                        href={item.href}
+                        aria-current={
+                          item.href === active?.href ? "page" : undefined
+                        }
+                      >
                         <Icon />
                         <span>{item.label}</span>
                       </Link>
@@ -121,8 +135,14 @@ export function AppSidebar({ user, nav }: { user: ShellUser; nav: NavItem[] }) {
       <SidebarFooter>
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton size="lg" className="cursor-default hover:bg-transparent">
-              <span className="flex aspect-square size-8 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-primary-strong text-xs font-semibold text-primary-foreground">
+            <SidebarMenuButton
+              size="lg"
+              className="cursor-default hover:bg-transparent"
+            >
+              <span
+                aria-hidden
+                className="flex aspect-square size-8 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-primary-strong text-xs font-semibold text-primary-foreground shadow-e1 ring-1 ring-foreground/8"
+              >
                 {initials(user)}
               </span>
               <span className="grid flex-1 text-left text-sm leading-tight group-data-[collapsible=icon]:hidden">

@@ -22,6 +22,7 @@ import {
   type NotificationIconName,
 } from "@/lib/notifications-shared"
 import { Button } from "@/components/ui/button"
+import { Skeleton } from "@/components/ui/skeleton"
 import {
   Popover,
   PopoverContent,
@@ -69,9 +70,16 @@ export function NotificationBell() {
         </Button>
       </PopoverTrigger>
 
-      <PopoverContent align="end" className="w-80 p-0">
-        <div className="flex items-center justify-between gap-2 border-b px-3 py-2">
-          <p className="text-sm font-medium">Notifications</p>
+      <PopoverContent align="end" className="w-88 p-0 shadow-e3">
+        <div className="flex items-center justify-between gap-2 border-b px-3 py-2.5">
+          <p className="section-label">
+            Notifications
+            {unreadCount > 0 ? (
+              <span className="ml-1.5 text-primary-strong tabular">
+                {unreadCount}
+              </span>
+            ) : null}
+          </p>
           <Button
             variant="ghost"
             size="xs"
@@ -83,10 +91,30 @@ export function NotificationBell() {
           </Button>
         </div>
 
-        {items.length === 0 ? (
-          <p className="px-3 py-8 text-center text-sm text-muted-foreground">
-            {loading ? "Loading…" : "You're all caught up."}
-          </p>
+        {loading && items.length === 0 ? (
+          // Match the real row height so the panel doesn't resize under the
+          // cursor the moment the feed lands.
+          <div className="space-y-1 p-1">
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="flex items-start gap-2.5 p-2">
+                <Skeleton className="size-7 shrink-0 rounded-md" />
+                <div className="min-w-0 flex-1 space-y-1.5">
+                  <Skeleton className="h-3.5 w-3/4" />
+                  <Skeleton className="h-2.5 w-1/2" />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : items.length === 0 ? (
+          <div className="px-6 py-10 text-center">
+            <span className="mx-auto mb-3 grid size-9 place-items-center rounded-lg bg-success-soft text-success">
+              <CheckCheck className="size-4" />
+            </span>
+            <p className="text-sm font-medium">You&apos;re all caught up</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              New leads and project updates will show up here.
+            </p>
+          </div>
         ) : (
           <div className="max-h-96 overflow-y-auto p-1">
             {items.map((item) => (

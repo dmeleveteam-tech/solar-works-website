@@ -1,4 +1,6 @@
-import { cn } from "@/lib/utils"
+import type { ComponentProps } from "react"
+
+import { Badge } from "@/components/ui/badge"
 import type { Role } from "@/lib/permissions"
 
 const ROLE_LABEL: Record<Role, string> = {
@@ -8,24 +10,24 @@ const ROLE_LABEL: Record<Role, string> = {
   customer: "Customer",
 }
 
-const ROLE_CLASS: Record<Role, string> = {
-  superadmin: "bg-primary/15 text-primary-strong",
-  staff: "bg-sky-500/15 text-sky-700",
-  content_editor: "bg-violet-500/15 text-violet-700",
-  customer: "bg-muted text-muted-foreground",
+/**
+ * Roles read as a hierarchy, so the tones step down in weight rather than
+ * picking four unrelated hues: brand for the one role that can change other
+ * roles, info for staff, and a receding outline/neutral pair for the two that
+ * only touch their own area.
+ */
+const ROLE_TONE: Record<Role, ComponentProps<typeof Badge>["tone"]> = {
+  superadmin: "brand",
+  staff: "info",
+  content_editor: "outline",
+  customer: "neutral",
 }
 
 export function RoleBadge({ role, className }: { role: Role; className?: string }) {
   return (
-    <span
-      className={cn(
-        "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium",
-        ROLE_CLASS[role],
-        className,
-      )}
-    >
+    <Badge tone={ROLE_TONE[role]} shape="pill" size="sm" className={className}>
       {ROLE_LABEL[role]}
-    </span>
+    </Badge>
   )
 }
 

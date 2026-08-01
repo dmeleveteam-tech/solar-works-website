@@ -5,7 +5,10 @@ import {
   Eye,
   EyeOff,
   GripVertical,
+  HelpCircle,
+  Images,
   Loader2,
+  MessageSquareQuote,
   Pencil,
   Plus,
   Star,
@@ -67,18 +70,24 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { Select } from "@/components/ui/select"
+import { ConfirmButton } from "@/components/ui/confirm-button"
+import { EmptyState } from "@/components/ui/empty-state"
 import { ImageField } from "@/components/cms/image-field"
 import { VideoField } from "@/components/cms/video-field"
 import { ContentPreview, type PreviewState } from "@/components/cms/content-preview"
 
 // --- shared field primitives ------------------------------------------------
 
-const controlClass = cn(
-  "h-9 w-full rounded-md border border-input bg-transparent px-2.5 text-sm shadow-xs outline-none",
+// Matches `Input`'s box so a textarea sitting next to one in the same grid
+// agrees on radius, border and focus ring.
+const textareaClass = cn(
+  "w-full min-h-20 rounded-md border border-input bg-transparent px-2.5 py-2 text-sm leading-relaxed shadow-e1 outline-none transition-[color,box-shadow,border-color]",
   "focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50",
-  "disabled:pointer-events-none disabled:opacity-50",
+  "hover:border-ring/60 disabled:pointer-events-none disabled:opacity-50",
+  "dark:bg-input/30",
 )
-const textareaClass = cn(controlClass, "h-auto min-h-20 py-2 leading-relaxed")
 
 /** Per-field server validation messages, keyed by field name. */
 const FieldErrorsContext = React.createContext<Record<string, string>>({})
@@ -113,18 +122,19 @@ function Field({
   )
 }
 
-function Select({
+/** Shared `Select` fed from a fixed vocabulary list. */
+function OptionSelect({
   options,
   ...props
-}: React.SelectHTMLAttributes<HTMLSelectElement> & { options: readonly string[] }) {
+}: React.ComponentProps<typeof Select> & { options: readonly string[] }) {
   return (
-    <select className={controlClass} {...props}>
+    <Select {...props}>
       {options.map((o) => (
         <option key={o} value={o}>
           {o}
         </option>
       ))}
-    </select>
+    </Select>
   )
 }
 
@@ -150,19 +160,12 @@ function CheckboxField({
   )
 }
 
-/** Yellow "Published" / muted "Draft" pill. */
+/** Live-on-the-public-site state. Draft stays quiet; published is the signal. */
 function PublishedBadge({ published }: { published: boolean }) {
-  return (
-    <span
-      className={cn(
-        "rounded-full px-2 py-0.5 text-xs font-medium",
-        published
-          ? "bg-primary/10 text-primary-strong"
-          : "bg-muted text-muted-foreground",
-      )}
-    >
-      {published ? "Published" : "Draft"}
-    </span>
+  return published ? (
+    <Badge tone="success">Published</Badge>
+  ) : (
+    <Badge tone="outline">Draft</Badge>
   )
 }
 
@@ -170,42 +173,55 @@ function PublishedBadge({ published }: { published: boolean }) {
 function RowActions({
   published,
   busy,
+  deleteQuestion,
   onTogglePublish,
   onEdit,
   onDelete,
 }: {
   published: boolean
   busy: boolean
+  /** Shown inline on the confirm step, so the row says what it is about to delete. */
+  deleteQuestion: string
   onTogglePublish: () => void
   onEdit: () => void
   onDelete: () => void
 }) {
   return (
     <div className="flex items-center gap-1">
-      {busy ? <Loader2 className="mr-1 size-4 animate-spin text-muted-foreground" /> : null}
+      {busy ? (
+        <Loader2 className="mr-1 size-4 animate-spin text-muted-foreground" />
+      ) : null}
       <Button
         variant="ghost"
         size="sm"
         disabled={busy}
         onClick={onTogglePublish}
-        title={published ? "Unpublish" : "Publish"}
+        aria-label={published ? "Unpublish" : "Publish"}
       >
         {published ? <EyeOff /> : <Eye />}
-        <span className="hidden sm:inline">{published ? "Unpublish" : "Publish"}</span>
-      </Button>
-      <Button variant="ghost" size="sm" disabled={busy} onClick={onEdit} title="Edit">
-        <Pencil />
+        <span className="hidden sm:inline">
+          {published ? "Unpublish" : "Publish"}
+        </span>
       </Button>
       <Button
         variant="ghost"
-        size="sm"
+        size="icon-sm"
         disabled={busy}
-        onClick={onDelete}
-        title="Delete"
-        className="text-destructive hover:text-destructive"
+        onClick={onEdit}
+        aria-label="Edit"
+      >
+        <Pencil />
+      </Button>
+      <ConfirmButton
+        question={deleteQuestion}
+        confirmLabel="Delete"
+        disabled={busy}
+        onConfirm={onDelete}
+        className="px-2"
       >
         <Trash2 />
-      </Button>
+        <span className="sr-only">Delete</span>
+      </ConfirmButton>
     </div>
   )
 }
@@ -271,9 +287,10 @@ function useCrud<T extends WithIdPublished>(initial: T[], noun: string) {
     [],
   )
 
+  // Confirmation is handled by the row's `ConfirmButton`, so by the time this
+  // runs the deletion is already agreed to.
   const remove = React.useCallback(
-    async (item: T, label: string, action: (i: { id: string }) => Promise<ActionResult>) => {
-      if (!window.confirm(`Delete ${label}? This cannot be undone.`)) return
+    async (item: T, action: (i: { id: string }) => Promise<ActionResult>) => {
       setBusyId(item.id)
       const res = await action({ id: item.id })
       setBusyId(null)
@@ -306,24 +323,31 @@ function useCrud<T extends WithIdPublished>(initial: T[], noun: string) {
 }
 
 function SectionHeader({
+  label,
   title,
   description,
+  addLabel,
   onAdd,
   adding,
 }: {
+  label: string
   title: string
   description: string
+  addLabel: string
   onAdd: () => void
   adding: boolean
 }) {
   return (
-    <div className="flex items-end justify-between gap-4">
-      <div>
+    <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
+      <div className="min-w-0">
+        <p className="section-label mb-2">{label}</p>
         <h2 className="font-heading text-lg font-semibold">{title}</h2>
-        <p className="text-sm text-muted-foreground">{description}</p>
+        <p className="mt-1 max-w-[62ch] text-sm text-pretty text-muted-foreground">
+          {description}
+        </p>
       </div>
-      <Button onClick={onAdd} disabled={adding}>
-        <Plus /> Add
+      <Button onClick={onAdd} disabled={adding} className="shrink-0">
+        <Plus /> {addLabel}
       </Button>
     </div>
   )
@@ -347,19 +371,36 @@ function FormShell({
   errors: Record<string, string>
   children: React.ReactNode
 }) {
+  const errorCount = Object.keys(errors).length
+
   return (
-    <Card>
-      <CardContent>
+    // The editor is the one surface on the page that is "in progress", so it
+    // sits a step above the list it edits and carries a brand-tinted top rail.
+    <Card className="border-t-2 border-t-primary shadow-e2">
+      <CardContent className="px-0">
         <FieldErrorsContext.Provider value={errors}>
-          <form onSubmit={onSubmit} className="grid gap-4">
-            <div className="flex items-center justify-between">
-              <h3 className="font-medium">{title}</h3>
-              <Button type="button" variant="ghost" size="sm" onClick={onCancel} disabled={saving}>
+          <form onSubmit={onSubmit} className="grid gap-5">
+            <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b px-(--card-spacing) pb-4">
+              <div className="flex min-w-0 items-center gap-2">
+                <h3 className="font-heading font-semibold">{title}</h3>
+                {errorCount > 0 ? (
+                  <Badge tone="danger" size="sm">
+                    {errorCount} {errorCount === 1 ? "field needs" : "fields need"} a fix
+                  </Badge>
+                ) : null}
+              </div>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={onCancel}
+                disabled={saving}
+              >
                 <X /> Cancel
               </Button>
             </div>
-            {children}
-            <div className="flex justify-end gap-2">
+            <div className="px-(--card-spacing)">{children}</div>
+            <div className="flex justify-end gap-2 border-t px-(--card-spacing) pt-4">
               <Button
                 type="button"
                 variant="outline"
@@ -382,13 +423,21 @@ function FormShell({
   )
 }
 
-function EmptyState({ children }: { children: React.ReactNode }) {
+/** Groups related fields inside the editor so a long form reads as sections. */
+function FieldGroup({
+  label,
+  className,
+  children,
+}: {
+  label: string
+  className?: string
+  children: React.ReactNode
+}) {
   return (
-    <Card>
-      <CardContent className="py-12 text-center text-sm text-muted-foreground">
-        {children}
-      </CardContent>
-    </Card>
+    <div role="group" aria-label={label} className={cn("grid gap-4", className)}>
+      <p className="section-label">{label}</p>
+      {children}
+    </div>
   )
 }
 
@@ -429,13 +478,17 @@ function SortableRow<T extends { id: string }>({
   }
 
   const handle = (
+    // Grip is a real button so keyboard reordering (dnd-kit's KeyboardSensor)
+    // keeps working; the ring and grab cursor make that reachability visible.
     <button
       type="button"
       aria-label="Drag to reorder"
       className={cn(
-        "-ml-1 flex size-7 shrink-0 cursor-grab touch-none items-center justify-center rounded-md",
-        "text-muted-foreground hover:bg-muted hover:text-foreground active:cursor-grabbing",
-        "focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
+        "-ml-1 flex size-8 shrink-0 cursor-grab touch-none items-center justify-center rounded-md",
+        "text-muted-foreground/70 transition-colors",
+        "hover:bg-muted hover:text-foreground active:cursor-grabbing",
+        "group-hover/row:text-foreground",
+        "focus-visible:bg-muted focus-visible:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none",
       )}
       {...attributes}
       {...listeners}
@@ -448,7 +501,12 @@ function SortableRow<T extends { id: string }>({
     <div
       ref={setNodeRef}
       style={style}
-      className={cn("bg-background", isDragging && "relative z-10 opacity-80 shadow-sm")}
+      className={cn(
+        // Hover tint lives on the inner `.data-row`; this wrapper only carries
+        // the drag transform and the group scope for the grip handle.
+        "group/row bg-card",
+        isDragging && "relative z-10 rounded-md opacity-90 shadow-e2",
+      )}
     >
       {renderRow(item, handle)}
     </div>
@@ -480,8 +538,8 @@ function SortableList<T extends { id: string }>({
   }
 
   return (
-    <Card>
-      <CardContent className="divide-y p-0">
+    <Card className="py-0">
+      <CardContent className="divide-y divide-border/60 px-0">
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
           <SortableContext
             items={items.map((i) => i.id)}
@@ -559,8 +617,10 @@ function ProjectsManager({ initial }: { initial: ProjectItem[] }) {
   return (
     <div className="grid gap-4">
       <SectionHeader
+        label="Our work"
         title="Projects"
         description="Installations shown on Our Work; featured ones surface on the Home page."
+        addLabel="Add project"
         onAdd={() => crud.setEditing("new")}
         adding={editing === "new"}
       />
@@ -575,62 +635,91 @@ function ProjectsManager({ initial }: { initial: ProjectItem[] }) {
           saving={saving}
           errors={crud.errors}
         >
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Title" htmlFor="p-title" name="title">
-              <Input id="p-title" name="title" defaultValue={current?.title} required />
-            </Field>
-            <Field label="Slug" htmlFor="p-slug" name="slug">
-              <Input
-                id="p-slug"
-                name="slug"
-                defaultValue={current?.slug}
-                placeholder="tagaytay-hybrid-home"
-                required
-              />
-            </Field>
-            <Field label="Category" htmlFor="p-category" name="category">
-              <Select id="p-category" name="category" defaultValue={current?.category ?? AUDIENCES[0]} options={AUDIENCES} />
-            </Field>
-            <Field label="System type" htmlFor="p-system" name="systemType">
-              <Select id="p-system" name="systemType" defaultValue={current?.systemType ?? SYSTEM_TYPES[0]} options={SYSTEM_TYPES} />
-            </Field>
-            <Field label="Capacity (kW)" htmlFor="p-kw" name="capacityKw">
-              <Input id="p-kw" name="capacityKw" type="number" step="0.1" min="0" defaultValue={current?.capacityKw} required />
-            </Field>
-            <Field label="Battery (kWh) — optional" htmlFor="p-batt" name="batteryKwh">
-              <Input id="p-batt" name="batteryKwh" type="number" step="0.1" min="0" defaultValue={current?.batteryKwh ?? ""} />
-            </Field>
-            <Field label="Location" htmlFor="p-loc" name="location">
-              <Input id="p-loc" name="location" defaultValue={current?.location} required />
-            </Field>
-            <ImageField label="Project image" name="image" defaultValue={current?.image} required error={crud.errors.image} />
-            <Field label="Scope" htmlFor="p-scope" name="scope" className="sm:col-span-2">
-              <textarea id="p-scope" name="scope" defaultValue={current?.scope} className={textareaClass} required />
-            </Field>
-            <Field label="Outcome" htmlFor="p-out" name="outcome" className="sm:col-span-2">
-              <textarea id="p-out" name="outcome" defaultValue={current?.outcome} className={textareaClass} required />
-            </Field>
-            <div className="flex items-end gap-6 sm:col-span-2">
-              <CheckboxField label="Featured" name="featured" defaultChecked={current?.featured} />
-              <CheckboxField label="Published" name="published" defaultChecked={current?.published} />
-            </div>
+          <div className="grid gap-7">
+            <FieldGroup label="Identity" className="sm:grid-cols-2">
+              <Field label="Title" htmlFor="p-title" name="title">
+                <Input id="p-title" name="title" defaultValue={current?.title} required />
+              </Field>
+              <Field label="Slug" htmlFor="p-slug" name="slug">
+                <Input
+                  id="p-slug"
+                  name="slug"
+                  defaultValue={current?.slug}
+                  placeholder="tagaytay-hybrid-home"
+                  required
+                />
+              </Field>
+            </FieldGroup>
+
+            <FieldGroup label="System" className="sm:grid-cols-2">
+              <Field label="Category" htmlFor="p-category" name="category">
+                <OptionSelect id="p-category" name="category" defaultValue={current?.category ?? AUDIENCES[0]} options={AUDIENCES} />
+              </Field>
+              <Field label="System type" htmlFor="p-system" name="systemType">
+                <OptionSelect id="p-system" name="systemType" defaultValue={current?.systemType ?? SYSTEM_TYPES[0]} options={SYSTEM_TYPES} />
+              </Field>
+              <Field label="Capacity (kW)" htmlFor="p-kw" name="capacityKw">
+                <Input id="p-kw" name="capacityKw" type="number" step="0.1" min="0" defaultValue={current?.capacityKw} required className="tabular" />
+              </Field>
+              <Field label="Battery (kWh) — optional" htmlFor="p-batt" name="batteryKwh">
+                <Input id="p-batt" name="batteryKwh" type="number" step="0.1" min="0" defaultValue={current?.batteryKwh ?? ""} className="tabular" />
+              </Field>
+              <Field label="Location" htmlFor="p-loc" name="location">
+                <Input id="p-loc" name="location" defaultValue={current?.location} required />
+              </Field>
+              <ImageField label="Project image" name="image" defaultValue={current?.image} required error={crud.errors.image} />
+            </FieldGroup>
+
+            <FieldGroup label="Story">
+              <Field label="Scope" htmlFor="p-scope" name="scope">
+                <textarea id="p-scope" name="scope" defaultValue={current?.scope} className={textareaClass} required />
+              </Field>
+              <Field label="Outcome" htmlFor="p-out" name="outcome">
+                <textarea id="p-out" name="outcome" defaultValue={current?.outcome} className={textareaClass} required />
+              </Field>
+            </FieldGroup>
+
+            <FieldGroup label="Visibility">
+              <div className="flex flex-wrap items-center gap-6">
+                <CheckboxField label="Featured" name="featured" defaultChecked={current?.featured} />
+                <CheckboxField label="Published" name="published" defaultChecked={current?.published} />
+              </div>
+            </FieldGroup>
           </div>
         </FormShell>
       ) : null}
 
       {crud.items.length === 0 ? (
-        <EmptyState>No projects yet. Add your first installation above.</EmptyState>
+        <Card>
+          <CardContent className="px-0">
+            <EmptyState
+              icon={Images}
+              title="No projects yet"
+              description="Projects are the installations shown on Our Work. Add one to give visitors something to look at."
+              action={
+                <Button size="sm" onClick={() => crud.setEditing("new")}>
+                  <Plus /> Add project
+                </Button>
+              }
+            />
+          </CardContent>
+        </Card>
       ) : (
         <SortableList
           items={crud.items}
           onReorder={(ids) => crud.reorder(ids, reorderProjects)}
           renderRow={(p, handle) => (
-            <div className="flex flex-wrap items-center gap-3 px-2 py-3 pr-4">
+            <div className="data-row flex-wrap">
               {handle}
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2 font-medium">
                   <span className="truncate">{p.title}</span>
-                  {p.featured ? <Star className="size-3.5 fill-primary text-primary" /> : null}
+                  {p.featured ? (
+                    <Star
+                      className="size-3.5 shrink-0 fill-primary text-primary"
+                      aria-label="Featured"
+                    />
+                  ) : null}
                   <PublishedBadge published={p.published} />
                 </div>
                 <div className="truncate text-sm text-muted-foreground">
@@ -641,9 +730,10 @@ function ProjectsManager({ initial }: { initial: ProjectItem[] }) {
               <RowActions
                 published={p.published}
                 busy={crud.busyId === p.id}
+                deleteQuestion={`Delete “${p.title}”? This cannot be undone.`}
                 onTogglePublish={() => crud.togglePublish(p, setProjectPublished)}
                 onEdit={() => crud.setEditing(p)}
-                onDelete={() => crud.remove(p, `the project “${p.title}”`, deleteProject)}
+                onDelete={() => crud.remove(p, deleteProject)}
               />
             </div>
           )}
@@ -723,8 +813,10 @@ function TestimonialsManager({ initial }: { initial: TestimonialItem[] }) {
   return (
     <div className="grid gap-4">
       <SectionHeader
+        label="Customer proof"
         title="Testimonials"
         description="Video and written customer proof shown on Home and Customer Stories."
+        addLabel="Add testimonial"
         onAdd={() => crud.setEditing("new")}
         adding={editing === "new"}
       />
@@ -739,83 +831,96 @@ function TestimonialsManager({ initial }: { initial: TestimonialItem[] }) {
           saving={saving}
           errors={crud.errors}
         >
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Type" htmlFor="t-kind" name="kind">
-              <select
-                id="t-kind"
-                value={kind}
-                onChange={(e) => setKind(e.target.value as TestimonialItem["kind"])}
-                className={controlClass}
-              >
-                <option value="video">Video</option>
-                <option value="written">Written</option>
-              </select>
-            </Field>
-            <Field label="Name" htmlFor="t-name" name="name">
-              <Input id="t-name" name="name" defaultValue={current?.name} required />
-            </Field>
-            <Field label="Location — optional" htmlFor="t-loc" name="location">
-              <Input id="t-loc" name="location" defaultValue={current?.location ?? ""} />
-            </Field>
-            <Field label="Audience" htmlFor="t-aud" name="audience">
-              <Select id="t-aud" name="audience" defaultValue={current?.audience ?? AUDIENCES[0]} options={AUDIENCES} />
-            </Field>
-            <Field label="System type" htmlFor="t-sys" name="systemType">
-              <Select id="t-sys" name="systemType" defaultValue={current?.systemType ?? SYSTEM_TYPES[0]} options={SYSTEM_TYPES} />
-            </Field>
+          <div className="grid gap-7">
+            <FieldGroup label="Customer" className="sm:grid-cols-2">
+              <Field label="Type" htmlFor="t-kind" name="kind">
+                <Select
+                  id="t-kind"
+                  value={kind}
+                  onChange={(e) => setKind(e.target.value as TestimonialItem["kind"])}
+                >
+                  <option value="video">Video</option>
+                  <option value="written">Written</option>
+                </Select>
+              </Field>
+              <Field label="Name" htmlFor="t-name" name="name">
+                <Input id="t-name" name="name" defaultValue={current?.name} required />
+              </Field>
+              <Field label="Location — optional" htmlFor="t-loc" name="location">
+                <Input id="t-loc" name="location" defaultValue={current?.location ?? ""} />
+              </Field>
+              <Field label="Audience" htmlFor="t-aud" name="audience">
+                <OptionSelect id="t-aud" name="audience" defaultValue={current?.audience ?? AUDIENCES[0]} options={AUDIENCES} />
+              </Field>
+              <Field label="System type" htmlFor="t-sys" name="systemType">
+                <OptionSelect id="t-sys" name="systemType" defaultValue={current?.systemType ?? SYSTEM_TYPES[0]} options={SYSTEM_TYPES} />
+              </Field>
+            </FieldGroup>
 
             {kind === "video" ? (
-              <>
-                <Field label="Headline" htmlFor="t-head" name="headline" className="sm:col-span-2">
+              <FieldGroup label="Video story">
+                <Field label="Headline" htmlFor="t-head" name="headline">
                   <Input id="t-head" name="headline" defaultValue={current?.headline ?? ""} placeholder="“No more dreading the brownouts.”" />
                 </Field>
-                <Field label="Summary" htmlFor="t-sum" name="summary" className="sm:col-span-2">
+                <Field label="Summary" htmlFor="t-sum" name="summary">
                   <textarea id="t-sum" name="summary" defaultValue={current?.summary ?? ""} className={textareaClass} />
                 </Field>
-                <ImageField label="Thumbnail" name="thumbnail" defaultValue={current?.thumbnail} required error={crud.errors.thumbnail} />
-                <VideoField label="Upload video" name="videoUrl" defaultValue={current?.videoUrl} error={crud.errors.videoUrl} />
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <ImageField label="Thumbnail" name="thumbnail" defaultValue={current?.thumbnail} required error={crud.errors.thumbnail} />
+                  <VideoField label="Upload video" name="videoUrl" defaultValue={current?.videoUrl} error={crud.errors.videoUrl} />
+                </div>
                 <Field
                   label="Or paste a YouTube/Vimeo id — optional"
                   htmlFor="t-vid"
                   name="videoId"
-                  className="sm:col-span-2"
                 >
                   <Input id="t-vid" name="videoId" defaultValue={current?.videoId ?? ""} placeholder="YouTube/Vimeo id" />
                 </Field>
-              </>
+              </FieldGroup>
             ) : (
-              <>
-                <Field label="Quote" htmlFor="t-quote" name="quote" className="sm:col-span-2">
+              <FieldGroup label="Written story">
+                <Field label="Quote" htmlFor="t-quote" name="quote">
                   <textarea id="t-quote" name="quote" defaultValue={current?.quote ?? ""} className={textareaClass} />
                 </Field>
-                <div className="sm:col-span-2">
-                  <ImageField label="Client photo — optional" name="photo" defaultValue={current?.photo} error={crud.errors.photo} />
-                </div>
-              </>
+                <ImageField label="Client photo — optional" name="photo" defaultValue={current?.photo} error={crud.errors.photo} />
+              </FieldGroup>
             )}
 
-            <div className="flex items-end sm:col-span-2">
+            <FieldGroup label="Visibility">
               <CheckboxField label="Published" name="published" defaultChecked={current?.published} />
-            </div>
+            </FieldGroup>
           </div>
         </FormShell>
       ) : null}
 
       {crud.items.length === 0 ? (
-        <EmptyState>No testimonials yet. Add video or written proof above.</EmptyState>
+        <Card>
+          <CardContent className="px-0">
+            <EmptyState
+              icon={MessageSquareQuote}
+              title="No testimonials yet"
+              description="Add a video or a written quote from a customer. These carry the proof on Home and Customer Stories."
+              action={
+                <Button size="sm" onClick={() => crud.setEditing("new")}>
+                  <Plus /> Add testimonial
+                </Button>
+              }
+            />
+          </CardContent>
+        </Card>
       ) : (
         <SortableList
           items={crud.items}
           onReorder={(ids) => crud.reorder(ids, reorderTestimonials)}
           renderRow={(t, handle) => (
-            <div className="flex flex-wrap items-center gap-3 px-2 py-3 pr-4">
+            <div className="data-row flex-wrap">
               {handle}
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2 font-medium">
                   <span className="truncate">{t.name}</span>
-                  <span className="rounded-full bg-muted px-2 py-0.5 text-xs capitalize text-muted-foreground">
+                  <Badge tone="neutral" className="capitalize">
                     {t.kind}
-                  </span>
+                  </Badge>
                   <PublishedBadge published={t.published} />
                 </div>
                 <div className="truncate text-sm text-muted-foreground">
@@ -825,9 +930,10 @@ function TestimonialsManager({ initial }: { initial: TestimonialItem[] }) {
               <RowActions
                 published={t.published}
                 busy={crud.busyId === t.id}
+                deleteQuestion={`Delete the testimonial from ${t.name}? This cannot be undone.`}
                 onTogglePublish={() => crud.togglePublish(t, setTestimonialPublished)}
                 onEdit={() => crud.setEditing(t)}
-                onDelete={() => crud.remove(t, `the testimonial from ${t.name}`, deleteTestimonial)}
+                onDelete={() => crud.remove(t, deleteTestimonial)}
               />
             </div>
           )}
@@ -882,8 +988,10 @@ function FaqsManager({ initial }: { initial: FaqItem[] }) {
   return (
     <div className="grid gap-4">
       <SectionHeader
+        label="Learning center"
         title="FAQs"
         description="Questions shown in the Learning Center and Solutions accordions."
+        addLabel="Add FAQ"
         onAdd={() => crud.setEditing("new")}
         adding={editing === "new"}
       />
@@ -898,33 +1006,51 @@ function FaqsManager({ initial }: { initial: FaqItem[] }) {
           saving={saving}
           errors={crud.errors}
         >
-          <div className="grid gap-4">
-            <Field label="Question" htmlFor="f-q" name="question">
-              <Input id="f-q" name="question" defaultValue={current?.question} required />
-            </Field>
-            <Field label="Answer" htmlFor="f-a" name="answer">
-              <textarea id="f-a" name="answer" defaultValue={current?.answer} className={textareaClass} required />
-            </Field>
-            <div className="grid gap-4 sm:grid-cols-[1fr_auto] sm:items-end">
-              <Field label="Category" htmlFor="f-cat" name="category">
-                <Select id="f-cat" name="category" defaultValue={current?.category ?? FAQ_CATEGORIES[0]} options={FAQ_CATEGORIES} />
+          <div className="grid gap-7">
+            <FieldGroup label="Question and answer">
+              <Field label="Question" htmlFor="f-q" name="question">
+                <Input id="f-q" name="question" defaultValue={current?.question} required />
               </Field>
-              <div className="pb-2">
-                <CheckboxField label="Published" name="published" defaultChecked={current?.published} />
+              <Field label="Answer" htmlFor="f-a" name="answer">
+                <textarea id="f-a" name="answer" defaultValue={current?.answer} className={textareaClass} required />
+              </Field>
+            </FieldGroup>
+
+            <FieldGroup label="Placement">
+              <div className="grid gap-4 sm:grid-cols-[1fr_auto] sm:items-end">
+                <Field label="Category" htmlFor="f-cat" name="category">
+                  <OptionSelect id="f-cat" name="category" defaultValue={current?.category ?? FAQ_CATEGORIES[0]} options={FAQ_CATEGORIES} />
+                </Field>
+                <div className="pb-2">
+                  <CheckboxField label="Published" name="published" defaultChecked={current?.published} />
+                </div>
               </div>
-            </div>
+            </FieldGroup>
           </div>
         </FormShell>
       ) : null}
 
       {crud.items.length === 0 ? (
-        <EmptyState>No FAQs yet. Add your first question above.</EmptyState>
+        <Card>
+          <CardContent className="px-0">
+            <EmptyState
+              icon={HelpCircle}
+              title="No FAQs yet"
+              description="Answer the questions visitors ask before they enquire. These fill the Learning Center and the Solutions accordions."
+              action={
+                <Button size="sm" onClick={() => crud.setEditing("new")}>
+                  <Plus /> Add FAQ
+                </Button>
+              }
+            />
+          </CardContent>
+        </Card>
       ) : (
         <SortableList
           items={crud.items}
           onReorder={(ids) => crud.reorder(ids, reorderFaqs)}
           renderRow={(f, handle) => (
-            <div className="flex flex-wrap items-center gap-3 px-2 py-3 pr-4">
+            <div className="data-row flex-wrap">
               {handle}
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2 font-medium">
@@ -938,9 +1064,10 @@ function FaqsManager({ initial }: { initial: FaqItem[] }) {
               <RowActions
                 published={f.published}
                 busy={crud.busyId === f.id}
+                deleteQuestion="Delete this FAQ? This cannot be undone."
                 onTogglePublish={() => crud.togglePublish(f, setFaqPublished)}
                 onEdit={() => crud.setEditing(f)}
-                onDelete={() => crud.remove(f, "this FAQ", deleteFaq)}
+                onDelete={() => crud.remove(f, deleteFaq)}
               />
             </div>
           )}
@@ -971,22 +1098,36 @@ export function ContentManager({
   }
 
   return (
-    <div className="grid gap-6">
-      <div className="flex flex-wrap items-center gap-1">
+    <div className="grid gap-8">
+      <div
+        role="tablist"
+        aria-label="Content type"
+        className="flex w-fit max-w-full flex-wrap items-center gap-1 rounded-lg bg-muted/60 p-1"
+      >
         {(Object.keys(CONTENT_TYPE_LABEL) as ContentType[]).map((t) => (
           <button
             key={t}
             type="button"
+            role="tab"
+            aria-selected={tab === t}
             onClick={() => setTab(t)}
             className={cn(
-              "rounded-md px-3 py-1.5 text-sm transition-colors",
+              "flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
+              "focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none",
               tab === t
-                ? "bg-foreground text-background"
-                : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                ? "bg-card text-foreground shadow-e1"
+                : "text-muted-foreground hover:text-foreground",
             )}
           >
             {CONTENT_TYPE_LABEL[t]}
-            <span className="ml-1.5 text-xs opacity-70">{counts[t]}</span>
+            <Badge
+              tone={tab === t ? "brand" : "neutral"}
+              shape="pill"
+              size="sm"
+              className="tabular"
+            >
+              {counts[t]}
+            </Badge>
           </button>
         ))}
       </div>

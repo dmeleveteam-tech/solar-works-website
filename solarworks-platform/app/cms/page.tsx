@@ -16,6 +16,7 @@ export default async function CmsPage() {
   return (
     <>
       <PageHeading
+        eyebrow="Marketing site"
         title="Content"
         description="Manage the testimonials, projects, and FAQs shown on the public website. Only published items appear live."
       />

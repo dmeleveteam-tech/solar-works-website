@@ -4,6 +4,7 @@ import * as React from "react"
 import { BatteryCharging, ImageIcon, MapPin, Play, Quote, Zap } from "lucide-react"
 
 import { cn } from "@/lib/utils"
+import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
 import {
   Sheet,
@@ -76,12 +77,18 @@ export function ContentPreview({
             may differ slightly.
           </SheetDescription>
         </SheetHeader>
+        {/* The card is dropped onto a canvas that deliberately does not look
+            like the editor — grid backdrop, inset border — so it reads as "this
+            is the public site" rather than as one more panel of the form. */}
         <div className="overflow-y-auto px-4 pb-6">
-          {preview?.kind === "project" ? <ProjectPreviewCard data={preview.data} /> : null}
-          {preview?.kind === "testimonial" ? (
-            <TestimonialPreviewCard data={preview.data} />
-          ) : null}
-          {preview?.kind === "faq" ? <FaqPreviewItem data={preview.data} /> : null}
+          <div className="bg-grid rounded-xl border border-dashed bg-muted/40 p-4">
+            <p className="section-label mb-3">Public site</p>
+            {preview?.kind === "project" ? <ProjectPreviewCard data={preview.data} /> : null}
+            {preview?.kind === "testimonial" ? (
+              <TestimonialPreviewCard data={preview.data} />
+            ) : null}
+            {preview?.kind === "faq" ? <FaqPreviewItem data={preview.data} /> : null}
+          </div>
         </div>
       </SheetContent>
     </Sheet>
@@ -89,27 +96,6 @@ export function ContentPreview({
 }
 
 // --- shared bits ------------------------------------------------------------
-
-function Badge({
-  variant = "secondary",
-  children,
-}: {
-  variant?: "secondary" | "outline"
-  children: React.ReactNode
-}) {
-  return (
-    <span
-      className={cn(
-        "inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium",
-        variant === "secondary"
-          ? "bg-secondary text-secondary-foreground"
-          : "border text-foreground",
-      )}
-    >
-      {children}
-    </span>
-  )
-}
 
 /** Image with a graceful fallback when the URL is empty or fails to load. */
 function PreviewImage({ src, className }: { src: string; className?: string }) {
@@ -143,8 +129,8 @@ function ProjectPreviewCard({ data }: { data: ProjectPreview }) {
       <PreviewImage src={data.image} className="aspect-[4/3] w-full" />
       <CardContent className="flex flex-col gap-3 pt-5">
         <div className="flex flex-wrap gap-2">
-          {data.category ? <Badge>{data.category}</Badge> : null}
-          {data.systemType ? <Badge variant="outline">{data.systemType}</Badge> : null}
+          {data.category ? <Badge tone="brand">{data.category}</Badge> : null}
+          {data.systemType ? <Badge tone="outline">{data.systemType}</Badge> : null}
         </div>
         <div>
           <h3 className="text-base font-semibold">{data.title || "Untitled project"}</h3>
@@ -190,7 +176,7 @@ function initials(name: string) {
 function TestimonialPreviewCard({ data }: { data: TestimonialPreview }) {
   if (data.kind === "video") {
     return (
-      <div className="overflow-hidden rounded-2xl border bg-card shadow-sm">
+      <div className="overflow-hidden rounded-2xl bg-card shadow-e1 ring-1 ring-foreground/8">
         <div className="relative aspect-[4/3]">
           <PreviewImage src={data.thumbnail} className="absolute inset-0 size-full" />
           {data.systemType ? (
@@ -255,7 +241,7 @@ function FaqPreviewItem({ data }: { data: FaqPreview }) {
       <CardContent className="flex flex-col gap-2">
         {data.category ? (
           <span className="w-fit">
-            <Badge variant="outline">{data.category}</Badge>
+            <Badge tone="outline">{data.category}</Badge>
           </span>
         ) : null}
         <h3 className="font-medium">{data.question || "Question?"}</h3>

@@ -1,17 +1,30 @@
 "use client"
 
 import * as React from "react"
-import { Loader2, UserPlus, Search, Ban, RotateCcw, Trash2 } from "lucide-react"
+import {
+  Ban,
+  Loader2,
+  RotateCcw,
+  Search,
+  Trash2,
+  UserPlus,
+  Users,
+  X,
+} from "lucide-react"
 import { toast } from "sonner"
 
 import { authClient, useSession } from "@/lib/auth-client"
 import { ROLES, isRole, type Role } from "@/lib/permissions"
-import { ROLE_LABEL } from "@/components/role-badge"
-import { cn } from "@/lib/utils"
+import { ROLE_LABEL, RoleBadge } from "@/components/role-badge"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Card, CardContent } from "@/components/ui/card"
+import { ConfirmButton } from "@/components/ui/confirm-button"
+import { EmptyState } from "@/components/ui/empty-state"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Card, CardContent } from "@/components/ui/card"
+import { Select } from "@/components/ui/select"
+import { SkeletonRows } from "@/components/ui/skeleton"
 
 type AdminUser = {
   id: string
@@ -22,39 +35,53 @@ type AdminUser = {
   createdAt?: string | Date
 }
 
+// One column template shared by the header and every row, so the role control
+// and the actions line up down the list instead of each row measuring itself.
+const ROW_GRID =
+  "md:grid md:grid-cols-[minmax(0,1fr)_11rem_auto] md:items-center md:gap-4"
+
 function RoleSelect({
   value,
   onChange,
   disabled,
   id,
   name,
+  "aria-label": ariaLabel,
 }: {
   value: Role
   onChange?: (role: Role) => void
   disabled?: boolean
   id?: string
   name?: string
+  "aria-label"?: string
 }) {
   return (
-    <select
+    <Select
       id={id}
       name={name}
       value={value}
       disabled={disabled}
+      aria-label={ariaLabel}
       onChange={(e) => onChange?.(e.target.value as Role)}
-      className={cn(
-        "h-9 rounded-md border border-input bg-transparent px-2.5 text-sm shadow-xs outline-none",
-        "focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50",
-        "disabled:pointer-events-none disabled:opacity-50",
-      )}
     >
       {ROLES.map((r) => (
         <option key={r} value={r}>
           {ROLE_LABEL[r]}
         </option>
       ))}
-    </select>
+    </Select>
   )
+}
+
+/** Up to two initials from the user's name, falling back to the email. */
+function initials(user: AdminUser): string {
+  const source = user.name?.trim() || user.email
+  const parts = source.split(/\s+/).filter(Boolean)
+  const letters =
+    parts.length > 1
+      ? `${parts[0][0]}${parts[parts.length - 1][0]}`
+      : source.slice(0, 2)
+  return letters.toUpperCase()
 }
 
 export function UsersManager() {
@@ -68,8 +95,16 @@ export function UsersManager() {
   const [busyId, setBusyId] = React.useState<string | null>(null)
 
   // Create-user form state.
+  const [showCreate, setShowCreate] = React.useState(false)
   const [creating, setCreating] = React.useState(false)
   const [newRole, setNewRole] = React.useState<Role>("staff")
+  const nameRef = React.useRef<HTMLInputElement>(null)
+
+  // Opening the panel puts the caret in the first field — the button and the
+  // form are far enough apart vertically that a mouse-only reveal is a jump.
+  React.useEffect(() => {
+    if (showCreate) nameRef.current?.focus()
+  }, [showCreate])
 
   const load = React.useCallback(async (searchValue?: string) => {
     const { data, error } = await authClient.admin.listUsers({
@@ -136,6 +171,7 @@ export function UsersManager() {
     toast.success(`Created ${email}`)
     form.reset()
     setNewRole("staff")
+    setShowCreate(false)
     refresh(search || undefined)
   }
 
@@ -171,9 +207,6 @@ export function UsersManager() {
   }
 
   async function onRemove(user: AdminUser) {
-    if (!window.confirm(`Permanently delete ${user.email}? This cannot be undone.`)) {
-      return
-    }
     setBusyId(user.id)
     const { error } = await authClient.admin.removeUser({ userId: user.id })
     setBusyId(null)
@@ -187,130 +220,225 @@ export function UsersManager() {
   }
 
   return (
-    <div className="grid gap-6">
-      {/* Create user */}
-      <Card>
-        <CardContent>
-          <form onSubmit={onCreate} className="grid gap-4 md:grid-cols-[1fr_1fr_1fr_auto_auto] md:items-end">
-            <div className="grid gap-1.5">
-              <Label htmlFor="new-name">Name</Label>
-              <Input id="new-name" name="name" required placeholder="Maria Santos" />
-            </div>
-            <div className="grid gap-1.5">
-              <Label htmlFor="new-email">Email</Label>
-              <Input id="new-email" name="email" type="email" required placeholder="maria@solarworks.ph" />
-            </div>
-            <div className="grid gap-1.5">
-              <Label htmlFor="new-password">Temp password</Label>
-              <Input id="new-password" name="password" type="password" required minLength={8} placeholder="≥ 8 characters" />
-            </div>
-            <div className="grid gap-1.5">
-              <Label htmlFor="new-role">Role</Label>
-              <RoleSelect id="new-role" value={newRole} onChange={setNewRole} />
-            </div>
-            <Button type="submit" disabled={creating}>
-              {creating ? <Loader2 className="animate-spin" /> : <UserPlus />}
-              Create
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
-
-      {/* Search + list */}
-      <div className="flex items-center gap-2">
-        <div className="relative max-w-xs flex-1">
-          <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
+    <div className="grid gap-4">
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="relative w-full max-w-xs sm:w-auto sm:flex-1">
+          <Search
+            aria-hidden
+            className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground"
+          />
           <Input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === "Enter") refresh(search || undefined)
             }}
+            aria-label="Search users by email"
             placeholder="Search by email…"
             className="pl-8"
           />
         </div>
-        <Button variant="outline" onClick={() => refresh(search || undefined)} disabled={loading}>
-          {loading ? <Loader2 className="animate-spin" /> : "Search"}
+        <Button
+          variant="outline"
+          onClick={() => refresh(search || undefined)}
+          disabled={loading}
+        >
+          {loading ? <Loader2 className="animate-spin" /> : null}
+          Search
         </Button>
-        <span className="ml-auto text-sm text-muted-foreground">{total} users</span>
+        <span className="tabular ml-auto text-sm text-muted-foreground">
+          {total} users
+        </span>
+        <Button
+          variant={showCreate ? "ghost" : "default"}
+          onClick={() => setShowCreate((open) => !open)}
+          aria-expanded={showCreate}
+          aria-controls="create-user-panel"
+        >
+          {showCreate ? <X /> : <UserPlus />}
+          {showCreate ? "Cancel" : "New user"}
+        </Button>
       </div>
+
+      {showCreate ? (
+        <Card id="create-user-panel">
+          <CardContent>
+            <form onSubmit={onCreate} className="grid gap-4">
+              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                <div className="grid gap-1.5">
+                  <Label htmlFor="new-name">Name</Label>
+                  <Input
+                    id="new-name"
+                    name="name"
+                    ref={nameRef}
+                    required
+                    placeholder="Maria Santos"
+                  />
+                </div>
+                <div className="grid gap-1.5">
+                  <Label htmlFor="new-email">Email</Label>
+                  <Input
+                    id="new-email"
+                    name="email"
+                    type="email"
+                    required
+                    placeholder="maria@solarworks.ph"
+                  />
+                </div>
+                <div className="grid gap-1.5">
+                  <Label htmlFor="new-password">Temp password</Label>
+                  <Input
+                    id="new-password"
+                    name="password"
+                    type="password"
+                    required
+                    minLength={8}
+                    placeholder="≥ 8 characters"
+                  />
+                </div>
+                <div className="grid gap-1.5">
+                  <Label htmlFor="new-role">Role</Label>
+                  <RoleSelect id="new-role" value={newRole} onChange={setNewRole} />
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button type="submit" disabled={creating}>
+                  {creating ? <Loader2 className="animate-spin" /> : <UserPlus />}
+                  Create
+                </Button>
+                <p className="text-xs text-muted-foreground">
+                  The account is active immediately. Share the temporary password
+                  and ask them to change it.
+                </p>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
+      ) : null}
 
       <Card>
         <CardContent className="p-0">
           {loading && users.length === 0 ? (
-            <div className="py-12 text-center text-sm text-muted-foreground">
-              <Loader2 className="mx-auto size-5 animate-spin" />
-            </div>
+            <SkeletonRows rows={6} />
           ) : users.length === 0 ? (
-            <div className="py-12 text-center text-sm text-muted-foreground">
-              No users yet. Create one above, or run the superadmin seed script.
-            </div>
+            <EmptyState
+              icon={Users}
+              title={search ? "No users match that email" : "No users yet"}
+              description={
+                search
+                  ? "Clear the search to see every account."
+                  : "Create the first account, or run the superadmin seed script."
+              }
+              action={
+                <Button onClick={() => setShowCreate(true)}>
+                  <UserPlus />
+                  New user
+                </Button>
+              }
+            />
           ) : (
-            <div className="divide-y">
-              {users.map((user) => {
-                const role: Role = isRole(user.role) ? user.role : "customer"
-                const isSelf = user.id === currentUserId
-                const busy = busyId === user.id
-                return (
-                  <div
-                    key={user.id}
-                    className="flex flex-wrap items-center gap-3 px-4 py-3"
-                  >
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2 truncate font-medium">
-                        {user.name || "—"}
-                        {user.banned ? (
-                          <span className="rounded-full bg-destructive/10 px-2 py-0.5 text-xs font-medium text-destructive">
-                            Banned
-                          </span>
-                        ) : null}
-                        {isSelf ? (
-                          <span className="text-xs text-muted-foreground">(you)</span>
-                        ) : null}
+            <>
+              <div
+                className={`${ROW_GRID} hidden border-b px-4 py-2.5`}
+                aria-hidden
+              >
+                <span className="section-label">Person</span>
+                <span className="section-label">Role</span>
+                <span className="section-label justify-self-end">Actions</span>
+              </div>
+
+              <div className="divide-y divide-border/60">
+                {users.map((user) => {
+                  const role: Role = isRole(user.role) ? user.role : "customer"
+                  const isSelf = user.id === currentUserId
+                  const busy = busyId === user.id
+                  return (
+                    <div
+                      key={user.id}
+                      className={`${ROW_GRID} px-4 py-3.5 transition-colors hover:bg-foreground/[0.03]`}
+                    >
+                      <div className="flex min-w-0 items-center gap-3">
+                        {/* Squircle, not a circle: the round avatar is the
+                            default everywhere and reads as a social profile
+                            rather than a platform account. */}
+                        <span
+                          aria-hidden
+                          className="grid size-9 shrink-0 place-items-center rounded-[0.7rem] bg-gradient-to-br from-primary to-primary-strong text-xs font-semibold text-primary-foreground"
+                        >
+                          {initials(user)}
+                        </span>
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                            <span className="truncate font-medium">
+                              {user.name || "—"}
+                            </span>
+                            {isSelf ? (
+                              <span className="text-xs text-muted-foreground">
+                                (you)
+                              </span>
+                            ) : null}
+                            {user.banned ? (
+                              <Badge tone="danger" shape="pill" size="sm">
+                                Banned
+                              </Badge>
+                            ) : null}
+                            {/* Below md the select is hidden behind the stacked
+                                layout's own control, so the role still needs to
+                                be readable here. */}
+                            <RoleBadge role={role} className="md:hidden" />
+                          </div>
+                          <div className="truncate text-sm text-muted-foreground">
+                            {user.email}
+                          </div>
+                        </div>
                       </div>
-                      <div className="truncate text-sm text-muted-foreground">
-                        {user.email}
+
+                      <div className="mt-3 md:mt-0">
+                        <RoleSelect
+                          value={role}
+                          disabled={busy || isSelf}
+                          aria-label={`Role for ${user.email}`}
+                          onChange={(r) => onSetRole(user, r)}
+                        />
+                      </div>
+
+                      <div className="mt-2 flex items-center gap-1 md:mt-0 md:justify-end">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={busy || isSelf}
+                          aria-label={
+                            user.banned
+                              ? `Unban ${user.email}`
+                              : `Ban ${user.email}`
+                          }
+                          onClick={() => onToggleBan(user)}
+                        >
+                          {busy ? (
+                            <Loader2 className="animate-spin" />
+                          ) : user.banned ? (
+                            <RotateCcw />
+                          ) : (
+                            <Ban />
+                          )}
+                          <span>{user.banned ? "Unban" : "Ban"}</span>
+                        </Button>
+
+                        <ConfirmButton
+                          question="Delete permanently?"
+                          confirmLabel="Delete"
+                          disabled={busy || isSelf}
+                          onConfirm={() => onRemove(user)}
+                        >
+                          <Trash2 />
+                          <span className="sr-only">Delete {user.email}</span>
+                        </ConfirmButton>
                       </div>
                     </div>
-
-                    <RoleSelect
-                      value={role}
-                      disabled={busy || isSelf}
-                      onChange={(r) => onSetRole(user, r)}
-                    />
-
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={busy || isSelf}
-                      onClick={() => onToggleBan(user)}
-                    >
-                      {busy ? (
-                        <Loader2 className="animate-spin" />
-                      ) : user.banned ? (
-                        <RotateCcw />
-                      ) : (
-                        <Ban />
-                      )}
-                      <span className="hidden sm:inline">
-                        {user.banned ? "Unban" : "Ban"}
-                      </span>
-                    </Button>
-
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      disabled={busy || isSelf}
-                      onClick={() => onRemove(user)}
-                    >
-                      <Trash2 />
-                      <span className="hidden sm:inline">Delete</span>
-                    </Button>
-                  </div>
-                )
-              })}
-            </div>
+                  )
+                })}
+              </div>
+            </>
           )}
         </CardContent>
       </Card>
