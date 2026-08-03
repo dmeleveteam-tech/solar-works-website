@@ -5,16 +5,12 @@ import { ObjectId } from "mongodb"
 import { z } from "zod"
 
 import { requireRole } from "@/lib/session"
-import { db } from "@/lib/mongodb"
-import { notify } from "@/lib/notifications"
-import { createCustomerAccount } from "@/lib/customer-accounts"
 import { parseDeyeExport } from "@/lib/savings-parser"
 import {
   listTariffs,
   upsertTariff,
   deleteTariff,
   listSavingsPlants,
-  getSavingsPlant,
   insertSavingsPlant,
   setSavingsEmailConsent,
   deleteSavingsPlant,
@@ -52,15 +48,11 @@ const tariffSchema = z.object({
 })
 
 export async function getSavingsData(): Promise<
-  ActionResult<{ tariffs: Tariff[]; plants: SavingsPlant[]; customers: LinkableCustomer[] }>
+  ActionResult<{ tariffs: Tariff[]; plants: SavingsPlant[] }>
 > {
   await requireRole(...STAFF_ROLES)
-  const [tariffs, plants, customers] = await Promise.all([
-    listTariffs(),
-    listSavingsPlants(),
-    listCustomers(),
-  ])
-  return { ok: true, data: { tariffs, plants, customers } }
+  const [tariffs, plants] = await Promise.all([listTariffs(), listSavingsPlants()])
+  return { ok: true, data: { tariffs, plants } }
 }
 
 export async function saveTariff(
@@ -90,21 +82,12 @@ export async function removeTariff(input: { id: string }): Promise<ActionResult>
 
 // --- plant links ------------------------------------------------------------
 
-const createPlantSchema = z.intersection(
-  z.object({
-    plantRef: z.string().trim().min(1, "Plant reference is required").max(120),
-    provider: z.string().trim().min(1, "Provider is required").max(80),
-  }),
-  z.discriminatedUnion("mode", [
-    z.object({ mode: z.literal("existing"), customerUserId: objectId }),
-    z.object({
-      mode: z.literal("new"),
-      name: z.string().trim().min(1, "Customer name is required").max(120),
-      email: z.string().trim().email("Invalid email").max(200),
-      password: z.string().min(8, "Password must be at least 8 characters").max(200),
-    }),
-  ]),
-)
+const createPlantSchema = z.object({
+  customerName: z.string().trim().min(1, "Customer name is required").max(120),
+  customerEmail: z.string().trim().email("Invalid email").max(200),
+  plantRef: z.string().trim().min(1, "Plant reference is required").max(120),
+  provider: z.string().trim().min(1, "Provider is required").max(80),
+})
 
 export async function createPlant(
   input: z.input<typeof createPlantSchema>,
@@ -114,41 +97,13 @@ export async function createPlant(
   if (!parsed.success) {
     return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid plant link." }
   }
-  const v = parsed.data
-
-  let customerUserId: string
-  let customerName: string
-  let customerEmail: string
-
-  if (v.mode === "new") {
-    const created = await createCustomerAccount({
-      name: v.name,
-      email: v.email,
-      password: v.password,
-    })
-    if (!created.ok) return { ok: false, error: created.error }
-    customerUserId = created.userId
-    customerName = v.name
-    customerEmail = v.email.trim().toLowerCase()
-  } else {
-    const user = await db
-      .collection("user")
-      .findOne(
-        { _id: new ObjectId(v.customerUserId), role: "customer" },
-        { projection: { name: 1, email: 1 } },
-      )
-    if (!user) return { ok: false, error: "That account isn't a customer." }
-    customerUserId = v.customerUserId
-    customerName = (user.name as string | undefined) ?? ""
-    customerEmail = (user.email as string | undefined) ?? ""
-  }
+  const { customerName, customerEmail, plantRef, provider } = parsed.data
 
   const plant = await insertSavingsPlant({
-    customerUserId,
     customerName,
-    customerEmail,
-    plantRef: v.plantRef,
-    provider: v.provider,
+    customerEmail: customerEmail.trim().toLowerCase(),
+    plantRef,
+    provider,
   })
   revalidatePath("/dashboard/savings")
   return { ok: true, data: plant }
@@ -206,7 +161,7 @@ const uploadSchema = z.object({
 export async function uploadReadings(
   input: z.input<typeof uploadSchema>,
 ): Promise<ActionResult<MonthlyReading[]>> {
-  const session = await requireRole(...STAFF_ROLES)
+  await requireRole(...STAFF_ROLES)
   const parsed = uploadSchema.safeParse(input)
   if (!parsed.success) {
     return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid upload." }
@@ -218,37 +173,6 @@ export async function uploadReadings(
 
   const readings = await saveReadingsForPlant(plantId, result.rows)
 
-  // Tell the customer their figures moved. A missing plant link is impossible
-  // here (the save above would have failed), but it stays a soft skip.
-  const plant = await getSavingsPlant(plantId)
-  if (plant) {
-    await notify({
-      userId: plant.customerUserId,
-      type: "savings_updated",
-      title: "Your savings figures were updated",
-      body: `${readings.length} month${readings.length === 1 ? "" : "s"} of data for ${plant.plantRef}`,
-      href: "/portal",
-      actorId: session.user.id,
-    })
-  }
-
   revalidatePath("/dashboard/savings")
   return { ok: true, data: readings }
-}
-
-// --- helpers ----------------------------------------------------------------
-
-export type LinkableCustomer = { id: string; name: string; email: string }
-
-async function listCustomers(): Promise<LinkableCustomer[]> {
-  const docs = await db
-    .collection("user")
-    .find({ role: "customer" }, { projection: { name: 1, email: 1 } })
-    .sort({ name: 1 })
-    .toArray()
-  return docs.map((d) => ({
-    id: String(d._id),
-    name: (d.name as string | undefined) ?? "",
-    email: (d.email as string | undefined) ?? "",
-  }))
 }

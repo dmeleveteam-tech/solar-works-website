@@ -1,9 +1,8 @@
 import "server-only"
 import { randomUUID } from "node:crypto"
-import { ObjectId, type Collection, type Filter } from "mongodb"
+import { ObjectId, type Collection } from "mongodb"
 
 import { db } from "./mongodb"
-import { customerScope } from "./customer-projects-access"
 import type {
   CustomerProject,
   ProjectDocument,
@@ -11,12 +10,11 @@ import type {
 } from "./customer-projects-shared"
 
 /**
- * Customer-projects data layer (Phase 2a customer portal). One document per
- * customer engagement, owned by exactly one customer account. Authorization
- * lives in the server actions (`app/dashboard/projects/actions.ts`) for staff
- * writes and in the portal page for customer reads — but every customer-facing
- * query is also scoped to the owner here, so a customer can never read another
- * customer's project even if a higher layer slips.
+ * Customer-projects data layer. One document per customer engagement — staff
+ * manage these entirely; there is no customer login, so authorization lives
+ * only in the server actions (`app/dashboard/projects/actions.ts`) that staff
+ * call. Customers are contacted by email/phone (`customerEmail`/
+ * `customerPhone` below), never given portal access.
  *
  * Client-safe constants/types live in `./customer-projects-shared`, re-exported
  * below so Client Components can import them without the mongodb driver.
@@ -45,27 +43,6 @@ export function customerProjectsCollection(): Collection<CustomerProjectDoc> {
   return db.collection<CustomerProjectDoc>("customerProjects")
 }
 
-// --- ownership-scoped filters (pure; unit-tested) ---------------------------
-
-/**
- * Filter for every project owned by `customerUserId`. The customer portal must
- * only ever query through this (or `ownedProjectFilter`), so ownership is part
- * of the query rather than a post-fetch check that could be forgotten.
- */
-export function customerScopeFilter(
-  customerUserId: string,
-): Filter<CustomerProjectDoc> {
-  return customerScope(customerUserId)
-}
-
-/** Filter for a single project that must be owned by `customerUserId`. */
-export function ownedProjectFilter(
-  id: string,
-  customerUserId: string,
-): Filter<CustomerProjectDoc> {
-  return { _id: new ObjectId(id), ...customerScope(customerUserId) }
-}
-
 // --- serialization ----------------------------------------------------------
 
 export function serializeCustomerProject(
@@ -87,19 +64,6 @@ export function serializeCustomerProject(
     createdAt: doc.createdAt.toISOString(),
     updatedAt: doc.updatedAt.toISOString(),
   }
-}
-
-// --- customer reads (always owner-scoped) -----------------------------------
-
-/** Projects owned by this customer, newest first. */
-export async function listProjectsForCustomer(
-  customerUserId: string,
-): Promise<CustomerProject[]> {
-  const docs = await customerProjectsCollection()
-    .find(customerScopeFilter(customerUserId))
-    .sort({ createdAt: -1 })
-    .toArray()
-  return docs.map(serializeCustomerProject)
 }
 
 // --- staff reads ------------------------------------------------------------

@@ -48,6 +48,11 @@ export const auth = betterAuth({
     // Email verification can be turned on once Resend is wired (Phase 4).
     requireEmailVerification: false,
     minPasswordLength: 8,
+    // There is no self-service account creation: every account (staff, content
+    // editor, superadmin) is provisioned by a superadmin via the Users admin
+    // page. Blocking sign-up at the better-auth level — not just removing the
+    // /signup page — closes the API route itself, so it can't be hit directly.
+    disableSignUp: true,
   },
 
   socialProviders: googleEnabled

@@ -75,14 +75,14 @@ export type Tariff = {
 // --- plant links ------------------------------------------------------------
 
 /**
- * Links an existing customer account to their Deye plant/site and the utility
- * provider whose tariff prices their savings. `emailConsentAt` records when the
- * customer agreed to receive savings emails — required before the first send
+ * Links a customer (by contact info, not a login — customers never have
+ * portal accounts) to their Deye plant/site and the utility provider whose
+ * tariff prices their savings. `emailConsentAt` records when the customer
+ * agreed to receive savings emails — required before the first send
  * (NFR-03 consent).
  */
 export type SavingsPlant = {
   id: string
-  customerUserId: string
   customerName: string
   customerEmail: string
   /** Deye / Solarman plant or site identifier (free text for the MVP). */

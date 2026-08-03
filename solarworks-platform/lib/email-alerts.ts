@@ -46,15 +46,9 @@ function logoUrl(): string {
   return `${env.MARKETING_SITE_URL.replace(/\/$/, "")}/images/solar-works-logo.png`
 }
 
-/** Where a customer without portal access can reach a human. */
+/** Where a customer can reach a human — there is no customer portal/login. */
 function contactUrl(): string {
   return `${env.MARKETING_SITE_URL.replace(/\/$/, "")}/contact`
-}
-
-/** Deep link to the customer portal, this app's own — not the marketing site. */
-function portalUrl(): string {
-  const base = env.APP_URL ?? env.BETTER_AUTH_URL
-  return `${base.replace(/\/$/, "")}/portal`
 }
 
 /** "email · phone" line shown under the CTA and in the footer, sourced from
@@ -172,7 +166,6 @@ export async function notifyProjectStageChanged(
     previousStage,
     logoUrl: logoUrl(),
     contactUrl: contactUrl(),
-    portalUrl: portalUrl(),
     supportLine: supportLine(),
     formattedScheduledAt: project.scheduledAt ? formatSchedule(project.scheduledAt) : null,
     formattedUpdatedAt: formatSchedule(project.stageUpdatedAt),

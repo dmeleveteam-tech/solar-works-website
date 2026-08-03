@@ -38,7 +38,7 @@ export function DeleteConfirmDialog({
   confirmLabel?: string
 }) {
   return (
-    <Dialog open={open} onOpenChange={(next) => !busy && onOpenChange(next)}>
+    <Dialog open={open} onOpenChange={(next: boolean) => !busy && onOpenChange(next)}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>

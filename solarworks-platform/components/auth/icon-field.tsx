@@ -3,7 +3,7 @@ import type { LucideIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 /** Underline-only text input with a leading icon — the auth pages' input
- *  style (no box border, matches the split-panel login/signup design). */
+ *  style (no box border, matches the split-panel login design). */
 export function IconField({
   icon: Icon,
   className,

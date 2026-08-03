@@ -7,7 +7,7 @@ import type { Tariff, SavingsPlant, MonthlyReading } from "./savings-shared"
 /**
  * Solar Savings Tracker data layer (Phase 2b scaffolding). Three collections:
  *   - `savingsTariffs`  — admin-maintained ₱/kWh rate per utility provider.
- *   - `savingsPlants`   — links a customer account to their Deye plant + provider.
+ *   - `savingsPlants`   — links a customer (by contact info) to their Deye plant + provider.
  *   - `savingsReadings` — monthly generation rows parsed from Deye exports.
  *
  * Client-safe types/maths live in `./savings-shared`. This MVP is built ahead of
@@ -79,7 +79,6 @@ export async function tariffRateFor(provider: string): Promise<number | null> {
 
 type SavingsPlantDoc = {
   _id: ObjectId
-  customerUserId: string
   customerName: string
   customerEmail: string
   plantRef: string
@@ -96,7 +95,6 @@ export function savingsPlantsCollection(): Collection<SavingsPlantDoc> {
 function serializeSavingsPlant(doc: SavingsPlantDoc): SavingsPlant {
   return {
     id: doc._id.toString(),
-    customerUserId: doc.customerUserId,
     customerName: doc.customerName,
     customerEmail: doc.customerEmail,
     plantRef: doc.plantRef,
@@ -116,17 +114,6 @@ export async function listSavingsPlants(): Promise<SavingsPlant[]> {
   return docs.map(serializeSavingsPlant)
 }
 
-/** Plant links owned by a customer (always owner-scoped for portal reads). */
-export async function listSavingsPlantsForCustomer(
-  customerUserId: string,
-): Promise<SavingsPlant[]> {
-  const docs = await savingsPlantsCollection()
-    .find({ customerUserId })
-    .sort({ createdAt: -1 })
-    .toArray()
-  return docs.map(serializeSavingsPlant)
-}
-
 /** A single plant link by id, or null when the id is unknown or malformed. */
 export async function getSavingsPlant(id: string): Promise<SavingsPlant | null> {
   if (!ObjectId.isValid(id)) return null
@@ -135,7 +122,6 @@ export async function getSavingsPlant(id: string): Promise<SavingsPlant | null> 
 }
 
 export type CreateSavingsPlantInput = {
-  customerUserId: string
   customerName: string
   customerEmail: string
   plantRef: string
@@ -148,7 +134,6 @@ export async function insertSavingsPlant(
   const now = new Date()
   const doc: SavingsPlantDoc = {
     _id: new ObjectId(),
-    customerUserId: input.customerUserId,
     customerName: input.customerName,
     customerEmail: input.customerEmail,
     plantRef: input.plantRef,

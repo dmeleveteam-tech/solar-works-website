@@ -2,8 +2,9 @@
 
 The authenticated application for Solar Works — separate from the public marketing
 site in [`../solarworks-landingpage`](../solarworks-landingpage). Houses the staff **lead dashboard**, the
-**customer portal**, the **content (CMS)** area, and **superadmin** user
-management.
+**content (CMS)** area, and **superadmin** user management. Customers never log
+in — staff manage their projects and savings figures directly and reach them by
+email/phone.
 
 - **Framework:** Next.js 16 (App Router, Turbopack)
 - **Auth:** [better-auth](https://better-auth.com) — email/password + Google,
@@ -18,10 +19,10 @@ management.
 | `superadmin`     | `/admin`     | manage all users + reach every area               |
 | `staff`          | `/dashboard` | view & manage leads                               |
 | `content_editor` | `/cms`       | edit site content                                 |
-| `customer`       | `/portal`    | track their own assessment / quotes / install     |
 
-Public sign-ups are always `customer`. Staff, editors, and other admins are
-created by a superadmin (or the seed script).
+There is no self-service sign-up — every account is created by a superadmin
+(or the seed script) in the Users admin page. `emailAndPassword.disableSignUp`
+in `lib/auth.ts` blocks the sign-up API route itself, not just the UI.
 
 ## Setup
 

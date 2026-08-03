@@ -79,10 +79,8 @@ export type ProjectStatusEmailInput = {
   previousStage: ProjectStage
   /** Absolute HTTPS URL to the brand logo image. */
   logoUrl: string
-  /** Where a customer without portal access (or not signed in) can reach a human. */
+  /** Where the customer can reach a human — there is no customer portal/login. */
   contactUrl: string
-  /** Deep link to the customer portal, shown as the primary call-to-action. */
-  portalUrl: string
   /** Support contact line shown under the CTA, e.g. "hello@solarworks.ph · +63 917 555 0142". */
   supportLine: string
   /** Pre-formatted (Asia/Manila) installation date/time; omit when the stage isn't "scheduled" or no date is set. */
@@ -96,7 +94,7 @@ export function renderProjectStatusEmail(input: ProjectStatusEmailInput): {
   subject: string
   html: string
 } {
-  const { project, previousStage, logoUrl, contactUrl, portalUrl, supportLine, formattedScheduledAt, formattedUpdatedAt } = input
+  const { project, previousStage, logoUrl, contactUrl, supportLine, formattedScheduledAt, formattedUpdatedAt } = input
 
   const content = STATUS_EMAIL_CONTENT[project.stage]
   const newLabel = STAGE_LABEL[project.stage]
@@ -184,11 +182,11 @@ export function renderProjectStatusEmail(input: ProjectStatusEmailInput): {
           ${noteBlock}
 
           <div style="text-align:center;margin:28px 0 4px">
-            <a href="${portalUrl}" style="display:inline-block;background:#f59e0b;color:#111827;font-weight:600;font-size:14px;padding:12px 28px;border-radius:8px;text-decoration:none">
-              View your project
+            <a href="${contactUrl}" style="display:inline-block;background:#f59e0b;color:#111827;font-weight:600;font-size:14px;padding:12px 28px;border-radius:8px;text-decoration:none">
+              Contact us
             </a>
             <p style="margin:14px 0 0;font-size:12px;color:#9ca3af">
-              Or <a href="${contactUrl}" style="color:#b45309;text-decoration:underline">contact us</a> — ${supportLine}
+              Questions about ${projectName}? Reach us at ${supportLine}
             </p>
           </div>
         </div>

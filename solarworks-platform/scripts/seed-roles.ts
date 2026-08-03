@@ -22,7 +22,6 @@ const ACCOUNTS: { email: string; name: string; role: Role }[] = [
   { email: "superadmin@solarworks.ph", name: "Super Admin", role: "superadmin" },
   { email: "staff@solarworks.ph", name: "Staff Demo", role: "staff" },
   { email: "editor@solarworks.ph", name: "Content Editor Demo", role: "content_editor" },
-  { email: "customer@solarworks.ph", name: "Customer Demo", role: "customer" },
 ]
 
 async function main() {

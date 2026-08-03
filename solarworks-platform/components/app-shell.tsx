@@ -21,7 +21,6 @@ export type NavIconName =
   | "leads"
   | "users"
   | "content"
-  | "portal"
   | "projects"
   | "savings"
 

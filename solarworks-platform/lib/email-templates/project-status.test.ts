@@ -34,7 +34,6 @@ function project(overrides: Partial<CustomerProject> = {}): CustomerProject {
 const baseInput = {
   logoUrl: "https://solar-works-website.vercel.app/images/solar-works-logo.png",
   contactUrl: "https://solar-works-website.vercel.app/contact",
-  portalUrl: "https://platform.example.com/portal",
   supportLine: "hello@solarworks.ph · +63 917 555 0142",
   formattedUpdatedAt: "August 14, 2026 at 9:00 AM",
 }
@@ -173,14 +172,13 @@ test("includes the staff note only when one is set", () => {
 
 // --- links -----------------------------------------------------------------------
 
-test("wires the portal and contact links through, and shows the support line", () => {
+test("wires the contact link through as the CTA, and shows the support line", () => {
   const { html } = renderProjectStatusEmail({
     ...baseInput,
     project: project(),
     previousStage: "proposal",
     formattedScheduledAt: "August 20, 2026 at 9:00 AM",
   })
-  assert.match(html, /href="https:\/\/platform\.example\.com\/portal"/)
   assert.match(html, /href="https:\/\/solar-works-website\.vercel\.app\/contact"/)
   assert.match(html, /hello@solarworks\.ph · \+63 917 555 0142/)
 })

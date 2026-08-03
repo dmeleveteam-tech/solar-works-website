@@ -22,7 +22,6 @@ const NAV_BY_ROLE: Record<Role, NavItem[]> = {
     { label: "Savings tracker", href: "/dashboard/savings", icon: "savings" },
   ],
   content_editor: [{ label: "Content", href: "/cms", icon: "content" }],
-  customer: [{ label: "Overview", href: "/portal", icon: "portal" }],
 }
 
 export function navForRole(role: Role): NavItem[] {

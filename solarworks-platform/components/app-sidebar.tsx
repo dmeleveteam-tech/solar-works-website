@@ -42,7 +42,6 @@ const NAV_ICONS: Record<NavIconName, LucideIcon> = {
   leads: Inbox,
   users: Users,
   content: FileText,
-  portal: LayoutDashboard,
   projects: FolderKanban,
   savings: PiggyBank,
 }

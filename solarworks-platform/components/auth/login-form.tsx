@@ -2,7 +2,6 @@
 
 import * as React from "react"
 import { useRouter, useSearchParams } from "next/navigation"
-import Link from "next/link"
 import { Loader2, Lock, User } from "lucide-react"
 import { toast } from "sonner"
 
@@ -87,16 +86,6 @@ export function LoginForm() {
           </button>
         </div>
       </form>
-
-      <p className="text-center text-sm text-muted-foreground lg:hidden">
-        New customer?{" "}
-        <Link
-          href="/signup"
-          className="font-medium text-primary-strong underline-offset-2 hover:underline"
-        >
-          Create an account
-        </Link>
-      </p>
     </div>
   )
 }

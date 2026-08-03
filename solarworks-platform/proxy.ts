@@ -9,7 +9,7 @@ import { getSessionCookie } from "better-auth/cookies"
  * layouts via `requireRole`, which run in the Node runtime and read the
  * database. (better-auth recommends exactly this two-layer split.)
  */
-const PROTECTED_PREFIXES = ["/admin", "/dashboard", "/portal", "/cms"]
+const PROTECTED_PREFIXES = ["/admin", "/dashboard", "/cms"]
 
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
@@ -29,5 +29,5 @@ export function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/admin/:path*", "/dashboard/:path*", "/portal/:path*", "/cms/:path*"],
+  matcher: ["/admin/:path*", "/dashboard/:path*", "/cms/:path*"],
 }

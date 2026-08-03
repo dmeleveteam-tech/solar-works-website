@@ -11,11 +11,12 @@ export const statement = {
   ...defaultStatements,
   lead: ["create", "read", "update", "assign", "delete"],
   content: ["create", "read", "update", "publish", "delete"],
-  // Customer-portal projects: staff/admin manage them; customers read only
-  // their own (ownership is enforced by query scoping, not this statement).
+  // Customer projects: staff/admin manage contact records and stage tracking
+  // directly. There is no customer-facing login — customers are contacted by
+  // email/phone, never a portal.
   project: ["read", "manage", "delete"],
-  // Solar Savings Tracker (Phase 2b): staff/admin manage tariffs, plant links,
-  // and uploads; deletion is admin-only. Customers read only their own savings.
+  // Solar Savings Tracker: staff/admin manage tariffs, plant links, and
+  // uploads; deletion is admin-only.
   savings: ["read", "manage", "delete"],
 } as const
 
@@ -57,30 +58,31 @@ export const contentEditor = ac.newRole({
   content: ["create", "read", "update", "publish", "delete"],
 })
 
-export const customer = ac.newRole({
-  // Customers manage only their own portal data; no admin-plugin permissions.
-})
-
 export const roles = {
   superadmin,
   staff,
   content_editor: contentEditor,
-  customer,
 }
 
-export const ROLES = ["superadmin", "staff", "content_editor", "customer"] as const
+export const ROLES = ["superadmin", "staff", "content_editor"] as const
 export type Role = (typeof ROLES)[number]
 
 /** Roles the admin plugin treats as administrators (can manage other users). */
 export const ADMIN_ROLES = ["superadmin"] as const
-export const DEFAULT_ROLE: Role = "customer"
+/**
+ * better-auth's admin plugin requires a default role even though it's
+ * unreachable here: there's no self-service sign-up (`emailAndPassword.
+ * disableSignUp` in `lib/auth.ts`, and no /signup route), so no account is
+ * ever created without a superadmin explicitly picking a role in the Users
+ * admin page.
+ */
+export const DEFAULT_ROLE: Role = "staff"
 
 /** Where each role lands after signing in. */
 export const ROLE_HOME: Record<Role, string> = {
   superadmin: "/admin",
   staff: "/dashboard",
   content_editor: "/cms",
-  customer: "/portal",
 }
 
 export function isRole(value: unknown): value is Role {

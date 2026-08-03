@@ -6,8 +6,6 @@ import type { Role } from "./permissions"
  * build — so the security-critical invariant (a user only ever reads their own
  * notifications) can be unit-tested without a database. The server data layer
  * in `./notifications` composes these into its queries.
- *
- * Mirrors `./customer-projects-access`, which does the same for project reads.
  */
 
 /** How far back the bell looks. Older notifications stop counting as unread. */

@@ -28,7 +28,6 @@ import {
   setConsent,
   removePlant,
   uploadReadings,
-  type LinkableCustomer,
 } from "@/app/dashboard/savings/actions"
 import { DeleteConfirmDialog } from "@/components/delete-confirm-dialog"
 import { Button } from "@/components/ui/button"
@@ -36,22 +35,14 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent } from "@/components/ui/card"
 
-const controlClass = cn(
-  "h-9 w-full rounded-md border border-input bg-transparent px-2.5 text-sm shadow-xs outline-none",
-  "focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50",
-  "disabled:pointer-events-none disabled:opacity-50",
-)
-
 export function SavingsManager({
   initialTariffs,
   initialPlants,
-  customers,
   canDelete,
   parserReady,
 }: {
   initialTariffs: Tariff[]
   initialPlants: SavingsPlant[]
-  customers: LinkableCustomer[]
   canDelete: boolean
   parserReady: boolean
 }) {
@@ -71,7 +62,6 @@ export function SavingsManager({
       <PlantSection
         plants={plants}
         setPlants={setPlants}
-        customers={customers}
         providerNames={providerNames}
         canDelete={canDelete}
         parserReady={parserReady}
@@ -247,14 +237,12 @@ function TariffSection({
 function PlantSection({
   plants,
   setPlants,
-  customers,
   providerNames,
   canDelete,
   parserReady,
 }: {
   plants: SavingsPlant[]
   setPlants: React.Dispatch<React.SetStateAction<SavingsPlant[]>>
-  customers: LinkableCustomer[]
   providerNames: string[]
   canDelete: boolean
   parserReady: boolean
@@ -271,7 +259,7 @@ function PlantSection({
         <div>
           <h2 className="font-heading text-lg font-semibold">Customer plants</h2>
           <p className="text-sm text-muted-foreground">
-            Link a customer account to their Deye plant and utility provider.
+            Link a customer&apos;s Deye plant to a utility provider.
           </p>
         </div>
         <Button size="sm" onClick={() => setAdding((v) => !v)}>
@@ -282,7 +270,6 @@ function PlantSection({
 
       {adding ? (
         <CreatePlantForm
-          customers={customers}
           providerNames={providerNames}
           onCreated={(plant) => {
             setPlants((prev) => [plant, ...prev])
@@ -314,36 +301,23 @@ function PlantSection({
 }
 
 function CreatePlantForm({
-  customers,
   providerNames,
   onCreated,
 }: {
-  customers: LinkableCustomer[]
   providerNames: string[]
   onCreated: (plant: SavingsPlant) => void
 }) {
-  const [mode, setMode] = React.useState<"existing" | "new">(
-    customers.length > 0 ? "existing" : "new",
-  )
   const [saving, setSaving] = React.useState(false)
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     const fd = new FormData(e.currentTarget)
-    const base = {
+    const input = {
+      customerName: String(fd.get("customerName") ?? "").trim(),
+      customerEmail: String(fd.get("customerEmail") ?? "").trim(),
       plantRef: String(fd.get("plantRef") ?? "").trim(),
       provider: String(fd.get("provider") ?? "").trim(),
     }
-    const input =
-      mode === "existing"
-        ? { ...base, mode: "existing" as const, customerUserId: String(fd.get("customerUserId") ?? "") }
-        : {
-            ...base,
-            mode: "new" as const,
-            name: String(fd.get("name") ?? "").trim(),
-            email: String(fd.get("email") ?? "").trim(),
-            password: String(fd.get("password") ?? ""),
-          }
 
     setSaving(true)
     const res = await createPlant(input)
@@ -360,53 +334,22 @@ function CreatePlantForm({
     <Card>
       <CardContent className="grid gap-4 py-5">
         <form onSubmit={onSubmit} className="grid gap-4">
-          <div className="flex gap-2">
-            <Button
-              type="button"
-              size="sm"
-              variant={mode === "existing" ? "default" : "outline"}
-              onClick={() => setMode("existing")}
-              disabled={customers.length === 0}
-            >
-              Existing customer
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              variant={mode === "new" ? "default" : "outline"}
-              onClick={() => setMode("new")}
-            >
-              New customer account
-            </Button>
-          </div>
-
-          {mode === "existing" ? (
+          <div className="grid gap-4 sm:grid-cols-2">
             <div className="grid gap-1.5">
-              <Label htmlFor="customerUserId">Customer</Label>
-              <select id="customerUserId" name="customerUserId" className={controlClass} required>
-                {customers.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name ? `${c.name} — ${c.email}` : c.email}
-                  </option>
-                ))}
-              </select>
+              <Label htmlFor="customerName">Customer name</Label>
+              <Input id="customerName" name="customerName" required maxLength={120} />
             </div>
-          ) : (
-            <div className="grid gap-4 sm:grid-cols-3">
-              <div className="grid gap-1.5">
-                <Label htmlFor="name">Customer name</Label>
-                <Input id="name" name="name" required maxLength={120} />
-              </div>
-              <div className="grid gap-1.5">
-                <Label htmlFor="email">Email</Label>
-                <Input id="email" name="email" type="email" required maxLength={200} />
-              </div>
-              <div className="grid gap-1.5">
-                <Label htmlFor="password">Temporary password</Label>
-                <Input id="password" name="password" type="text" required minLength={8} maxLength={200} />
-              </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="customerEmail">Customer email</Label>
+              <Input
+                id="customerEmail"
+                name="customerEmail"
+                type="email"
+                required
+                maxLength={200}
+              />
             </div>
-          )}
+          </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="grid gap-1.5">
@@ -436,13 +379,6 @@ function CreatePlantForm({
               </datalist>
             </div>
           </div>
-
-          {mode === "new" ? (
-            <p className="text-xs text-muted-foreground">
-              This creates a customer login. Share the email and temporary password with
-              them; they can sign in at the portal.
-            </p>
-          ) : null}
 
           <div>
             <Button type="submit" size="sm" disabled={saving}>

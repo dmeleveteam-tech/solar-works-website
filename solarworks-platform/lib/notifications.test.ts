@@ -111,7 +111,7 @@ test("unreadByNavHref buckets to the longest matching nav item", () => {
 test("unreadByNavHref skips hrefs outside this role's nav, and null hrefs", () => {
   const counts = unreadByNavHref(
     [
-      { href: "/portal", read: false },
+      { href: "/cms", read: false },
       { href: null, read: false },
       { href: "/admin/users", read: false },
     ],
@@ -138,13 +138,13 @@ test("a filter built for one user never matches another user's target", () => {
 
   const targets: Array<Record<string, unknown>> = recipientFilter(
     "user-A",
-    "customer",
+    "content_editor",
     since,
   ).$or
 
   assert.ok(targets.some((t) => t.userId === "user-A"))
   assert.ok(!targets.some((t) => t.userId === "user-B"))
-  // A customer's filter must not pick up staff broadcasts.
+  // A content editor's filter must not pick up staff broadcasts.
   assert.ok(!targets.some((t) => t.roles === "staff"))
 })
 

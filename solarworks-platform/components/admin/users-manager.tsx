@@ -251,7 +251,7 @@ export function UsersManager() {
           ) : (
             <div className="divide-y">
               {users.map((user) => {
-                const role: Role = isRole(user.role) ? user.role : "customer"
+                const role: Role = isRole(user.role) ? user.role : "staff"
                 const isSelf = user.id === currentUserId
                 const busy = busyId === user.id
                 return (
