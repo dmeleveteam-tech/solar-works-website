@@ -72,6 +72,51 @@ function formatSchedule(iso: string): string {
   })
 }
 
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+/**
+ * POST to Resend's send endpoint, retrying a couple of times on transient
+ * network failures (e.g. the TLS connection getting reset mid-handshake —
+ * observed in practice between Vercel functions and api.resend.com). A single
+ * dropped connection used to mean a silently lost sales alert or customer
+ * email, since callers only fire this once and never see the failure.
+ *
+ * Does NOT retry a response Resend itself returned (4xx/5xx) — those are
+ * real rejections (bad payload, unverified sender domain, etc.) that a retry
+ * cannot fix, so we fail fast and let the caller report the exact status.
+ */
+async function postToResend(
+  body: Record<string, unknown>,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const maxAttempts = 3
+  let lastError = "Network error while sending the email."
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      const res = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: {
+          authorization: `Bearer ${env.RESEND_API_KEY}`,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify(body),
+        cache: "no-store",
+      })
+      if (res.ok) return { ok: true }
+      const text = await res.text().catch(() => "")
+      console.error("Resend send failed:", res.status, text)
+      return { ok: false, error: `Email provider returned ${res.status}.` }
+    } catch (err) {
+      console.error(`Resend send network error (attempt ${attempt}/${maxAttempts}):`, err)
+      lastError = "Network error while sending the email."
+      if (attempt < maxAttempts) await sleep(attempt * 300)
+    }
+  }
+  return { ok: false, error: lastError }
+}
+
 /**
  * Send the sales team an email about a freshly-captured lead. Fire-and-forget:
  * callers should `void` this so it never delays or fails the API response.
@@ -94,31 +139,8 @@ export async function notifyNewLead(lead: LeadDoc): Promise<void> {
     dashboardUrl: dashboardUrl(),
   })
 
-  try {
-    const res = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        authorization: `Bearer ${env.RESEND_API_KEY}`,
-        "content-type": "application/json",
-      },
-      body: JSON.stringify({
-        from: env.LEADS_NOTIFY_FROM,
-        to,
-        subject,
-        html,
-      }),
-      cache: "no-store",
-    })
-    if (!res.ok) {
-      console.error(
-        "Lead notification failed:",
-        res.status,
-        await res.text().catch(() => ""),
-      )
-    }
-  } catch (err) {
-    console.error("Lead notification error:", err)
-  }
+  const result = await postToResend({ from: env.LEADS_NOTIFY_FROM, to, subject, html })
+  if (!result.ok) console.error("Lead notification failed:", result.error)
 }
 
 /** Outcome of a project-status email attempt, surfaced to the admin so a
@@ -156,29 +178,15 @@ export async function notifyProjectStageChanged(
     formattedUpdatedAt: formatSchedule(project.stageUpdatedAt),
   })
 
-  try {
-    const res = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        authorization: `Bearer ${env.RESEND_API_KEY}`,
-        "content-type": "application/json",
-      },
-      body: JSON.stringify({
-        from: env.LEADS_NOTIFY_FROM,
-        to: [project.customerEmail],
-        subject,
-        html,
-      }),
-      cache: "no-store",
-    })
-    if (!res.ok) {
-      const text = await res.text().catch(() => "")
-      console.error("Project status email failed:", res.status, text)
-      return { sent: false, error: `Email provider returned ${res.status}.` }
-    }
-    return { sent: true }
-  } catch (err) {
-    console.error("Project status email error:", err)
-    return { sent: false, error: "Network error while sending the email." }
+  const result = await postToResend({
+    from: env.LEADS_NOTIFY_FROM,
+    to: [project.customerEmail],
+    subject,
+    html,
+  })
+  if (!result.ok) {
+    console.error("Project status email failed:", result.error)
+    return { sent: false, error: result.error }
   }
+  return { sent: true }
 }
