@@ -1,11 +1,11 @@
 import "server-only"
 
 import { env, leadsNotifyEnabled, projectEmailEnabled } from "./env"
-import { escapeHtml } from "./html-escape"
 import { siteFacts } from "./chat/site-facts"
 import { SOURCE_LABEL, type LeadDoc } from "./leads"
 import { type CustomerProject, type ProjectStage } from "./customer-projects-shared"
 import { renderProjectStatusEmail } from "./email-templates/project-status"
+import { renderLeadNotificationEmail } from "./email-templates/lead-notification"
 
 /**
  * Outbound *email* alerts. Today this is just the new-lead sales alert (the
@@ -72,30 +72,6 @@ function formatSchedule(iso: string): string {
   })
 }
 
-function renderRows(lead: LeadDoc): string {
-  const rows: Array<[string, string]> = [
-    // First, so the reference the sales team will quote back — and find in the
-    // spreadsheet mirror — is the first thing they see.
-    ["Lead ID", lead.refId ?? "—"],
-    ["Name", lead.name],
-    ["Mobile", lead.phone ?? "—"],
-    ["Email", lead.email ?? "—"],
-    ["Source", SOURCE_LABEL[lead.source]],
-  ]
-  if (lead.message) rows.push(["Notes", lead.message])
-  for (const [label, value] of Object.entries(lead.details ?? {})) {
-    rows.push([label, value])
-  }
-  return rows
-    .map(
-      ([label, value]) =>
-        `<tr><td style="padding:4px 12px 4px 0;color:#666;vertical-align:top">${escapeHtml(
-          label,
-        )}</td><td style="padding:4px 0">${escapeHtml(value)}</td></tr>`,
-    )
-    .join("")
-}
-
 /**
  * Send the sales team an email about a freshly-captured lead. Fire-and-forget:
  * callers should `void` this so it never delays or fails the API response.
@@ -106,15 +82,17 @@ export async function notifyNewLead(lead: LeadDoc): Promise<void> {
   const to = recipients()
   if (to.length === 0) return
 
-  const subject = `New ${SOURCE_LABEL[lead.source].toLowerCase()} lead — ${lead.name}`
-  const html = `
-    <div style="font-family:system-ui,sans-serif;font-size:14px;color:#111">
-      <h2 style="margin:0 0 12px">New lead captured</h2>
-      <table style="border-collapse:collapse">${renderRows(lead)}</table>
-      <p style="margin:20px 0 0">
-        <a href="${dashboardUrl()}" style="color:#1d4ed8">Open the leads dashboard →</a>
-      </p>
-    </div>`
+  const { subject, html } = renderLeadNotificationEmail({
+    refId: lead.refId ?? null,
+    name: lead.name,
+    email: lead.email,
+    phone: lead.phone,
+    message: lead.message,
+    details: lead.details ?? {},
+    sourceLabel: SOURCE_LABEL[lead.source],
+    logoUrl: logoUrl(),
+    dashboardUrl: dashboardUrl(),
+  })
 
   try {
     const res = await fetch("https://api.resend.com/emails", {
