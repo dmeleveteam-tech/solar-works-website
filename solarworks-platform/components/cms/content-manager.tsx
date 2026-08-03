@@ -63,6 +63,7 @@ import {
   reorderFaqs,
   type ActionResult,
 } from "@/app/cms/actions"
+import { DeleteConfirmDialog } from "@/components/delete-confirm-dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -271,17 +272,44 @@ function useCrud<T extends WithIdPublished>(initial: T[], noun: string) {
     [],
   )
 
+  const [pendingDelete, setPendingDelete] = React.useState<{
+    item: T
+    label: string
+    action: (i: { id: string }) => Promise<ActionResult>
+  } | null>(null)
+
+  /** Opens the shared confirm dialog; the actual delete waits for confirmRemove. */
   const remove = React.useCallback(
-    async (item: T, label: string, action: (i: { id: string }) => Promise<ActionResult>) => {
-      if (!window.confirm(`Delete ${label}? This cannot be undone.`)) return
-      setBusyId(item.id)
-      const res = await action({ id: item.id })
-      setBusyId(null)
-      if (!res.ok) return toast.error(res.error)
-      setItems((prev) => prev.filter((i) => i.id !== item.id))
-      toast.success(`${noun} deleted`)
+    (item: T, label: string, action: (i: { id: string }) => Promise<ActionResult>) => {
+      setPendingDelete({ item, label, action })
     },
-    [noun],
+    [],
+  )
+
+  const confirmRemove = React.useCallback(async () => {
+    if (!pendingDelete) return
+    const { item, action } = pendingDelete
+    setBusyId(item.id)
+    const res = await action({ id: item.id })
+    setBusyId(null)
+    if (!res.ok) {
+      toast.error(res.error)
+      return
+    }
+    setItems((prev) => prev.filter((i) => i.id !== item.id))
+    toast.success(`${noun} deleted`)
+    setPendingDelete(null)
+  }, [pendingDelete, noun])
+
+  const deleteDialog = (
+    <DeleteConfirmDialog
+      open={pendingDelete != null}
+      onOpenChange={(open) => !open && setPendingDelete(null)}
+      title={`Delete this ${noun.toLowerCase()}?`}
+      description={pendingDelete ? `Delete ${pendingDelete.label}? This cannot be undone.` : ""}
+      busy={pendingDelete != null && busyId === pendingDelete.item.id}
+      onConfirm={confirmRemove}
+    />
   )
 
   // Optimistically apply a drag reorder, reverting if the server rejects it.
@@ -302,7 +330,18 @@ function useCrud<T extends WithIdPublished>(initial: T[], noun: string) {
     [],
   )
 
-  return { items, editing, setEditing, busyId, errors, onSaved, togglePublish, remove, reorder }
+  return {
+    items,
+    editing,
+    setEditing,
+    busyId,
+    errors,
+    onSaved,
+    togglePublish,
+    remove,
+    reorder,
+    deleteDialog,
+  }
 }
 
 function SectionHeader({
@@ -651,6 +690,7 @@ function ProjectsManager({ initial }: { initial: ProjectItem[] }) {
       )}
 
       <ContentPreview preview={preview} onOpenChange={(o) => !o && setPreview(null)} />
+      {crud.deleteDialog}
     </div>
   )
 }
@@ -835,6 +875,7 @@ function TestimonialsManager({ initial }: { initial: TestimonialItem[] }) {
       )}
 
       <ContentPreview preview={preview} onOpenChange={(o) => !o && setPreview(null)} />
+      {crud.deleteDialog}
     </div>
   )
 }
@@ -948,6 +989,7 @@ function FaqsManager({ initial }: { initial: FaqItem[] }) {
       )}
 
       <ContentPreview preview={preview} onOpenChange={(o) => !o && setPreview(null)} />
+      {crud.deleteDialog}
     </div>
   )
 }

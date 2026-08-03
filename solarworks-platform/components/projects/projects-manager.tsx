@@ -16,6 +16,7 @@ import { toast } from "sonner"
 
 import { cn } from "@/lib/utils"
 import { CLOUDINARY_SIGN_ENDPOINT, CLOUDINARY_UPLOAD_OPTIONS } from "@/lib/cloudinary-upload"
+import { DeleteConfirmDialog } from "@/components/delete-confirm-dialog"
 import {
   PROJECT_STAGES,
   STAGE_LABEL,
@@ -478,28 +479,24 @@ function DeleteProject({
   }
 
   return (
-    <div className="flex items-center gap-2 border-t pt-4">
-      {confirming ? (
-        <>
-          <span className="text-sm text-muted-foreground">Delete this project permanently?</span>
-          <Button size="sm" variant="destructive" onClick={onDelete} disabled={busy}>
-            {busy ? <Loader2 className="animate-spin" /> : <Trash2 />}
-            Confirm delete
-          </Button>
-          <Button size="sm" variant="ghost" onClick={() => setConfirming(false)} disabled={busy}>
-            Cancel
-          </Button>
-        </>
-      ) : (
-        <Button
-          size="sm"
-          variant="ghost"
-          onClick={() => setConfirming(true)}
-          className="text-destructive hover:text-destructive"
-        >
-          <Trash2 /> Delete project
-        </Button>
-      )}
+    <div className="border-t pt-4">
+      <Button
+        size="sm"
+        variant="ghost"
+        onClick={() => setConfirming(true)}
+        className="text-destructive hover:text-destructive"
+      >
+        <Trash2 /> Delete project
+      </Button>
+
+      <DeleteConfirmDialog
+        open={confirming}
+        onOpenChange={setConfirming}
+        title="Delete this project?"
+        description={`Permanently delete "${project.displayName}"? This cannot be undone.`}
+        busy={busy}
+        onConfirm={onDelete}
+      />
     </div>
   )
 }

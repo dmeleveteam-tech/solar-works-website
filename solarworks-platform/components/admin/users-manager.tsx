@@ -8,6 +8,7 @@ import { authClient, useSession } from "@/lib/auth-client"
 import { ROLES, isRole, type Role } from "@/lib/permissions"
 import { ROLE_LABEL } from "@/components/role-badge"
 import { cn } from "@/lib/utils"
+import { DeleteConfirmDialog } from "@/components/delete-confirm-dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -70,6 +71,7 @@ export function UsersManager() {
   // Create-user form state.
   const [creating, setCreating] = React.useState(false)
   const [newRole, setNewRole] = React.useState<Role>("staff")
+  const [deleteTarget, setDeleteTarget] = React.useState<AdminUser | null>(null)
 
   const load = React.useCallback(async (searchValue?: string) => {
     const { data, error } = await authClient.admin.listUsers({
@@ -170,10 +172,9 @@ export function UsersManager() {
     )
   }
 
-  async function onRemove(user: AdminUser) {
-    if (!window.confirm(`Permanently delete ${user.email}? This cannot be undone.`)) {
-      return
-    }
+  async function confirmRemove() {
+    if (!deleteTarget) return
+    const user = deleteTarget
     setBusyId(user.id)
     const { error } = await authClient.admin.removeUser({ userId: user.id })
     setBusyId(null)
@@ -184,6 +185,7 @@ export function UsersManager() {
     toast.success(`Deleted ${user.email}`)
     setUsers((prev) => prev.filter((u) => u.id !== user.id))
     setTotal((t) => Math.max(0, t - 1))
+    setDeleteTarget(null)
   }
 
   return (
@@ -302,7 +304,7 @@ export function UsersManager() {
                       variant="destructive"
                       size="sm"
                       disabled={busy || isSelf}
-                      onClick={() => onRemove(user)}
+                      onClick={() => setDeleteTarget(user)}
                     >
                       <Trash2 />
                       <span className="hidden sm:inline">Delete</span>
@@ -314,6 +316,19 @@ export function UsersManager() {
           )}
         </CardContent>
       </Card>
+
+      <DeleteConfirmDialog
+        open={deleteTarget != null}
+        onOpenChange={(open) => !open && setDeleteTarget(null)}
+        title="Delete this user?"
+        description={
+          deleteTarget
+            ? `Permanently delete ${deleteTarget.email}? This cannot be undone.`
+            : ""
+        }
+        busy={deleteTarget != null && busyId === deleteTarget.id}
+        onConfirm={confirmRemove}
+      />
     </div>
   )
 }
