@@ -45,12 +45,6 @@ const structureTypes = [
   "Other",
 ]
 
-const batteryOptions = [
-  "Yes, definitely",
-  "Maybe, I'd like more information",
-  "No, not at this time",
-]
-
 /* ── Validation types ───────────────────────────────────────── */
 type Errors = Partial<
   Record<
@@ -58,10 +52,9 @@ type Errors = Partial<
     | "email"
     | "phone"
     | "address"
+    | "structureType"
     | "billRange"
     | "usageProfile"
-    | "structureType"
-    | "battery"
     | "consent",
     string
   >
@@ -227,19 +220,17 @@ export function NativeInquiryForm({ defaultSolution }: { defaultSolution?: strin
     const email = String(data.get("email") ?? "").trim()
     const phone = String(data.get("phone") ?? "").trim()
     const address = String(data.get("address") ?? "").trim()
+    const structureType = String(data.get("structureType") ?? "")
     const billRange = String(data.get("billRange") ?? "")
     const usageProfile = String(data.get("usageProfile") ?? "")
-    const structureType = String(data.get("structureType") ?? "")
-    const battery = String(data.get("battery") ?? "")
 
     if (fullName.length < 2) next.fullName = "Please enter your full name."
     if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) next.email = "Enter a valid email address."
     if (!phone) next.phone = "Primary contact phone number is required."
     if (!address) next.address = "Installation address is required."
+    if (!structureType) next.structureType = "Please select the structure type."
     if (!billRange) next.billRange = "Please select your monthly bill range."
     if (!usageProfile) next.usageProfile = "Please select your usage profile."
-    if (!structureType) next.structureType = "Please select the structure type."
-    if (!battery) next.battery = "Please select a battery storage option."
     if (!consent) next.consent = "Please agree before we contact you."
 
     setErrors(next)
@@ -257,9 +248,6 @@ export function NativeInquiryForm({ defaultSolution }: { defaultSolution?: strin
     setStatus("submitting")
     setSubmitError(null)
 
-    const contactTime = String(data.get("contactTime") ?? "").trim()
-    const contactAmPm = String(data.get("contactAmPm") ?? "")
-
     try {
       const res = await fetch("/api/leads", {
         method: "POST",
@@ -276,9 +264,7 @@ export function NativeInquiryForm({ defaultSolution }: { defaultSolution?: strin
           solutionInterest: defaultSolution ?? "",
           monthlyBill: billRange,
           usageProfile,
-          batteryInterest: battery,
           urgency: urgency ? `${urgency} of 5 (1 = ASAP)` : "",
-          contactTime: contactTime ? `${contactTime} ${contactAmPm}` : "",
           billAttachment: billFile
             ? `${billFile.name} (${(billFile.size / 1024).toFixed(0)} KB)`
             : "",
@@ -343,9 +329,12 @@ export function NativeInquiryForm({ defaultSolution }: { defaultSolution?: strin
       onSubmit={onSubmit}
       onFocusCapture={handleFirstInteraction}
       noValidate
-      className="rounded-2xl border bg-card p-6 shadow-sm sm:p-8"
+      // Capped to one viewport instead of growing the whole page: the fields
+      // scroll inside this card and the submit button stays pinned below them,
+      // always reachable without hunting for it at the bottom of a long page.
+      className="flex max-h-[80vh] flex-col overflow-hidden rounded-2xl border bg-card shadow-sm"
     >
-      <div className="grid gap-6">
+      <div data-lenis-prevent className="grid flex-1 gap-6 overflow-y-auto p-6 sm:p-8">
         {/* Email */}
         <Field label="Email" required error={errors.email}>
           <Input
@@ -386,6 +375,27 @@ export function NativeInquiryForm({ defaultSolution }: { defaultSolution?: strin
             autoComplete="tel"
             placeholder="0917 555 0142"
           />
+        </Field>
+
+        {/* Structure Type — asked first among the qualifying questions, since
+            whether this is residential/commercial/etc. frames how to read
+            everything that follows (bill range, usage profile). */}
+        <Field
+          label="What is the primary usage of the structure?"
+          required
+          error={errors.structureType}
+        >
+          <RadioGroup name="structureType" data-field="structureType" className="grid gap-2 pt-1">
+            {structureTypes.map((s) => (
+              <Label
+                key={s}
+                className="flex cursor-pointer items-center gap-3 rounded-lg border bg-muted/30 px-4 py-3 text-sm font-normal transition-colors has-[[data-state=checked]]:border-primary has-[[data-state=checked]]:bg-primary/5"
+              >
+                <RadioGroupItem value={s} />
+                {s}
+              </Label>
+            ))}
+          </RadioGroup>
         </Field>
 
         {/* Monthly Bill Range */}
@@ -434,64 +444,6 @@ export function NativeInquiryForm({ defaultSolution }: { defaultSolution?: strin
           <StarRating value={urgency} onChange={setUrgency} />
         </Field>
 
-        {/* Structure Type */}
-        <Field
-          label="What is the primary usage of the structure?"
-          required
-          error={errors.structureType}
-        >
-          <RadioGroup name="structureType" data-field="structureType" className="grid gap-2 pt-1">
-            {structureTypes.map((s) => (
-              <Label
-                key={s}
-                className="flex cursor-pointer items-center gap-3 rounded-lg border bg-muted/30 px-4 py-3 text-sm font-normal transition-colors has-[[data-state=checked]]:border-primary has-[[data-state=checked]]:bg-primary/5"
-              >
-                <RadioGroupItem value={s} />
-                {s}
-              </Label>
-            ))}
-          </RadioGroup>
-        </Field>
-
-        {/* Battery Storage */}
-        <Field
-          label="Are you interested in adding a solar battery storage solution?"
-          required
-          error={errors.battery}
-        >
-          <RadioGroup name="battery" data-field="battery" className="grid gap-2 pt-1">
-            {batteryOptions.map((b) => (
-              <Label
-                key={b}
-                className="flex cursor-pointer items-center gap-3 rounded-lg border bg-muted/30 px-4 py-3 text-sm font-normal transition-colors has-[[data-state=checked]]:border-primary has-[[data-state=checked]]:bg-primary/5"
-              >
-                <RadioGroupItem value={b} />
-                {b}
-              </Label>
-            ))}
-          </RadioGroup>
-        </Field>
-
-        {/* Best contact time */}
-        <Field label="What is the best time-range for us to contact you?" hint="optional">
-          <div className="flex items-center gap-2">
-            <Input
-              name="contactTime"
-              type="time"
-              className="w-36"
-              aria-label="Contact time"
-            />
-            <select
-              name="contactAmPm"
-              className="h-9 rounded-md border bg-background px-3 text-sm shadow-xs focus:outline-none focus:ring-1 focus:ring-primary"
-              aria-label="AM or PM"
-            >
-              <option value="AM">AM</option>
-              <option value="PM">PM</option>
-            </select>
-          </div>
-        </Field>
-
         {/* Electricity bill upload */}
         <Field
           label="Upload your most recent electricity bill"
@@ -535,9 +487,12 @@ export function NativeInquiryForm({ defaultSolution }: { defaultSolution?: strin
             Protected by Cloudflare Turnstile
           </div>
         )}
+      </div>
 
+      {/* Pinned footer — stays visible while the fields above scroll. */}
+      <div className="border-t p-4 sm:p-6">
         {submitError ? (
-          <p role="alert" className="-mb-1 text-sm text-destructive">
+          <p role="alert" className="mb-3 text-sm text-destructive">
             {submitError}
           </p>
         ) : null}

@@ -17,11 +17,10 @@ export const ANALYTICS_EVENTS = {
   testimonialVideoPlay: "testimonial_video_play",
   leadFormStart: "lead_form_start",
   leadFormSubmit: "lead_form_submit",
-  chatbotOpen: "chatbot_open",
-  chatbotQualifiedLead: "chatbot_qualified_lead",
   phoneClick: "phone_click",
   viberClick: "viber_click",
   whatsappClick: "whatsapp_click",
+  messengerClick: "messenger_click",
   projectView: "project_view",
   solutionView: "solution_view",
 } as const

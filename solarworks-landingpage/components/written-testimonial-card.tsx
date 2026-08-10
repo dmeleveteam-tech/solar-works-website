@@ -32,6 +32,16 @@ export function WrittenTestimonialCard({ item }: { item: WrittenTestimonial }) {
             </p>
           </div>
         </div>
+        {item.sourceUrl ? (
+          <a
+            href={item.sourceUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="text-xs font-medium text-primary hover:underline"
+          >
+            View original review ↗
+          </a>
+        ) : null}
       </CardContent>
     </Card>
   )
