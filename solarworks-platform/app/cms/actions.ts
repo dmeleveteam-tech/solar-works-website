@@ -257,6 +257,7 @@ const testimonialSchema = z
     // written
     quote: z.string().trim().max(1000).optional().or(z.literal("")),
     photo: z.string().trim().max(500).optional().or(z.literal("")),
+    sourceUrl: z.string().trim().max(500).optional().or(z.literal("")),
     published: z.coerce.boolean().default(false),
     sortOrder: z.coerce.number().int().min(0).max(10000).default(0),
   })
@@ -274,7 +275,12 @@ const testimonialSchema = z
       if (!v.quote)
         ctx.addIssue({ code: "custom", path: ["quote"], message: "Quote is required for a written testimonial" })
     }
-    for (const [key, val] of [["thumbnail", v.thumbnail], ["photo", v.photo], ["videoUrl", v.videoUrl]] as const) {
+    for (const [key, val] of [
+      ["thumbnail", v.thumbnail],
+      ["photo", v.photo],
+      ["videoUrl", v.videoUrl],
+      ["sourceUrl", v.sourceUrl],
+    ] as const) {
       if (val && !/^https?:\/\//i.test(val)) {
         ctx.addIssue({ code: "custom", path: [key], message: "Must be a valid URL" })
       }
@@ -298,6 +304,7 @@ function testimonialBody(v: z.infer<typeof testimonialSchema>) {
     videoUrl: isVideo ? blank(v.videoUrl) : null,
     quote: isVideo ? null : blank(v.quote),
     photo: isVideo ? null : blank(v.photo),
+    sourceUrl: isVideo ? null : blank(v.sourceUrl),
     published: v.published,
     sortOrder: v.sortOrder,
   }

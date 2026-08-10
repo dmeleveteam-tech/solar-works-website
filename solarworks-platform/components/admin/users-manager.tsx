@@ -10,6 +10,7 @@ import { ROLE_LABEL } from "@/components/role-badge"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { PasswordInput } from "@/components/ui/password-input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent } from "@/components/ui/card"
 
@@ -202,7 +203,7 @@ export function UsersManager() {
             </div>
             <div className="grid gap-1.5">
               <Label htmlFor="new-password">Temp password</Label>
-              <Input id="new-password" name="password" type="password" required minLength={8} placeholder="≥ 8 characters" />
+              <PasswordInput id="new-password" name="password" required minLength={8} placeholder="≥ 8 characters" />
             </div>
             <div className="grid gap-1.5">
               <Label htmlFor="new-role">Role</Label>

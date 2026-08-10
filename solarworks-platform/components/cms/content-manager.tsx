@@ -688,6 +688,7 @@ function TestimonialsManager({ initial }: { initial: TestimonialItem[] }) {
         thumbnail: str(fd, "thumbnail"),
         quote: str(fd, "quote"),
         photo: str(fd, "photo"),
+        sourceUrl: str(fd, "sourceUrl"),
       },
     })
   }
@@ -708,6 +709,7 @@ function TestimonialsManager({ initial }: { initial: TestimonialItem[] }) {
       videoUrl: str(fd, "videoUrl"),
       quote: str(fd, "quote"),
       photo: str(fd, "photo"),
+      sourceUrl: str(fd, "sourceUrl"),
       published: bool(fd, "published"),
       // Ordering is managed by drag-and-drop, not this form; preserve it on edit.
       sortOrder: current?.sortOrder ?? 0,
@@ -787,6 +789,20 @@ function TestimonialsManager({ initial }: { initial: TestimonialItem[] }) {
               <>
                 <Field label="Quote" htmlFor="t-quote" name="quote" className="sm:col-span-2">
                   <textarea id="t-quote" name="quote" defaultValue={current?.quote ?? ""} className={textareaClass} />
+                </Field>
+                <Field
+                  label="Review link — optional"
+                  htmlFor="t-source"
+                  name="sourceUrl"
+                  className="sm:col-span-2"
+                >
+                  <Input
+                    id="t-source"
+                    name="sourceUrl"
+                    type="url"
+                    defaultValue={current?.sourceUrl ?? ""}
+                    placeholder="https://g.co/kgs/... or Facebook post link"
+                  />
                 </Field>
                 <div className="sm:col-span-2">
                   <ImageField label="Client photo — optional" name="photo" defaultValue={current?.photo} error={crud.errors.photo} />

@@ -49,6 +49,7 @@ export type TestimonialPreview = {
   thumbnail: string
   quote: string
   photo: string
+  sourceUrl: string
 }
 
 export type FaqPreview = { question: string; answer: string; category: string }
@@ -242,6 +243,16 @@ function TestimonialPreviewCard({ data }: { data: TestimonialPreview }) {
             </p>
           </div>
         </div>
+        {data.sourceUrl ? (
+          <a
+            href={data.sourceUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="text-xs font-medium text-primary hover:underline"
+          >
+            View original review ↗
+          </a>
+        ) : null}
       </CardContent>
     </Card>
   )

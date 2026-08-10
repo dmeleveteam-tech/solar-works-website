@@ -9,6 +9,8 @@ export default async function CustomerProjectsPage() {
   const session = await requireRole("staff", "superadmin")
   const projects = await listAllProjects()
 
+  
+  
   return (
     <>
       <PageHeading

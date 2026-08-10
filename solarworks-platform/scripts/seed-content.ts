@@ -148,6 +148,7 @@ const writtenTestimonials: Array<{
   location?: string
   audience: Audience
   systemType?: SystemType
+  sourceUrl?: string
 }> = []
 
 const faqs = [
@@ -233,6 +234,7 @@ async function main() {
           videoId: v.videoId,
           quote: null,
           photo: null,
+          sourceUrl: null,
           published: true,
           sortOrder: i,
           updatedAt: now,
@@ -259,6 +261,7 @@ async function main() {
           videoId: null,
           quote: w.quote,
           photo: null,
+          sourceUrl: w.sourceUrl ?? null,
           published: true,
           sortOrder: i,
           updatedAt: now,
