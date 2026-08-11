@@ -17,14 +17,17 @@ import {
  *
  *   title   — short display text, what the visitor sees on the chip
  *   payload — the canonical LABELLED string the brain already expects, e.g.
- *             "Property type: Home" or the verbatim consent acceptance
+ *             "Primary goal: Cut bill by ~50%" or the verbatim consent
+ *             acceptance
  *
  * The webhook feeds the payload (never the title) into the transcript as an
  * ordinary user message, so `collectedFields` and the forced-save-on-consent
- * path in the brain keep working with no Messenger-specific branch at all. If
- * the title were fed in instead, "Business costs" would never match the
- * canonical "Business operating cost" and the field would look unanswered — the
- * model would then re-ask it every turn.
+ * path in the brain keep working with no Messenger-specific branch at all. The
+ * title alone would not do: it carries no field name, so a bare "Not sure"
+ * could answer either the bill bracket or the daytime/night question and
+ * `collectedFields` would credit neither — the model would then re-ask both
+ * every turn. It is also free to be shortened for display (see `SHORT_TITLES`),
+ * which the canonical match cannot tolerate.
  *
  * No `server-only` and no network access — plain data transformation, so the
  * guard test in render.test.ts can walk every canonical option.
@@ -51,17 +54,20 @@ export const PAYLOAD_MAX = 1000
 /**
  * Display-only short forms for canonical options that don't fit in 20 chars.
  *
- * Audited against every option in `CHOICE_FIELDS` (see the guard test): only
- * "Business operating cost" (23) overflows. "Hybrid with Battery" (19) fits with
- * one character to spare, which is exactly why the test exists — a one-word
- * edit to `vocab.ts` would push it over and break Messenger silently.
+ * Currently EMPTY, and that is a fact about `vocab.ts`, not a decision to stop
+ * using this mechanism. Its one entry mapped "Business operating cost" (23) to
+ * "Business costs"; that option went away when `PRIMARY_GOALS` was rewritten
+ * into the four ≤20-char goals the assessment now asks, and every remaining
+ * canonical option fits unaided. Several fit only just — "Fix brownout issues"
+ * (19) and "Hybrid with Battery" (19) each have one character to spare — which
+ * is exactly why the guard test in render.test.ts walks all of them: a one-word
+ * edit to `vocab.ts` would push one over and break Messenger silently.
  *
  * Keys are the canonical option text; the payload always keeps the canonical
- * form, so shortening here can never reach the lead.
+ * form, so shortening here can never reach the lead. Add an entry the moment
+ * that test tells you an option overflows.
  */
-export const SHORT_TITLES: Record<string, string> = {
-  "Business operating cost": "Business costs",
-}
+export const SHORT_TITLES: Record<string, string> = {}
 
 /** The chip label for a canonical option: the override, else the option itself. */
 export function shortTitle(option: string): string {

@@ -80,6 +80,14 @@ const WELCOME_MESSAGE =
 const ATTACHMENT_REPLY =
   "Sorry — I can't read images or files here. Could you type your question instead?"
 
+/**
+ * Sent ONCE when a handed-off thread gets another message, then never again —
+ * see `handoffNoticeSent` in lib/messenger/sessions.ts. The point of the hand-off
+ * is that a colleague answering from the Page inbox is the only voice in here, so
+ * repeating this on every message would recreate the problem it exists to solve.
+ */
+const HANDOFF_NOTICE = "Thanks! Someone from our team will reply here shortly."
+
 const THROTTLED_REPLY =
   "One moment — those messages came in very quickly. Please try again in a few seconds."
 
@@ -256,6 +264,13 @@ async function handleMenu(
       // save another lead, and it is exactly right here: a visitor asking for a
       // person should not be walked through a form by a robot.
       session.leadAlreadySaved = true
+      // And stop talking entirely. `leadAlreadySaved` only closes the lead write;
+      // the model would happily keep answering, which is precisely what someone
+      // who asked for a person did not ask for. `HUMAN_HANDOFF_TEXT` below is this
+      // hand-off's notice, so mark it sent rather than following it with a second
+      // near-identical line on their next message.
+      session.humanHandoff = true
+      session.handoffNoticeSent = true
       await sendText(psid, HUMAN_HANDOFF_TEXT)
       console.log(`[messenger] human hand-off requested: psid=${psid}`)
       return { handled: true }
@@ -290,6 +305,11 @@ async function handleMenu(
       // brain's own duplicate guard still applies within the turn; what this
       // reopens is a deliberate, user-initiated update.
       session.leadAlreadySaved = false
+      // Same reasoning applies to the hand-off: this branch falls through to the
+      // model, so leaving `humanHandoff` set would meet an explicit "update my
+      // details" tap with the short-circuit's silence — a dead button.
+      session.humanHandoff = false
+      session.handoffNoticeSent = false
       return { handled: false, brainText: ASSESSMENT_UPDATE_OPENER }
     }
 
@@ -409,6 +429,44 @@ async function processEvent(event: MessagingEvent): Promise<void> {
     turnText = outcome.brainText
   }
 
+  // HUMAN OWNS THIS THREAD — no model call, and after one notice, no reply at all.
+  //
+  // Set when a lead is captured and when the visitor asks for a person. A
+  // colleague is now answering from the Page inbox, and a bot that keeps
+  // answering alongside them is the whole complaint: the visitor sees two voices
+  // and the thread stops reading as a conversation with the business.
+  //
+  // ORDER: deliberately AFTER the menu interception, not before it. The menu is
+  // the visitor's only escape hatch — "Start over" (MENU_RESET /
+  // MENU_RESET_CONFIRM) clears the hand-off via `resetSession`, and "Update my
+  // details" clears it explicitly — and a short-circuit placed above the
+  // interception would swallow those taps and strand the thread in hand-off
+  // forever. It is still ahead of every `runChatTurn` call, which is the property
+  // that matters; the rate limiter sits further up and is untouched, since a
+  // handed-off flood should be throttled exactly like any other.
+  //
+  // `claimMid` has already run (well above), so a Meta retry of this delivery
+  // cannot send the notice a second time.
+  if (session.humanHandoff) {
+    // The visitor's words still go on the transcript: a human scrolling this
+    // thread has to see what was said while the bot was quiet, and the transcript
+    // is the only place it lives.
+    const handoffUserTurn: ChatMessage = { role: "user", content: turnText }
+    session.messages = [...session.messages, handoffUserTurn].slice(-MAX_MESSAGES)
+
+    if (!session.handoffNoticeSent) {
+      session.handoffNoticeSent = true
+      await sendText(psid, HANDOFF_NOTICE)
+      const noticeTurn: ChatMessage = { role: "assistant", content: HANDOFF_NOTICE }
+      session.messages = [...session.messages, noticeTurn].slice(-MAX_MESSAGES)
+    }
+
+    console.log(`[messenger] handed off, bot silent: psid=${psid}`)
+
+    await saveSession(session)
+    return
+  }
+
   // The consent tap IS the consent record — PSID, timestamp and the exact
   // wording accepted. A stronger Data Privacy Act trail than the web widget's
   // client-supplied boolean, which its own comment notes is not tamper-proof.
@@ -441,20 +499,50 @@ async function processEvent(event: MessagingEvent): Promise<void> {
       (result.fallback.retryAfterMs ?? 0) >= LONG_WAIT_MS)
   const reply = degraded ? CHANNEL_FALLBACK : result.message
 
-  // The prose first, then the block. When there is a block its own text carries
-  // the question, so folding the two into one message would repeat it.
-  if (reply) await sendText(psid, reply)
-  if (ui) {
-    if (ui.quickReplies?.length) await sendQuickReplies(psid, ui.text, ui.quickReplies)
-    else await sendText(psid, ui.text)
+  // EXACTLY ONE outbound bubble per turn.
+  //
+  // The prose and the block used to be sent as two separate messages, on the
+  // theory that they said different things. In practice they do not: the model is
+  // instructed to write a short line above the block, and the `question` it then
+  // passes to `ask_choice`/`request_consent` is that same line again — so the
+  // visitor was asked the same thing twice, back to back, and read it as two
+  // people answering them. The chips have to ride on whichever message is last,
+  // so the only way to keep them under the question is to send one message.
+  //
+  // The prose wins as that message's text, with `ui.text` as the fallback for the
+  // turns where the model attaches a block and writes nothing above it.
+  //
+  // Tradeoff, deliberate: when the two genuinely differ — the model answers a
+  // factual question in prose AND attaches a chip block with an unrelated
+  // question — `ui.text` is dropped. That is accepted. The chips still spell out
+  // the choice on their own labels, and one coherent message is better than a
+  // thread that double-speaks on every single turn.
+  const sentText = reply || ui?.text || ""
+  if (sentText) {
+    if (ui?.quickReplies?.length) await sendQuickReplies(psid, sentText, ui.quickReplies)
+    else await sendText(psid, sentText)
   }
 
-  // The transcript records what the visitor was actually sent, substitution and
-  // all — otherwise the next turn's model sees a promise of a button we never
-  // offered.
-  const botTurn: ChatMessage = { role: "assistant", content: reply }
-  session.messages = [...messages, botTurn].slice(-MAX_MESSAGES)
-  if (result.leadSaved) session.leadAlreadySaved = true
+  // The transcript records what the visitor was actually sent — the one message
+  // above, substitution and fallback included. Recording `reply` instead would
+  // show the next turn's model a line the visitor never saw (or a promise of a
+  // button we never offered), and it would re-answer from that fiction.
+  // A turn that produced nothing to say records no assistant turn: an empty
+  // assistant message in the history is a turn the model has to interpret, and it
+  // reliably reads it as "I already answered that".
+  session.messages = sentText
+    ? [...messages, { role: "assistant", content: sentText } satisfies ChatMessage].slice(
+        -MAX_MESSAGES,
+      )
+    : messages
+
+  if (result.leadSaved) {
+    session.leadAlreadySaved = true
+    // The turn we just sent IS the confirmation, so the bot has said its last
+    // word here. From the next message on a human owns the thread — see the
+    // short-circuit above and the field docs in sessions.ts.
+    session.humanHandoff = true
+  }
 
   // Persisted last, and unconditionally: even a failed send should leave the
   // transcript advanced, or the next turn re-answers the same question.

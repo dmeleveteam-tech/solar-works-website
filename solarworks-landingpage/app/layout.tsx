@@ -9,7 +9,7 @@ import { SmoothScroll } from "@/components/smooth-scroll"
 import { SiteHeader } from "@/components/layout/site-header"
 import { SiteFooter } from "@/components/layout/site-footer"
 import { MobileCtaBar } from "@/components/layout/mobile-cta-bar"
-import { ChatLauncher } from "@/components/chat-launcher"
+import { MessengerLauncher } from "@/components/messenger-launcher"
 import { ConsentBanner } from "@/components/consent-banner"
 import { Analytics } from "@/components/analytics"
 import { AttributionTracker } from "@/components/attribution-tracker"
@@ -67,7 +67,7 @@ export default function RootLayout({
             <SiteFooter />
           </div>
           <MobileCtaBar />
-          <ChatLauncher />
+          <MessengerLauncher />
           <ConsentBanner />
           <Analytics />
           <AttributionTracker />

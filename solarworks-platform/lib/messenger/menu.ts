@@ -272,5 +272,18 @@ export function messengerProfilePayload() {
  */
 export const PERSISTENT_MENU_MAX = 5
 
-/** Choice fields the assessment will walk, exposed for the setup script's summary. */
-export const ASSESSMENT_FIELDS = Object.keys(CHOICE_FIELDS)
+/**
+ * Choice fields the assessment will walk, exposed for the setup script's
+ * summary.
+ *
+ * Spelled out rather than derived from `Object.keys(CHOICE_FIELDS)`, which is
+ * no longer the same set: property type, preferred solution and preferred
+ * contact stay DEFINED so the marketing form's leads and `save_lead`'s enum
+ * validation keep working, but the chat does not ask them. Deriving from the
+ * keys would report three questions the visitor will never see.
+ */
+export const ASSESSMENT_FIELDS: (keyof typeof CHOICE_FIELDS)[] = [
+  "monthlyBill",
+  "usagePattern",
+  "primaryGoal",
+]

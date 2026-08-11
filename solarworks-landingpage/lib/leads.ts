@@ -1,9 +1,10 @@
 /**
- * Server-side lead forwarding. Both the contact form proxy (`/api/leads`) and
- * the AI chatbot (`/api/chat`) capture leads, but only this module knows the
- * platform's ingest URL and shared key — keeping them out of the browser and in
- * exactly one place. The canonical payload shape matches the platform's
- * `ingestSchema`.
+ * Server-side lead forwarding. The contact form proxy (`/api/leads`) captures
+ * leads here, but only this module knows the platform's ingest URL and shared
+ * key — keeping them out of the browser and in exactly one place. The canonical
+ * payload shape matches the platform's `ingestSchema`, which is why the source
+ * union still allows `chatbot`: the platform's Messenger webhook writes leads
+ * with that source, so the type has to keep describing the same contract.
  *
  * This file must only be imported from server code (route handlers).
  */

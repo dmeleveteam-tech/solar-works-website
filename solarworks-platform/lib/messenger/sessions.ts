@@ -33,6 +33,27 @@ export type MessengerSession = {
    */
   consentText: string | null
   leadAlreadySaved: boolean
+  /**
+   * The bot has stepped aside and a human owns this thread.
+   *
+   * Set once a lead is captured, and when the visitor asks for a person from the
+   * menu. `leadAlreadySaved` alone is not enough: it only stops the brain writing
+   * a SECOND lead, the model still keeps talking — so a colleague replying from
+   * the Page inbox ends up in a two-voice conversation with the visitor, and the
+   * thread reads as "the bot answered over you". While this is true the webhook
+   * makes no model call at all.
+   *
+   * Cleared by `resetSession`, because a visitor who explicitly starts over is
+   * asking for the bot back.
+   */
+  humanHandoff: boolean
+  /**
+   * Whether the one-time "someone will reply here shortly" notice has gone out
+   * for the current hand-off. Without it every later message would get the same
+   * line again, which is exactly the robot-talking-over-a-human noise the
+   * hand-off exists to remove — after the notice the bot is simply silent.
+   */
+  handoffNoticeSent: boolean
   attribution: Record<string, string>
   /** Message ids already processed, most recent first. Idempotency, see claimMid. */
   seenMids: string[]
@@ -86,6 +107,8 @@ function emptySession(psid: string): MessengerSession {
     consentAt: null,
     consentText: null,
     leadAlreadySaved: false,
+    humanHandoff: false,
+    handoffNoticeSent: false,
     attribution: {},
     seenMids: [],
     createdAt: now,
@@ -138,12 +161,29 @@ export function resetSession(session: MessengerSession): MessengerSession {
   session.consentAt = null
   session.consentText = null
   session.leadAlreadySaved = false
+  // The bot comes back. "Start over" is the visitor asking to be talked to by the
+  // assistant again, and leaving the hand-off set would give them a cleared
+  // thread that then answers nothing — indistinguishable from a broken bot.
+  session.humanHandoff = false
+  session.handoffNoticeSent = false
   return session
 }
 
-/** True when a reset would actually discard something worth confirming first. */
+/**
+ * True when a reset would actually discard something worth confirming first.
+ *
+ * A hand-off counts on its own: a thread a human has taken over holds no
+ * transcript-shaped state of its own, but clearing it silently changes who the
+ * visitor is talking to, which is exactly the kind of surprise the confirmation
+ * step exists to prevent.
+ */
 export function hasResettableState(session: MessengerSession): boolean {
-  return session.messages.length > 0 || session.consentConfirmed || session.leadAlreadySaved
+  return (
+    session.messages.length > 0 ||
+    session.consentConfirmed ||
+    session.leadAlreadySaved ||
+    session.humanHandoff
+  )
 }
 
 /**
@@ -185,6 +225,8 @@ export async function saveSession(session: MessengerSession): Promise<void> {
           consentAt: session.consentAt,
           consentText: session.consentText,
           leadAlreadySaved: session.leadAlreadySaved,
+          humanHandoff: session.humanHandoff,
+          handoffNoticeSent: session.handoffNoticeSent,
           attribution: session.attribution,
           updatedAt: new Date(),
         },
@@ -234,6 +276,8 @@ export async function claimMid(psid: string, mid: string): Promise<boolean> {
           consentAt: null,
           consentText: null,
           leadAlreadySaved: false,
+          humanHandoff: false,
+          handoffNoticeSent: false,
           attribution: {},
           createdAt: new Date(),
         },

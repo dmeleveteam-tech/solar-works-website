@@ -63,9 +63,14 @@ test("SHORT_TITLES covers exactly the options that overflow, and nothing else", 
   const canonical: string[] = CHOICE_FIELD_KEYS.flatMap((f) => [...CHOICE_FIELDS[f].options])
   const overflowing = canonical.filter((o) => o.length > TITLE_MAX)
 
-  // Audited at time of writing: only "Business operating cost" (23) overflows.
-  // "Hybrid with Battery" (19) fits with one character to spare.
-  assert.deepEqual(overflowing, ["Business operating cost"])
+  // Audited at time of writing: NOTHING overflows, so SHORT_TITLES is empty.
+  // The only entry it ever held shortened "Business operating cost" (23), which
+  // left the vocabulary when PRIMARY_GOALS was rewritten. Both halves of this
+  // test still bite: the loop below demands an entry for anything that starts
+  // overflowing, and the one after it rejects an override left behind by an
+  // option that has gone. "Fix brownout issues" and "Hybrid with Battery" are
+  // both 19, one character from needing one.
+  assert.deepEqual(overflowing, [])
 
   for (const option of overflowing) {
     assert.ok(SHORT_TITLES[option], `no SHORT_TITLES entry for "${option}"`)
@@ -82,19 +87,41 @@ test("a choice block renders the question with canonical payloads", () => {
     kind: "choice",
     field: "primaryGoal",
     question: "Ano po ang pangunahing dahilan?",
-    options: ["Lower my bill", "Business operating cost"],
+    options: ["Cut bill by ~50%", "Fix brownout issues"],
     multi: false,
   })
 
   assert.equal(rendered.text, "Ano po ang pangunahing dahilan?")
   assert.deepEqual(rendered.quickReplies, [
-    { content_type: "text", title: "Lower my bill", payload: "Primary goal: Lower my bill" },
     {
       content_type: "text",
-      title: "Business costs",
-      payload: "Primary goal: Business operating cost",
+      title: "Cut bill by ~50%",
+      payload: "Primary goal: Cut bill by ~50%",
+    },
+    {
+      content_type: "text",
+      title: "Fix brownout issues",
+      payload: "Primary goal: Fix brownout issues",
     },
   ])
+})
+
+/**
+ * The newest choice field, and the one most likely to be widened by someone
+ * adding "Mostly evenings" without counting. Asserted by name rather than left
+ * to the walk-everything test above so the failure names the question.
+ */
+test("the daytime/night question renders four tappable options", () => {
+  const replies = renderChoice("usagePattern", CHOICE_FIELDS.usagePattern.options)
+
+  assert.equal(replies.length, 4)
+  assert.deepEqual(
+    replies.map((r) => r.title),
+    ["Mostly daytime", "Mostly night", "About even", "Not sure"],
+  )
+  // The label is what disambiguates a bare "Not sure" from the bill bracket's
+  // "Not sure" when collectedFields scans the transcript.
+  assert.equal(replies[3].payload, "Daytime vs night use: Not sure")
 })
 
 test("a choice block with no options falls back to the canonical list", () => {

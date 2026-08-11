@@ -14,7 +14,7 @@ import {
   uiFromProse,
   type ChatMessage,
 } from "./brain"
-import { normalizePhMobile } from "./vocab"
+import { KNOWN_FIELD_LABELS, REQUIRED_FIELD_LABELS, normalizePhMobile } from "./vocab"
 
 /**
  * Unit tests for the chat brain's pure helpers.
@@ -163,7 +163,13 @@ test("normalizeFieldName camelCases the shapes the model actually emits", () => 
   assert.equal(normalizeFieldName("  primary-goal "), "primaryGoal")
 })
 
-test("resolveChoiceField accepts the four qualification fields and nothing else", () => {
+test("resolveChoiceField accepts every defined choice field and nothing else", () => {
+  // The three the assessment actually asks…
+  assert.equal(resolveChoiceField("monthly_bill"), "monthlyBill")
+  assert.equal(resolveChoiceField("usage_pattern"), "usagePattern")
+  assert.equal(resolveChoiceField("primaryGoal"), "primaryGoal")
+  // …and the retired ones, which stay resolvable on purpose: the marketing
+  // form still writes them and a visitor may raise the subject unprompted.
   assert.equal(resolveChoiceField("solution_interest"), "solutionInterest")
   assert.equal(resolveChoiceField("contactMethod"), "contactMethod")
   assert.equal(resolveChoiceField("budget"), null)
@@ -201,11 +207,51 @@ test("collectedFields ignores assistant lines, unknown labels and empty values",
 
 test("collectedFields keeps the visitor's latest answer for a field", () => {
   const found = collectedFields([
-    { role: "user", content: "Primary goal: Lower my bill" },
-    { role: "user", content: "Primary goal: Both" },
+    { role: "user", content: "Primary goal: Cut bill by ~50%" },
+    { role: "user", content: "Primary goal: All of these" },
   ])
 
-  assert.equal(found.get("Primary goal"), "Both")
+  assert.equal(found.get("Primary goal"), "All of these")
+})
+
+/**
+ * The four-question flow is enforced by REQUIRED_FIELD_LABELS alone —
+ * `collectedFieldsNote` turns whatever is missing from it into the "Still
+ * needed:" line that actually drives the model. So the list IS the flow, and a
+ * label added here silently adds a question to every conversation.
+ */
+test("the required list is the four-question flow plus the name a save needs", () => {
+  assert.deepEqual(
+    [...REQUIRED_FIELD_LABELS],
+    [
+      "Average monthly bill (PHP)",
+      "Daytime vs night use",
+      "Primary goal",
+      "Full name",
+      "Mobile number",
+    ],
+  )
+  // Every required label must be one collectedFields can actually match, or the
+  // model is told something is missing that no answer can ever satisfy and the
+  // conversation never reaches consent.
+  for (const label of REQUIRED_FIELD_LABELS) {
+    assert.ok(KNOWN_FIELD_LABELS.has(label), `"${label}" is required but never collectable`)
+  }
+})
+
+/**
+ * Retired, not deleted. The marketing site's lead form still writes all three
+ * under these labels and `lead-intel` scores two of them, so the vocabulary has
+ * to keep recognising them — it just must not ask for them.
+ */
+test("the retired fields stay defined but are no longer required", () => {
+  for (const label of ["Property type", "Preferred solution", "Preferred contact"]) {
+    assert.ok(KNOWN_FIELD_LABELS.has(label), `"${label}" must stay collectable`)
+    assert.ok(
+      !(REQUIRED_FIELD_LABELS as readonly string[]).includes(label),
+      `"${label}" is no longer asked and must not gate consent`,
+    )
+  }
 })
 
 // --- collectedFieldsNote ----------------------------------------------------

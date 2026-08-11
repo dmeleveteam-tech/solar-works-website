@@ -115,10 +115,25 @@ Platform app (Vercel + local `.env`):
 | `CHAT_API_KEY` | new shared secret, must match the landing app |
 
 Landing app: **remove** `GROQ_API_KEY`, `GROQ_MODEL`, `XAI_*`, `KB_SEARCH_URL`,
-`KB_SEARCH_KEY`; **add** `CHAT_API_URL`, `CHAT_API_KEY`.
+`KB_SEARCH_KEY`, `CHAT_API_URL` and `CHAT_API_KEY`.
 
-Keep `NEXT_PUBLIC_FB_PAGE_ID` on the landing app — the `m.me` "Continue on
-Messenger" link still uses it.
+The landing app no longer talks to the brain at all. Its web chat widget was
+replaced by a floating Messenger button, so `app/api/chat/route.ts` and its
+`lib/chat-proxy.ts` are gone and the shared `CHAT_API_KEY` secret has no caller
+on that side. The platform's own `POST /api/chat` still exists and still checks
+the key — leave `CHAT_API_KEY` set on the **platform** until that endpoint is
+either retired or given a new client.
+
+Keep `NEXT_PUBLIC_FB_PAGE_ID` on the landing app. It now backs **two** links,
+and the difference matters:
+
+| Link | `ref` | What the webhook does with it |
+|---|---|---|
+| `MESSENGER_HREF` — "Continue on Messenger" after a form submit | `web_lead` | Greets and hands straight to a human. **Does not qualify** — they already gave us their details. |
+| `MESSENGER_CHAT_HREF` — the floating Messenger button | `web_chat` | Falls through to the normal bot, which runs the four-question assessment. |
+
+Point the floating button at `web_lead` by mistake and the bot will greet every
+cold visitor and then go silent, never asking a thing.
 
 ## 4. Compliance — required before App Review will pass
 

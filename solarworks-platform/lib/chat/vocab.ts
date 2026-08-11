@@ -1,28 +1,44 @@
 /**
  * Canonical vocabulary for the Solar Assistant's structured input blocks.
  *
- * THIS FILE IS THE AUTHORITATIVE COPY. A mirror lives at
- * `solarworks-landingpage/lib/chat-ui.ts` because the chat widget's Client
- * Components render from it and the two apps are independent pnpm projects with
- * no shared package. Keep them in sync when editing.
- *
- * The duplication is deliberately bounded: option LISTS travel to the browser
- * inside each `ChatUi` block, so they cannot drift in a way the visitor sees.
- * Only `DETAIL_FIELD_KEYS` and the two consent strings are a genuine contract
- * between the copies — the consent strings because the server must recognise the
- * acceptance verbatim to force the save, and the detail keys because the client
- * decides which inputs to render from them.
+ * THIS IS THE ONLY COPY. It used to be mirrored by
+ * `solarworks-landingpage/lib/chat-ui.ts`, which the marketing site's chat
+ * widget rendered from; that widget has been replaced by a plain link into
+ * Messenger and the mirror is gone, so there is no longer anything to keep in
+ * sync. Messenger is the only channel that consumes this vocabulary.
  *
  * Design note: these blocks are an INPUT AFFORDANCE ONLY. Whatever the visitor
- * taps or fills in becomes an ordinary `role: "user"` text message before it
- * reaches the model, so the LLM's view of the conversation stays plain text and
- * the whole flow still works by typing if the model ignores these tools. That is
- * also what lets Messenger reuse it: a quick-reply tap arrives as the same
- * labelled text a chip tap does.
+ * taps becomes an ordinary `role: "user"` text message before it reaches the
+ * model, so the LLM's view of the conversation stays plain text and the whole
+ * flow still works by typing if the model ignores these tools. That is what
+ * lets Messenger use it at all: a quick-reply tap arrives as the same labelled
+ * text a typed answer does.
  *
  * No `server-only` and no React import — plain data plus pure helpers.
  */
 
+/**
+ * RETIRED FROM THE ASKED FLOW, deliberately still defined.
+ *
+ * The qualification chat no longer asks for property type, preferred solution
+ * or preferred contact method — they are not in `REQUIRED_FIELD_LABELS` and the
+ * system prompt's step list does not mention them. They are kept here because
+ * three other things still depend on the exact strings:
+ *
+ *  - the marketing site's lead form still collects all three and writes them to
+ *    lead details under these same labels (`solarworks-landingpage`'s leads
+ *    route), so the dashboard shows a mixed population and the spellings must
+ *    not fork;
+ *  - `save_lead`'s enums and `handleSaveLead`'s `putEnum` validate against these
+ *    lists, which is what stops a hallucinated "Telegram" reaching a lead when
+ *    a visitor volunteers something unprompted;
+ *  - `lib/lead-intel.ts` scores "property type" and "preferred solution".
+ *
+ * Deleting them would silently zero those scoring signals and leave the form's
+ * leads carrying labels nothing in this app recognises. Leaving them defined
+ * but unasked costs nothing: the model only reaches for a choice field the
+ * prompt tells it to.
+ */
 export const PROPERTY_TYPES = [
   "Home",
   "Farm",
@@ -42,12 +58,46 @@ export const SOLUTION_INTERESTS = [
 
 export const CONTACT_METHODS = ["Call", "Viber", "WhatsApp", "Email"] as const
 
+/**
+ * When during the day the site actually draws power.
+ *
+ * Asked because it is the single question that separates a plain grid-tied
+ * array from one that needs storage, and it is a question the visitor can
+ * answer without looking anything up — unlike kWh, which they cannot. A
+ * daytime-heavy load is served by panels directly; a night-heavy one is not,
+ * whatever the bill says.
+ *
+ * "Not sure" is here for the same reason it is in the bill brackets: without an
+ * honest escape hatch the only way out of a question you cannot answer is to
+ * abandon the flow.
+ */
+export const USAGE_PATTERNS = [
+  "Mostly daytime",
+  "Mostly night",
+  "About even",
+  "Not sure",
+] as const
+
+/**
+ * What the visitor wants their electricity bill to do — phrased the way they
+ * put it themselves, not in industry terms.
+ *
+ * These replaced an abstract list ("Lower my bill", "Backup power", "Both",
+ * "Business operating cost", "Sustainability") that asked the visitor to
+ * translate their situation into our vocabulary. A concrete target is both
+ * easier to pick and far more useful to an adviser: "cut it by half" and "get
+ * it to near zero" size two very different systems, and "fix brownout issues"
+ * is a battery conversation rather than a savings one.
+ *
+ * Every string is ≤20 characters so it fits a Messenger quick-reply title with
+ * no `SHORT_TITLES` override — the longest, "Fix brownout issues", is 19. See
+ * the guard test in lib/messenger/render.test.ts before lengthening any of them.
+ */
 export const PRIMARY_GOALS = [
-  "Lower my bill",
-  "Backup power",
-  "Both",
-  "Business operating cost",
-  "Sustainability",
+  "Cut bill by ~50%",
+  "Near-zero bill",
+  "Fix brownout issues",
+  "All of these",
 ] as const
 
 /**
@@ -59,10 +109,10 @@ export const PRIMARY_GOALS = [
  * sufficient for sizing — the adviser confirms the real figure from an actual
  * bill during the assessment.
  *
- * "Not sure" is deliberately last and deliberately present: without an escape
- * hatch the visitor's only honest option is to abandon the question, and an
- * unanswered bill still lets the lead through (it is not in
- * REQUIRED_FIELD_LABELS). Do not remove it.
+ * "Not sure" is deliberately last and deliberately present, and it matters more
+ * now than it did: the bill IS in `REQUIRED_FIELD_LABELS`, so this is the only
+ * answer that lets someone who genuinely doesn't know their bill past the first
+ * question instead of abandoning the flow. Do not remove it.
  *
  * English like every other canonical option, even though the assistant mirrors
  * the visitor's language in prose. These strings are DATA, not conversation:
@@ -72,7 +122,9 @@ export const PRIMARY_GOALS = [
  * answer.
  *
  * Every title must survive Messenger's 20-character quick-reply cap — see the
- * guard test in lib/messenger/render.test.ts. The longest here is 16.
+ * guard test in lib/messenger/render.test.ts. The longest here is 17 — the peso
+ * sign and the en-dash are multi-byte but count as one character each, so
+ * "₱10,000 – ₱20,000" is nearer the cap than it looks.
  */
 export const MONTHLY_BILL_RANGES = [
   "Below ₱3,000",
@@ -93,17 +145,26 @@ export const MONTHLY_BILL_RANGES = [
  * instead of answering them.
  */
 export const CHOICE_FIELDS = {
-  propertyType: { label: "Property type", options: PROPERTY_TYPES },
-  primaryGoal: { label: "Primary goal", options: PRIMARY_GOALS },
-  solutionInterest: { label: "Preferred solution", options: SOLUTION_INTERESTS },
-  contactMethod: { label: "Preferred contact", options: CONTACT_METHODS },
+  // --- the three the assessment actually asks, in the order it asks them ------
   // Shares its LABEL with the free-text `monthlyBill` in DETAIL_FIELDS, and that
   // is deliberate. The two are the same question asked two ways — chips here,
-  // a typed figure on the web form — and `collectedFields` scans by label, so
-  // answering either marks the field collected and the model stops asking. Give
-  // them different labels and a visitor who taps a bracket gets asked for their
-  // bill a second time.
+  // a typed figure on the marketing site's lead form — and `collectedFields`
+  // scans by label, so answering either marks the field collected and the model
+  // stops asking. Give them different labels and a visitor who taps a bracket
+  // gets asked for their bill a second time.
   monthlyBill: { label: "Average monthly bill (PHP)", options: MONTHLY_BILL_RANGES },
+  usagePattern: { label: "Daytime vs night use", options: USAGE_PATTERNS },
+  // Label deliberately left as "Primary goal" even though the options changed
+  // wholesale. It is not visitor-facing — the chip shows the option, never the
+  // label — but it IS the key every existing lead document, the marketing
+  // form's leads and the dashboard already carry. Renaming it to "Electricity
+  // goal" would fork the same question into two spellings in the inbox and buy
+  // nothing anyone can see.
+  primaryGoal: { label: "Primary goal", options: PRIMARY_GOALS },
+  // --- retired from the flow; see the note above PROPERTY_TYPES --------------
+  propertyType: { label: "Property type", options: PROPERTY_TYPES },
+  solutionInterest: { label: "Preferred solution", options: SOLUTION_INTERESTS },
+  contactMethod: { label: "Preferred contact", options: CONTACT_METHODS },
 } as const
 
 export type ChoiceField = keyof typeof CHOICE_FIELDS
@@ -206,14 +267,37 @@ export const KNOWN_FIELD_LABELS: ReadonlySet<string> = new Set([
   ...Object.values(DETAIL_FIELDS).map((f) => f.label),
 ])
 
-/** What must be in hand before it's worth asking for consent. */
+/**
+ * What must be in hand before it's worth asking for consent.
+ *
+ * This list IS the flow: `collectedFieldsNote` turns whatever is missing into
+ * "Still needed: …", which is what actually walks the model through the
+ * questions. Adding a label here adds a question to every conversation, so it
+ * is kept to the shortest set that produces a lead an adviser can act on.
+ *
+ * Listed in the order they are asked. The three assessment questions come
+ * first because they are taps, and a visitor who has already answered three
+ * things is far likelier to hand over a phone number than one asked for it
+ * cold.
+ *
+ * "Full name" is the one entry that is not one of the four questions the
+ * business asked for, and it is not optional: `handleSaveLead` rejects a save
+ * outright when the name is shorter than two characters. Drop it from here and
+ * the model happily reaches consent without one, the forced save on the consent
+ * turn fails, and a visitor who has just agreed to be contacted is never
+ * stored — the worst outcome in this whole flow.
+ *
+ * "City / Municipality" used to be here and is not any more. Nothing downstream
+ * hard-fails without it: `createLead` takes no address, and `lead-intel` scores
+ * bill, property type, urgency and contactability but never location. An
+ * adviser can ask where someone lives on the call they are about to make.
+ */
 export const REQUIRED_FIELD_LABELS = [
+  "Average monthly bill (PHP)",
+  "Daytime vs night use",
+  "Primary goal",
   "Full name",
   "Mobile number",
-  "City / Municipality",
-  "Property type",
-  "Primary goal",
-  "Preferred contact",
 ] as const
 
 /**
