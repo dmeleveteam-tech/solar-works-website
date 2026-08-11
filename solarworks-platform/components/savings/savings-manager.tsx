@@ -30,6 +30,7 @@ import {
   uploadReadings,
   type LinkableCustomer,
 } from "@/app/dashboard/savings/actions"
+import { DeleteConfirmDialog } from "@/components/delete-confirm-dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -107,6 +108,8 @@ function TariffSection({
   canDelete: boolean
 }) {
   const [saving, setSaving] = React.useState(false)
+  const [deleteTarget, setDeleteTarget] = React.useState<Tariff | null>(null)
+  const [deleteBusy, setDeleteBusy] = React.useState(false)
 
   function upsert(t: Tariff) {
     setTariffs((prev) => {
@@ -135,14 +138,19 @@ function TariffSection({
     e.currentTarget.reset()
   }
 
-  async function onDelete(t: Tariff) {
+  async function confirmDelete() {
+    if (!deleteTarget) return
+    const t = deleteTarget
+    setDeleteBusy(true)
     const res = await removeTariff({ id: t.id })
+    setDeleteBusy(false)
     if (!res.ok) {
       toast.error(res.error)
       return
     }
     setTariffs((prev) => prev.filter((x) => x.id !== t.id))
     toast.success("Tariff removed.")
+    setDeleteTarget(null)
   }
 
   return (
@@ -170,7 +178,7 @@ function TariffSection({
                       type="button"
                       variant="ghost"
                       size="sm"
-                      onClick={() => onDelete(t)}
+                      onClick={() => setDeleteTarget(t)}
                       className="text-destructive hover:text-destructive"
                       aria-label={`Remove ${t.provider} tariff`}
                     >
@@ -220,6 +228,16 @@ function TariffSection({
           </form>
         </CardContent>
       </Card>
+
+      <DeleteConfirmDialog
+        open={deleteTarget != null}
+        onOpenChange={(open) => !open && setDeleteTarget(null)}
+        title="Remove this tariff?"
+        description={deleteTarget ? `Remove the ${deleteTarget.provider} tariff?` : ""}
+        busy={deleteBusy}
+        onConfirm={confirmDelete}
+        confirmLabel="Remove"
+      />
     </section>
   )
 }
@@ -622,30 +640,24 @@ function DeletePlant({
   }
 
   return (
-    <div className="flex items-center gap-2 border-t pt-4">
-      {confirming ? (
-        <>
-          <span className="text-sm text-muted-foreground">
-            Delete this plant link and its readings?
-          </span>
-          <Button size="sm" variant="destructive" onClick={onDelete} disabled={busy}>
-            {busy ? <Loader2 className="animate-spin" /> : <Trash2 />}
-            Confirm delete
-          </Button>
-          <Button size="sm" variant="ghost" onClick={() => setConfirming(false)} disabled={busy}>
-            Cancel
-          </Button>
-        </>
-      ) : (
-        <Button
-          size="sm"
-          variant="ghost"
-          onClick={() => setConfirming(true)}
-          className="text-destructive hover:text-destructive"
-        >
-          <Trash2 /> Delete plant link
-        </Button>
-      )}
+    <div className="border-t pt-4">
+      <Button
+        size="sm"
+        variant="ghost"
+        onClick={() => setConfirming(true)}
+        className="text-destructive hover:text-destructive"
+      >
+        <Trash2 /> Delete plant link
+      </Button>
+
+      <DeleteConfirmDialog
+        open={confirming}
+        onOpenChange={setConfirming}
+        title="Delete this plant link?"
+        description={`Delete the plant link for ${plant.customerName} and its readings? This cannot be undone.`}
+        busy={busy}
+        onConfirm={onDelete}
+      />
     </div>
   )
 }

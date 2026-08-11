@@ -1,11 +1,11 @@
 import "server-only"
 
 import { env, leadsNotifyEnabled, projectEmailEnabled } from "./env"
-import { escapeHtml } from "./html-escape"
 import { siteFacts } from "./chat/site-facts"
 import { SOURCE_LABEL, type LeadDoc } from "./leads"
 import { type CustomerProject, type ProjectStage } from "./customer-projects-shared"
 import { renderProjectStatusEmail } from "./email-templates/project-status"
+import { renderLeadNotificationEmail } from "./email-templates/lead-notification"
 
 /**
  * Outbound *email* alerts. Today this is just the new-lead sales alert (the
@@ -72,28 +72,49 @@ function formatSchedule(iso: string): string {
   })
 }
 
-function renderRows(lead: LeadDoc): string {
-  const rows: Array<[string, string]> = [
-    // First, so the reference the sales team will quote back — and find in the
-    // spreadsheet mirror — is the first thing they see.
-    ["Lead ID", lead.refId ?? "—"],
-    ["Name", lead.name],
-    ["Mobile", lead.phone ?? "—"],
-    ["Email", lead.email ?? "—"],
-    ["Source", SOURCE_LABEL[lead.source]],
-  ]
-  if (lead.message) rows.push(["Notes", lead.message])
-  for (const [label, value] of Object.entries(lead.details ?? {})) {
-    rows.push([label, value])
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+/**
+ * POST to Resend's send endpoint, retrying a couple of times on transient
+ * network failures (e.g. the TLS connection getting reset mid-handshake —
+ * observed in practice between Vercel functions and api.resend.com). A single
+ * dropped connection used to mean a silently lost sales alert or customer
+ * email, since callers only fire this once and never see the failure.
+ *
+ * Does NOT retry a response Resend itself returned (4xx/5xx) — those are
+ * real rejections (bad payload, unverified sender domain, etc.) that a retry
+ * cannot fix, so we fail fast and let the caller report the exact status.
+ */
+async function postToResend(
+  body: Record<string, unknown>,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const maxAttempts = 3
+  let lastError = "Network error while sending the email."
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      const res = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: {
+          authorization: `Bearer ${env.RESEND_API_KEY}`,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify(body),
+        cache: "no-store",
+      })
+      if (res.ok) return { ok: true }
+      const text = await res.text().catch(() => "")
+      console.error("Resend send failed:", res.status, text)
+      return { ok: false, error: `Email provider returned ${res.status}.` }
+    } catch (err) {
+      console.error(`Resend send network error (attempt ${attempt}/${maxAttempts}):`, err)
+      lastError = "Network error while sending the email."
+      if (attempt < maxAttempts) await sleep(attempt * 300)
+    }
   }
-  return rows
-    .map(
-      ([label, value]) =>
-        `<tr><td style="padding:4px 12px 4px 0;color:#666;vertical-align:top">${escapeHtml(
-          label,
-        )}</td><td style="padding:4px 0">${escapeHtml(value)}</td></tr>`,
-    )
-    .join("")
+  return { ok: false, error: lastError }
 }
 
 /**
@@ -106,41 +127,20 @@ export async function notifyNewLead(lead: LeadDoc): Promise<void> {
   const to = recipients()
   if (to.length === 0) return
 
-  const subject = `New ${SOURCE_LABEL[lead.source].toLowerCase()} lead — ${lead.name}`
-  const html = `
-    <div style="font-family:system-ui,sans-serif;font-size:14px;color:#111">
-      <h2 style="margin:0 0 12px">New lead captured</h2>
-      <table style="border-collapse:collapse">${renderRows(lead)}</table>
-      <p style="margin:20px 0 0">
-        <a href="${dashboardUrl()}" style="color:#1d4ed8">Open the leads dashboard →</a>
-      </p>
-    </div>`
+  const { subject, html } = renderLeadNotificationEmail({
+    refId: lead.refId ?? null,
+    name: lead.name,
+    email: lead.email,
+    phone: lead.phone,
+    message: lead.message,
+    details: lead.details ?? {},
+    sourceLabel: SOURCE_LABEL[lead.source],
+    logoUrl: logoUrl(),
+    dashboardUrl: dashboardUrl(),
+  })
 
-  try {
-    const res = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        authorization: `Bearer ${env.RESEND_API_KEY}`,
-        "content-type": "application/json",
-      },
-      body: JSON.stringify({
-        from: env.LEADS_NOTIFY_FROM,
-        to,
-        subject,
-        html,
-      }),
-      cache: "no-store",
-    })
-    if (!res.ok) {
-      console.error(
-        "Lead notification failed:",
-        res.status,
-        await res.text().catch(() => ""),
-      )
-    }
-  } catch (err) {
-    console.error("Lead notification error:", err)
-  }
+  const result = await postToResend({ from: env.LEADS_NOTIFY_FROM, to, subject, html })
+  if (!result.ok) console.error("Lead notification failed:", result.error)
 }
 
 /** Outcome of a project-status email attempt, surfaced to the admin so a
@@ -178,29 +178,15 @@ export async function notifyProjectStageChanged(
     formattedUpdatedAt: formatSchedule(project.stageUpdatedAt),
   })
 
-  try {
-    const res = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        authorization: `Bearer ${env.RESEND_API_KEY}`,
-        "content-type": "application/json",
-      },
-      body: JSON.stringify({
-        from: env.LEADS_NOTIFY_FROM,
-        to: [project.customerEmail],
-        subject,
-        html,
-      }),
-      cache: "no-store",
-    })
-    if (!res.ok) {
-      const text = await res.text().catch(() => "")
-      console.error("Project status email failed:", res.status, text)
-      return { sent: false, error: `Email provider returned ${res.status}.` }
-    }
-    return { sent: true }
-  } catch (err) {
-    console.error("Project status email error:", err)
-    return { sent: false, error: "Network error while sending the email." }
+  const result = await postToResend({
+    from: env.LEADS_NOTIFY_FROM,
+    to: [project.customerEmail],
+    subject,
+    html,
+  })
+  if (!result.ok) {
+    console.error("Project status email failed:", result.error)
+    return { sent: false, error: result.error }
   }
+  return { sent: true }
 }
