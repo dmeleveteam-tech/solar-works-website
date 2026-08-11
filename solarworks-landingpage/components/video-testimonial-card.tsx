@@ -15,6 +15,24 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 
+/**
+ * Force a browser-safe H.264/mp4 delivery for Cloudinary-hosted uploads.
+ * Without this, a phone-recorded clip (iPhone .mov/HEVC is the common case)
+ * plays fine in the CMS's own upload preview (Safari/QuickTime codecs) but
+ * silently fails to play in Chrome/Firefox on the public site, since we'd
+ * otherwise be serving back whatever format the file was uploaded in.
+ * Non-Cloudinary URLs (the CMS's "paste a direct video URL" option) are
+ * passed through untouched.
+ */
+function toPlayableVideoUrl(url: string): string {
+  try {
+    if (new URL(url).hostname !== "res.cloudinary.com") return url
+  } catch {
+    return url
+  }
+  return url.replace("/upload/", "/upload/f_mp4,vc_h264,q_auto/")
+}
+
 /** The shared card face: thumbnail, play affordance, name/location, and copy. */
 function CardFace({ item }: { item: VideoTestimonial }) {
   return (
@@ -109,10 +127,11 @@ export function VideoTestimonialCard({ item }: { item: VideoTestimonial }) {
             // eslint-disable-next-line jsx-a11y/media-has-caption
             <video
               className="absolute inset-0 size-full bg-black object-contain"
-              src={item.videoUrl}
+              src={toPlayableVideoUrl(item.videoUrl)}
               poster={item.thumbnail}
               controls
               autoPlay
+              muted
               playsInline
             />
           ) : (
