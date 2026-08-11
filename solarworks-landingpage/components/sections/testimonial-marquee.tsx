@@ -286,7 +286,7 @@ export function TestimonialMarquee({ items }: { items: VideoTestimonial[] }) {
   return (
     <div
       ref={viewportRef}
-      className="marquee-viewport relative w-full overflow-x-auto overflow-y-hidden overscroll-x-contain py-10 [--marquee-duration:60s] [mask-image:linear-gradient(to_right,transparent,black_6%,black_94%,transparent)] [-webkit-mask-image:linear-gradient(to_right,transparent,black_6%,black_94%,transparent)]"
+      className="marquee-viewport relative w-full overflow-x-auto overflow-y-hidden overscroll-x-contain py-10 [--marquee-duration:35s] [mask-image:linear-gradient(to_right,transparent,black_6%,black_94%,transparent)] [-webkit-mask-image:linear-gradient(to_right,transparent,black_6%,black_94%,transparent)]"
       role="region"
       aria-label="Customer video testimonials — scroll to browse, or wait for the auto-play loop"
     >
