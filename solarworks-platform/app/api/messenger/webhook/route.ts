@@ -286,7 +286,7 @@ async function handleMenu(
     }
 
     case MENU_FAQ: {
-      await sendQuickReplies(psid, "Ano po ang gusto ninyong malaman?", faqQuickReplies())
+      await sendQuickReplies(psid, "What would you like to know?", faqQuickReplies())
       return { handled: true }
     }
 

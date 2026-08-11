@@ -131,5 +131,5 @@ export function renderChatUi(ui: ChatUi): MessengerRender {
   console.warn(
     `[messenger] unexpected details block on this channel (fields: ${ui.fields.join(", ")})`,
   )
-  return { text: `${ui.question}\n\nPakisend na lang po dito: ${label}.` }
+  return { text: `${ui.question}\n\nJust send it here: ${label}.` }
 }
