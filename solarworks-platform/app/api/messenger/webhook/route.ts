@@ -6,14 +6,16 @@ import { CONSENT_ACCEPT_TEXT } from "@/lib/chat/vocab"
 import { env, messengerEnabled } from "@/lib/env"
 import {
   ALREADY_A_LEAD_TEXT,
-  ASSESSMENT_OPENER,
-  ASSESSMENT_RESTART_OPENER,
-  ASSESSMENT_UPDATE_OPENER,
+  ASSESSMENT_QUESTIONS_TEXT,
+  ASSESSMENT_UPDATE_PREFACE,
+  FORM_HANDOFF_TEXT,
   GET_STARTED,
+  GOOGLE_FORM_URL,
   HUMAN_HANDOFF_TEXT,
   MENU_ASSESSMENT,
   MENU_ASSESSMENT_UPDATE,
   MENU_FAQ,
+  MENU_FORM,
   MENU_HUMAN,
   MENU_PROMPT,
   MENU_RESET,
@@ -22,6 +24,7 @@ import {
   RESET_CONFIRM_TEXT,
   RESET_DONE_TEXT,
   RESET_NOTHING_TEXT,
+  assessmentQuickReplies,
   faqQuickReplies,
   isMenuPayload,
   menuQuickReplies,
@@ -105,8 +108,12 @@ const THROTTLED_REPLY =
  * again. Treating the whole `rate_limited` kind as channel-neutral therefore
  * left the exhausted-daily-budget case pointing Messenger visitors at a button
  * they cannot see.
+ *
+ * The Google Form is named here for the same reason it is offered under the
+ * assessment questions: it is the one route to a lead that needs no model at
+ * all, which is exactly what this copy is admitting we no longer have.
  */
-const CHANNEL_FALLBACK = `Sorry — I can't answer properly right now. Our team is still available: call or Viber ${siteFacts.contact.whatsapp}, or just type your name, number and city here and we'll get back to you.`
+const CHANNEL_FALLBACK = `Sorry — I can't answer properly right now. Our team is still available: call or Viber ${siteFacts.contact.whatsapp}, send your details through our form (${GOOGLE_FORM_URL}), or just type your name and number here and we'll get back to you.`
 
 /**
  * Per-PSID limiter. Generous enough that no real conversation touches it; it is
@@ -238,15 +245,43 @@ function visitorText(event: MessagingEvent): string | undefined {
 type MenuOutcome = { handled: true } | { handled: false; brainText: string }
 
 /**
+ * Send the four assessment questions as fixed copy and record them on the
+ * transcript. Zero model calls — see the header of lib/messenger/menu.ts.
+ *
+ * The transcript write is not optional bookkeeping. The visitor's next message
+ * is a blob of four answers with nothing around it, and the model only knows
+ * what those answers are answering because the question it never asked is
+ * sitting right above them in the history. Skip this and the model reads
+ * "6-8k, night, zero bill, Rojan 0917…" as a fragment and starts asking the
+ * questions again — the exact interrogation this replaced.
+ *
+ * `preface` is prepended in the SAME bubble rather than sent as its own message.
+ * Two bubbles read as two people talking, which is the reasoning the model turn
+ * further down already follows.
+ */
+async function askAssessment(
+  psid: string,
+  session: Awaited<ReturnType<typeof loadSession>>,
+  preface?: string,
+): Promise<void> {
+  const text = preface ? `${preface}\n\n${ASSESSMENT_QUESTIONS_TEXT}` : ASSESSMENT_QUESTIONS_TEXT
+  await sendQuickReplies(psid, text, assessmentQuickReplies())
+  const turn: ChatMessage = { role: "assistant", content: text }
+  session.messages = [...session.messages, turn].slice(-MAX_MESSAGES)
+}
+
+/**
  * Handle a `SW_MENU_*` postback.
  *
  * Mutates `session`; the caller owns persistence, so a menu tap and a model turn
  * cannot race each other writing the same document. `MENU_RESET_CONFIRM` is the
  * single documented exception — see the comment on that branch.
  *
- * Most branches answer directly and cost no model call at all, which is the
+ * EVERY branch answers from fixed copy and costs no model call, the assessment
+ * included since the four questions became one scripted message. That is the
  * point: navigation should be instant, and the Groq free tier is a shared budget
- * with the web widget.
+ * with the web widget that an interrogation used to drain ten calls at a time.
+ * `handled: false` now survives only for the unreachable default below.
  */
 async function handleMenu(
   payload: string,
@@ -297,7 +332,29 @@ async function handleMenu(
         await sendQuickReplies(psid, ALREADY_A_LEAD_TEXT, repeatLeadQuickReplies())
         return { handled: true }
       }
-      return { handled: false, brainText: ASSESSMENT_OPENER }
+      // Asking for the assessment outright overrides an earlier "Prefer a form?":
+      // they are choosing to answer here after all, and a brain still told to
+      // skip the questions would ignore the answers they are about to give.
+      session.chosePaperForm = false
+      await askAssessment(psid, session)
+      return { handled: true }
+    }
+
+    case MENU_FORM: {
+      // They would rather fill in the Form than answer here. Record that, so the
+      // brain is told not to re-run the assessment: the Form's Apps Script bridge
+      // creates the lead on its own, and a second qualification in chat would put
+      // this person in the sales inbox twice.
+      //
+      // Deliberately NOT `humanHandoff` — that silences the bot entirely, and
+      // someone with a form open is precisely the person likely to ask a question
+      // about it. They still get answers; they just don't get the questions.
+      session.chosePaperForm = true
+      await sendText(psid, FORM_HANDOFF_TEXT)
+      const turn: ChatMessage = { role: "assistant", content: FORM_HANDOFF_TEXT }
+      session.messages = [...session.messages, turn].slice(-MAX_MESSAGES)
+      console.log(`[messenger] visitor chose the Google Form: psid=${psid}`)
+      return { handled: true }
     }
 
     case MENU_ASSESSMENT_UPDATE: {
@@ -305,12 +362,20 @@ async function handleMenu(
       // brain's own duplicate guard still applies within the turn; what this
       // reopens is a deliberate, user-initiated update.
       session.leadAlreadySaved = false
-      // Same reasoning applies to the hand-off: this branch falls through to the
-      // model, so leaving `humanHandoff` set would meet an explicit "update my
-      // details" tap with the short-circuit's silence — a dead button.
+      // Same reasoning applies to the hand-off and to the Form: an explicit
+      // "update my details" tap met with the hand-off's silence, or with a brain
+      // told never to ask the assessment, is a dead button.
       session.humanHandoff = false
       session.handoffNoticeSent = false
-      return { handled: false, brainText: ASSESSMENT_UPDATE_OPENER }
+      session.chosePaperForm = false
+      // The SAME four questions, not a bespoke "is this still your number?"
+      // read-back. Confirming what we hold sounds gentler but needs a model call
+      // to compose, which is the cost this whole path exists to remove — and four
+      // lines is less work for the visitor than correcting a summary. Their old
+      // answers stay in the transcript, so `collectedFields` still shows the model
+      // what we had if they only amend one of them.
+      await askAssessment(psid, session, ASSESSMENT_UPDATE_PREFACE)
+      return { handled: true }
     }
 
     case MENU_RESET: {
@@ -320,9 +385,11 @@ async function handleMenu(
       // MENU_RESET_CONFIRM below is the only thing that actually wipes.
       if (!hasResettableState(session)) {
         // Nothing to lose, so the confirmation would be pure friction: answer
-        // the question they actually asked and start the assessment.
-        await sendText(psid, RESET_NOTHING_TEXT)
-        return { handled: false, brainText: ASSESSMENT_OPENER }
+        // the question they actually asked and start the assessment. One bubble,
+        // because "nothing to clear yet" on its own answers a question nobody
+        // asked and leaves them waiting for the real reply.
+        await askAssessment(psid, session, RESET_NOTHING_TEXT)
+        return { handled: true }
       }
       await sendQuickReplies(psid, RESET_CONFIRM_TEXT, resetConfirmQuickReplies())
       return { handled: true }
@@ -333,18 +400,21 @@ async function handleMenu(
 
       // The ONE place this function persists, breaking its own contract on
       // purpose. Every other branch can safely leave the write to the caller
-      // because a failure there just loses a menu tap. Here the visitor has
-      // already been told their thread is cleared, and the model call that
-      // follows can throw (provider error, rate limit) — which would abandon the
-      // turn before the caller's save and leave the old transcript, the old
-      // consent flag and the old `leadAlreadySaved` intact behind a message
-      // promising otherwise. Saving now makes the promise true first; the
-      // caller's later save is then a harmless second write of the same state.
+      // because a failure there just loses a menu tap. Here the wipe is the
+      // point, and the sends that follow can throw (Meta 5xx, a network blip) —
+      // which would abandon the turn before the caller's save and leave the old
+      // transcript, the old consent flag and the old `leadAlreadySaved` intact.
+      // Saving now makes the reset real first; the caller's later save is then a
+      // harmless second write, carrying the questions we appended below.
       await saveSession(session)
       console.log(`[messenger] session reset: psid=${psid}`)
 
-      await sendText(psid, RESET_DONE_TEXT)
-      return { handled: false, brainText: ASSESSMENT_RESTART_OPENER }
+      // Straight into a fresh assessment, in one bubble with the confirmation.
+      // This used to hand `ASSESSMENT_RESTART_OPENER` to the model, whose only
+      // job was to not hallucinate continuity with a transcript it could no
+      // longer see. Fixed copy cannot hallucinate, and costs nothing.
+      await askAssessment(psid, session, RESET_DONE_TEXT)
+      return { handled: true }
     }
 
     default:
@@ -416,9 +486,10 @@ async function processEvent(event: MessagingEvent): Promise<void> {
   }
 
   // Menu navigation is intercepted BEFORE the model call — see the header of
-  // lib/messenger/menu.ts for why these four are not ordinary user turns.
-  // `handled` ends the turn here; `brainText` substitutes the canonical opener
-  // and falls through to the normal path.
+  // lib/messenger/menu.ts for why these are not ordinary user turns. `handled`
+  // ends the turn here, which every real branch now does; `brainText` remains
+  // only so a payload added to MENU_PAYLOADS without a branch reaches the model
+  // instead of going silent.
   let turnText = text
   if (isMenuPayload(text)) {
     const outcome = await handleMenu(text, psid, session)
@@ -489,6 +560,7 @@ async function processEvent(event: MessagingEvent): Promise<void> {
     attribution: session.attribution,
     consentConfirmed: session.consentConfirmed,
     leadAlreadySaved: session.leadAlreadySaved,
+    chosePaperForm: session.chosePaperForm,
     channel: "messenger",
   })
 

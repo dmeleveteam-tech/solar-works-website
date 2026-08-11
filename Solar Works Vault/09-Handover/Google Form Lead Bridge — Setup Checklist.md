@@ -128,11 +128,60 @@ Nothing to do by hand here; Phase 3 creates it. Note the consequences:
       missing consent question, or a missing trigger, and lists any Form question
       with no explicit mapping.
 
-> [!tip] The bill upload is off by default
-> `INCLUDE_BILL_UPLOAD = false`. A file-upload question forces **every**
-> respondent to sign in to Google before submitting — a heavy drop-off on a lead
-> form most people reach from a phone. Flip it to `true` if the team would rather
-> have the bill than the volume.
+---
+
+## Phase 3.4 — Cut the Form to four questions (the `updateForm` migration)
+
+The Messenger bot's qualification is now four questions. The Form has to match,
+or a Form lead and a Messenger lead read differently in the same inbox.
+
+**New question set** — exactly these, in this order, nothing else:
+
+| # | Question | Type |
+| --- | --- | --- |
+| 1 | Full Name | short text, required |
+| 2 | Mobile Number | short text, required (renamed from *Primary Contact Phone Number*) |
+| 3 | What is your monthly electricity bill range in the last 6 months? | multiple choice, required |
+| 4 | What is your daytime vs nighttime electricity usage? | multiple choice, required |
+| 5 | What do you want solar to do for your electricity bill? | multiple choice, required — **new** |
+| 6 | *the consent question* | Yes/No, required, always last |
+
+Options for 3–5 are copied verbatim from `MONTHLY_BILL_RANGES`, `USAGE_PATTERNS`
+and `PRIMARY_GOALS` in `solarworks-platform/lib/chat/vocab.ts`. **Removed:**
+correspondence email, installation address, property type, battery interest,
+best time to contact, urgency rating, and the (already-disabled) bill upload.
+
+> [!danger] Export the responses BEFORE running `updateForm`
+> Deleting a question from a live Google Form does **not** delete the answers
+> already collected — they stay in the linked response sheet. But the column
+> **stops being written** and the Forms summary drops the question, so from the
+> Forms UI the history looks gone even though it isn't. Form → **Responses** →
+> green Sheets icon, or **⋮ → Download responses (.csv)**. There is no undo.
+
+> [!warning] `createForm` is NOT the migration path
+> It refuses to run once `FORM_ID` is set, on purpose — a second run would
+> orphan a Form that is already collecting responses. `updateForm()` migrates
+> the live Form in place, and is safe to re-run (every step checks the current
+> state first).
+
+- [ ] Export the existing responses and keep the file somewhere the team can find
+- [ ] Paste the updated `google-form/lead-bridge.gs` into the `lead-bridge` Apps
+      Script project, **Save** (the copy in Google is a *paste*, not a checkout)
+- [ ] Pick **`updateForm`** → **Run**, and read the execution log: it says what
+      it renamed, what options it rewrote, what it added, what it deleted and
+      what it skipped
+- [ ] Confirm the log ends with `CONSENT untouched and still present`
+- [ ] If the log warns about the question **order**, drag the questions into place
+      in the Forms UI — drag, never delete-and-re-add
+- [ ] Run **`checkSetup`** again — 6 questions, no unmapped, no missing, no
+      option drift
+- [ ] Submit once and check the lead in the inbox carries `Monthly bill (PHP)`,
+      `Daytime vs nighttime usage` and `Primary goal`
+
+> [!note] `updateForm` will never touch the consent question
+> It refuses to start if the question is missing, skips it explicitly in the
+> rename and delete passes, and re-verifies it before reporting success. An
+> accidental deletion would silently skip every future submission.
 
 ---
 
@@ -183,14 +232,30 @@ that existed. There is now a `google_form` source labelled **"Google Form"**.
 
 ## Field mapping reference
 
-Full table in `google-form/README.md`. Two traps worth repeating:
+Full table in `google-form/README.md`. Current mapping:
 
-- **Urgency polarity is inverted between the two forms.** Google Form: 5 = ASAP.
-  Native form: 1 = ASAP. The script never sends the bare number — it writes
-  `4 of 5 (5 = ASAP, 1 = in 6-12 months)`.
+| Form question | Lands as |
+| --- | --- |
+| Full Name | `name` |
+| Mobile Number | `phone` |
+| Bill range | detail `Monthly bill (PHP)` |
+| Daytime vs nighttime usage | detail `Daytime vs nighttime usage` |
+| Electricity goal | detail `Primary goal` |
+
+Traps worth repeating:
+
+- **Options are data, not copy.** They're matched against `vocab.ts` downstream,
+  so a difference of one peso sign or a hyphen-instead-of-en-dash puts two
+  spellings of the same answer in the inbox. `checkSetup` warns on drift.
+- **`Daytime vs nighttime usage`** is unanimous across all three channels as of
+  2026-08-11. The chat brain used to write `Daytime vs night use`; it was moved
+  to match the two that already agreed. Changing the spelling anywhere now means
+  changing it in the Form bridge, the native site form and the platform's
+  `vocab.ts` together, or the inbox splits one question across two headings.
 - **Question titles must match the Form exactly.** They do by construction —
-  `createForm` builds the questions from the same `Q` constants `QUESTION_MAP` is
-  keyed on — so reword a question in the Forms UI and you must edit `Q` too.
+  `createForm`/`updateForm` build the questions from the same `Q` constants
+  `QUESTION_MAP` is keyed on — so reword a question in the Forms UI and you must
+  edit `Q` too.
   (The original Form misspelled "electicity"; ours spells it correctly, which is
   why the titles aren't byte-identical to the old one.) An unmapped question
   still comes through, keyed by its own title, so adding one never silently
@@ -198,6 +263,8 @@ Full table in `google-form/README.md`. Two traps worth repeating:
 
 ## Known gaps for this channel
 
+- **No email and no address on the lead.** The four-question set drops both. The
+  adviser gets them on the call. Nothing downstream hard-fails without them.
 - **No UTM attribution.** A Form submission carries no campaign parameters or
   landing page, unlike native-form and chatbot leads.
 - **No Turnstile.** Relies on Google's own reCAPTCHA plus the ingest key.

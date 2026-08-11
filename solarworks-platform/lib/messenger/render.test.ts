@@ -121,7 +121,7 @@ test("the daytime/night question renders four tappable options", () => {
   )
   // The label is what disambiguates a bare "Not sure" from the bill bracket's
   // "Not sure" when collectedFields scans the transcript.
-  assert.equal(replies[3].payload, "Daytime vs night use: Not sure")
+  assert.equal(replies[3].payload, "Daytime vs nighttime usage: Not sure")
 })
 
 test("a choice block with no options falls back to the canonical list", () => {

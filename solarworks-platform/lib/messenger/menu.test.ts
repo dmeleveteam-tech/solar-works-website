@@ -11,12 +11,14 @@ import {
 } from "../chat/vocab"
 import {
   ALREADY_A_LEAD_TEXT,
-  ASSESSMENT_OPENER,
-  ASSESSMENT_RESTART_OPENER,
-  ASSESSMENT_UPDATE_OPENER,
+  ASSESSMENT_QUESTIONS_TEXT,
+  ASSESSMENT_UPDATE_PREFACE,
   FAQ_STARTERS,
+  FORM_HANDOFF_TEXT,
+  GOOGLE_FORM_URL,
   GREETING_TEXT,
   HUMAN_HANDOFF_TEXT,
+  MENU_FORM,
   MENU_PAYLOADS,
   MENU_PROMPT,
   MENU_RESET,
@@ -26,6 +28,7 @@ import {
   RESET_CONFIRM_TEXT,
   RESET_DONE_TEXT,
   RESET_NOTHING_TEXT,
+  assessmentQuickReplies,
   faqQuickReplies,
   isMenuPayload,
   menuQuickReplies,
@@ -48,6 +51,7 @@ const SITE = "https://example.test"
 test("every menu quick reply fits Meta's title and payload caps", () => {
   const sets = [
     menuQuickReplies(),
+    assessmentQuickReplies(),
     faqQuickReplies(),
     repeatLeadQuickReplies(),
     resetConfirmQuickReplies(),
@@ -125,17 +129,58 @@ test("isMenuPayload accepts only the reserved namespace", () => {
   assert.ok(!isMenuPayload("SW_MENU_NOT_REAL"))
 })
 
-test("assessment openers read as the visitor speaking, not as a payload", () => {
-  const openers = [ASSESSMENT_OPENER, ASSESSMENT_UPDATE_OPENER, ASSESSMENT_RESTART_OPENER]
-
-  for (const opener of openers) {
-    assert.ok(!isMenuPayload(opener), "an opener must not be re-intercepted as navigation")
-    assert.ok(opener.length > 20, "an opener should be a sentence the model can act on")
+/**
+ * The assessment message IS the flow now — it is asked as fixed copy with no
+ * model call, and the brain's qualification section is written against exactly
+ * this shape. Losing a numbered question here does not fail loudly: the model
+ * simply never learns that item was asked, and starts asking it separately,
+ * which is the one-at-a-time interrogation the whole change removed.
+ */
+test("the assessment message asks all four questions in one go", () => {
+  for (const n of ["1.", "2.", "3.", "4."]) {
+    assert.ok(ASSESSMENT_QUESTIONS_TEXT.includes(n), `question ${n} is missing`)
   }
-  // Each names a different situation to the model — a fresh start, an amendment,
-  // a wipe-and-restart. Collapsing any two loses that distinction and the model
-  // greets a reset visitor as a returning one.
-  assert.equal(new Set(openers).size, openers.length, "the three openers must stay distinct")
+  assert.match(ASSESSMENT_QUESTIONS_TEXT, /electricity bill/i)
+  assert.match(ASSESSMENT_QUESTIONS_TEXT, /day or at night/i)
+  assert.match(ASSESSMENT_QUESTIONS_TEXT, /goal/i)
+  assert.match(ASSESSMENT_QUESTIONS_TEXT, /mobile number/i)
+  // Without this line people answer one question per message anyway.
+  assert.match(ASSESSMENT_QUESTIONS_TEXT, /one message/i)
+  // It must never be mistaken for navigation and intercepted by route.ts.
+  assert.ok(!isMenuPayload(ASSESSMENT_QUESTIONS_TEXT))
+})
+
+/**
+ * The Form is the escape hatch for anyone who would rather not answer in chat,
+ * and the URL is duplicated in two other repos (see the constant's comment), so
+ * assert the shape rather than let a typo ship a dead link.
+ */
+test("the Google Form hand-off carries the public form URL", () => {
+  assert.ok(GOOGLE_FORM_URL.startsWith("https://docs.google.com/forms/d/e/"))
+  assert.ok(GOOGLE_FORM_URL.endsWith("/viewform"))
+  assert.ok(FORM_HANDOFF_TEXT.includes(GOOGLE_FORM_URL), "the link has to be in the message")
+  // The promise the `chosePaperForm` session flag exists to keep.
+  assert.match(FORM_HANDOFF_TEXT, /won't ask you those questions again/i)
+})
+
+/**
+ * `MENU_FORM` must be intercepted like every other menu tap. Registered in
+ * MENU_PAYLOADS but missing from `handleMenu`, it would reach the model as the
+ * literal string "SW_MENU_FORM"; offered as a chip but missing from
+ * MENU_PAYLOADS, it would do the same. The chip is the only place it appears, so
+ * this is the only test that can catch either.
+ */
+test("the form chip is a recognised menu payload inside Meta's title cap", () => {
+  const chips = assessmentQuickReplies()
+
+  assert.equal(chips.length, 1, "the assessment message offers exactly one chip")
+  assert.equal(chips[0].payload, MENU_FORM)
+  assert.ok(isMenuPayload(chips[0].payload), "MENU_FORM must be registered in MENU_PAYLOADS")
+  assert.ok(
+    chips[0].title.length <= TITLE_MAX,
+    `"${chips[0].title}" is ${chips[0].title.length} chars, over ${TITLE_MAX}`,
+  )
+  assert.ok(!chips[0].title.endsWith("…"), "the form chip title must not be truncated")
 })
 
 /**
@@ -153,6 +198,7 @@ test("the destructive reset payload is unreachable without confirming", () => {
       "payload" in a ? a.payload : "",
     ),
     ...menuQuickReplies().map((r) => r.payload),
+    ...assessmentQuickReplies().map((r) => r.payload),
     ...faqQuickReplies().map((r) => r.payload),
     ...repeatLeadQuickReplies().map((r) => r.payload),
   ]
@@ -182,9 +228,9 @@ test("start over is reachable from the persistent menu", () => {
 /**
  * English is the bot's default language, and the fixed copy is what sets it. The
  * brain mirrors the language of the visitor's most recent message — and on a
- * menu-started conversation that message is one of our own openers, so a single
- * Tagalog string here silently switches the whole thread before the visitor has
- * typed a word. That is exactly how this channel ended up Taglish. Visitor-led
+ * menu-started conversation every message before the visitor's first is one of
+ * ours, the four assessment questions included, so a single Tagalog string here
+ * silently switches the whole thread before the visitor has typed a word. That is exactly how this channel ended up Taglish. Visitor-led
  * switching still happens at runtime; it just may not be seeded from here.
  */
 test("fixed Messenger copy is English so the model does not mirror us into Tagalog", () => {
@@ -199,11 +245,12 @@ test("fixed Messenger copy is English so the model does not mirror us into Tagal
     RESET_CONFIRM_TEXT,
     RESET_DONE_TEXT,
     RESET_NOTHING_TEXT,
-    ASSESSMENT_OPENER,
-    ASSESSMENT_UPDATE_OPENER,
-    ASSESSMENT_RESTART_OPENER,
+    ASSESSMENT_QUESTIONS_TEXT,
+    ASSESSMENT_UPDATE_PREFACE,
+    FORM_HANDOFF_TEXT,
     workAndPricingText(SITE),
     ...Object.values(MENU_TITLES),
+    ...assessmentQuickReplies().map((r) => r.title),
     ...FAQ_STARTERS.flatMap((f) => [f.title, f.question]),
   ]
 

@@ -225,7 +225,7 @@ test("the required list is the four-question flow plus the name a save needs", (
     [...REQUIRED_FIELD_LABELS],
     [
       "Average monthly bill (PHP)",
-      "Daytime vs night use",
+      "Daytime vs nighttime usage",
       "Primary goal",
       "Full name",
       "Mobile number",
@@ -268,6 +268,32 @@ test("collectedFieldsNote makes the ticked checkbox, not the model, decide", () 
 
   const saved = collectedFieldsNote(new Map([["Full name", "Juan"]]), true, true)
   assert.match(saved ?? "", /ALREADY been saved/)
+})
+
+/**
+ * The Google Form fork. Someone who tapped "Prefer a form?" has a lead coming in
+ * from the Form's own Apps Script bridge, so re-qualifying them here would file
+ * the same person twice — but they are NOT handed off, and the bot must keep
+ * answering them. The note has to say both halves, and it has to say them even
+ * with an empty transcript, which is the usual case: the tap typically comes
+ * before the visitor has answered anything.
+ */
+test("collectedFieldsNote stops the assessment for a visitor who chose the form", () => {
+  const note = collectedFieldsNote(new Map(), false, false, true)
+
+  assert.match(note ?? "", /Google Form/)
+  assert.match(note ?? "", /Do NOT ask the assessment questions/)
+  assert.match(note ?? "", /answer whatever they ask/)
+  // Not a hand-off, and not a "Still needed:" list either — asking for the four
+  // answers is precisely what the flag forbids.
+  assert.ok(!/Still needed:/.test(note ?? ""))
+})
+
+test("a saved lead still outranks the form flag", () => {
+  // Both can be true (they tapped the form, then a lead landed anyway). The
+  // saved-lead note is the stricter one — it also forbids save_lead — so it wins.
+  const note = collectedFieldsNote(new Map(), false, true, true)
+  assert.match(note ?? "", /ALREADY been saved/)
 })
 
 test("collectedFieldsNote names what is still missing before consent", () => {

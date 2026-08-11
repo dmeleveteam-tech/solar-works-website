@@ -153,7 +153,13 @@ export const CHOICE_FIELDS = {
   // stops asking. Give them different labels and a visitor who taps a bracket
   // gets asked for their bill a second time.
   monthlyBill: { label: "Average monthly bill (PHP)", options: MONTHLY_BILL_RANGES },
-  usagePattern: { label: "Daytime vs night use", options: USAGE_PATTERNS },
+  // Spelled to match the OTHER two channels, not to read best in isolation.
+  // `solarworks-landingpage/app/api/leads/route.ts` and the Google Form bridge
+  // both write "Daytime vs nighttime usage", and all three land in the same
+  // detail map on the same lead. Two spellings of one question means the
+  // adviser's inbox shows it under two headings and nothing can group them, so
+  // the odd one out moved rather than the two that already agreed.
+  usagePattern: { label: "Daytime vs nighttime usage", options: USAGE_PATTERNS },
   // Label deliberately left as "Primary goal" even though the options changed
   // wholesale. It is not visitor-facing — the chip shows the option, never the
   // label — but it IS the key every existing lead document, the marketing
@@ -294,7 +300,7 @@ export const KNOWN_FIELD_LABELS: ReadonlySet<string> = new Set([
  */
 export const REQUIRED_FIELD_LABELS = [
   "Average monthly bill (PHP)",
-  "Daytime vs night use",
+  "Daytime vs nighttime usage",
   "Primary goal",
   "Full name",
   "Mobile number",

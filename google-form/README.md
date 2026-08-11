@@ -10,6 +10,44 @@ already uses, so the lead gets its `SW-YYYYMMDD-####` reference, the sales email
 the in-app notification and the n8n dispatch with no second code path to
 maintain.
 
+## What the Form asks
+
+Four questions plus consent — deliberately the **same four the Messenger bot
+asks**, with the **same answer options**, so a Form lead and a Messenger lead
+read identically to the adviser working them.
+
+| # | Question (exact title) | Type |
+| --- | --- | --- |
+| 1 | Full Name | short text, required |
+| 2 | Mobile Number | short text, required |
+| 3 | What is your monthly electricity bill range in the last 6 months? | multiple choice, required |
+| 4 | What is your daytime vs nighttime electricity usage? | multiple choice, required |
+| 5 | What do you want solar to do for your electricity bill? | multiple choice, required |
+| 6 | *the consent question* | multiple choice Yes/No, required, always last |
+
+The options for 3, 4 and 5 are copied **verbatim** from
+`solarworks-platform/lib/chat/vocab.ts` — `MONTHLY_BILL_RANGES`,
+`USAGE_PATTERNS` and `PRIMARY_GOALS` respectively:
+
+| Question | Options |
+| --- | --- |
+| Bill range | `Below ₱3,000` · `₱3,000 – ₱5,000` · `₱5,000 – ₱10,000` · `₱10,000 – ₱20,000` · `Above ₱20,000` · `Not sure` |
+| Usage | `Mostly daytime` · `Mostly night` · `About even` · `Not sure` |
+| Goal | `Cut bill by ~50%` · `Near-zero bill` · `Fix brownout issues` · `All of these` |
+
+These strings are **data, not copy**. They are stored on the lead and read in the
+dashboard, so a Form option that differs from the vocabulary by so much as a peso
+sign or a dash puts two spellings of the same answer in the inbox. The separator
+is an **en dash** (`–`, U+2013) with a space either side, not a hyphen. Copy,
+don't retype. If the vocabulary changes in the platform, change `CHOICES` in
+`lead-bridge.gs` and run `updateForm`.
+
+The Form used to also ask for a correspondence email, the installation address,
+the property type, battery interest, best contact time and an urgency rating.
+All of them are gone: an adviser asks those on the call they are about to make,
+and every extra question on a form most people reach from a phone costs
+submissions.
+
 ## Which Form?
 
 The original *"Solar Works: Customer Info and Requirements Form"* embedded on the
@@ -50,6 +88,44 @@ Submit, with the Privacy Notice linked. If you reword the title in the Forms UI,
 change `CONSENT_QUESTION` in `lead-bridge.gs` to match or every submission will
 be skipped.
 
+`updateForm` never touches this question — not to delete it, not to rename it,
+not to move it. It refuses to start if the question is missing, skips it
+explicitly in both the delete and the rename passes, and re-checks that it is
+still there before reporting success.
+
+## Migrating the live Form
+
+**The Form already exists.** `createForm()` refuses to run a second time — it
+stores the Form's id in the `FORM_ID` script property and throws if it finds one,
+so it can never orphan a Form that is already collecting responses. It is for a
+fresh setup only, and it is **not** the way to change the Form.
+
+`updateForm()` is. It opens the live Form through the same `targetForm()` the
+bridge uses and migrates it in place:
+
+1. Refuses to start if the consent question is missing — nothing is changed.
+2. Renames `Primary Contact Phone Number` → `Mobile Number`. A rename, not a
+   delete-and-add, so the question keeps its answers and its column.
+3. Rewrites the bill and usage options to match `vocab.ts` if they have drifted,
+   and makes both required.
+4. Adds the goal question if it isn't there, positioned above consent.
+5. Deletes the retired questions, in descending index order.
+6. Reports the resulting question order (it reports rather than fixes — fixing
+   would mean moving items, and consent is the one item it will not move).
+7. Verifies consent is still present, and throws loudly if it somehow isn't.
+
+It is **safe to re-run**: every step checks the current state first, so a second
+run logs "already correct" instead of adding a second copy of every question.
+
+> ### ⚠ Export the responses before you run it
+>
+> Deleting a question from a live Google Form does **not** delete the answers
+> already collected — they stay in the linked response sheet. But the column
+> **stops being written**, and the Forms summary view drops the question
+> entirely, so from the Forms UI the history looks gone even though it isn't.
+> Before running `updateForm`, open the Form → **Responses** → the green Sheets
+> icon, or **⋮ → Download responses (.csv)**, and keep a copy. There is no undo.
+
 ## Setup
 
 1. Go to https://script.google.com/home → **New project**. Sign in as the account
@@ -79,20 +155,18 @@ be skipped.
    refuses to run twice, so it can't leave an orphan Form collecting responses
    nobody reads.
 
+   > **The Form already exists**, so on the live project this step is
+   > **`updateForm`**, not `createForm` — after exporting the responses. See
+   > *Migrating the live Form* above.
+
 5. Copy the **PUBLIC** URL from the log into `google-form-embed.tsx`
    (both `GOOGLE_FORM_URL` — keep its `?embedded=true` — and `GOOGLE_FORM_LINK`).
+   Only needed for a fresh Form; `updateForm` keeps the existing URL.
 6. Run **`checkSetup`**. It fails loudly if a Script Property is missing, the
-   consent question isn't there, or the trigger didn't install — and lists any
-   Form question with no explicit mapping.
-
-### The bill upload is off by default
-
-`INCLUDE_BILL_UPLOAD = false` in `lead-bridge.gs`. A file-upload question forces
-**every** respondent to sign in to a Google account before submitting — Google's
-rule, not ours — which is a heavy drop-off on a lead form most people reach from
-a phone. The bill helps with sizing, but it helps *after* contact; a lost lead
-can't send one at all. Flip it to `true` if the team would rather have the bill
-than the volume.
+   consent question isn't there, or the trigger didn't install. It also warns
+   about any Form question with no explicit mapping, any mapped question that is
+   **missing** from the Form (what a half-finished migration looks like), and any
+   choice question whose options have drifted from `vocab.ts`.
 
 ## Testing
 
@@ -117,10 +191,10 @@ alerting this bridge has — a silent failure would mean leads quietly vanishing
 
 `QUESTION_MAP` in `lead-bridge.gs` maps Form question titles to the lead. Titles
 must match the Form **exactly** — they do by construction, because `createForm`
-builds the questions from the same `Q` constants the mapping is keyed on. Edit a
-question's wording in the Forms UI and you must edit `Q` to match. A question
-with no mapping still comes through, keyed by its own title, so adding a question
-to the Form never silently loses data.
+and `updateForm` build the questions from the same `Q` constants the mapping is
+keyed on. Edit a question's wording in the Forms UI and you must edit `Q` to
+match. A question with no mapping still comes through, keyed by its own title, so
+adding a question to the Form never silently loses data.
 
 (The original Form misspelled "electicity"; ours spells it correctly, which is
 why the titles aren't byte-identical to the old one.)
@@ -128,19 +202,26 @@ why the titles aren't byte-identical to the old one.)
 | Form question | Lands as |
 | --- | --- |
 | Full Name | `name` |
-| Primary Contact Phone Number | `phone` |
-| Email Address for Correspondence | `email` |
-| Installation Address | detail `Address` |
+| Mobile Number | `phone` |
 | Monthly electricity bill range | detail `Monthly bill (PHP)` |
-| Daytime vs nighttime usage | detail `Daytime vs nighttime usage` |
-| Primary usage of the structure | detail `Property type` |
-| Battery storage interest | detail `Battery storage interest` |
-| Best time range to contact | detail `Best time to contact` |
-| Electricity bill upload | detail `Bill attachment` (Drive link) |
-| Urgency rating | detail `Urgency` — see below |
+| Daytime vs nighttime electricity usage | detail `Daytime vs nighttime usage` |
+| What do you want solar to do for your electricity bill? | detail `Primary goal` |
 
-Detail labels match the ones the native form already sends, so both forms
-produce leads that read identically to the adviser working them.
+Detail labels match the ones the other channels already send, so all three
+produce leads that read identically to the adviser working them:
+
+- **`Monthly bill (PHP)`** is what the native site form
+  (`solarworks-landingpage/app/api/leads/route.ts`) and the chat brain's
+  `handleSaveLead` (`solarworks-platform/lib/chat/brain.ts`) both write.
+- **`Primary goal`** is the chat channel's label — see `CHOICE_FIELDS.primaryGoal`
+  in `vocab.ts`, which is deliberately *not* renamed to "Electricity goal"
+  because it is the key every existing lead already carries.
+- **`Daytime vs nighttime usage`** is now unanimous across all three channels.
+  The chat brain used to write `Daytime vs night use`; it was moved to this
+  spelling on 2026-08-11 rather than the other way round, because the native
+  site form and this Form's existing responses already carried it. Changing it
+  here means changing `CHOICE_FIELDS.usagePattern` in the platform's `vocab.ts`
+  in the same commit.
 
 The lead's **source** is `google_form`, which the inbox labels **"Google Form"**
 — distinct from the native form's "Website Form". Both are forms, but this one
@@ -150,19 +231,16 @@ to tell where it came from. `google_form` must exist in `LEAD_SOURCES` and
 `PUBLIC_SOURCES` on the platform **before** the script starts sending it,
 otherwise every submission is rejected with a 422.
 
-### The urgency trap
-
-This Form rates urgency **5 = ASAP**. The marketing site's native form rates it
-**1 = ASAP**. Opposite polarity, same inbox. `formatUrgency` therefore never
-sends the bare number — it writes `4 of 5 (5 = ASAP, 1 = in 6-12 months)`. If
-you ever change the Form's scale, change `URGENCY_NOTE` with it.
-
 ## Known gaps
 
-- **The Form's own email question.** The Form collects the respondent's Google
-  account email *and* asks for a correspondence email. Only the latter is used
-  as the lead's `email`; the Google account address is ignored, since it's often
-  a personal account rather than the one they want to be reached on.
+- **No email on the lead.** The Form no longer asks for a correspondence email,
+  so these leads arrive with a phone number and nothing else to reach them on.
+  That is the trade the four-question set makes; the adviser gets an email
+  address on the call. (The Google account address the Form may collect is still
+  ignored — it's often a personal account rather than the one they want to be
+  reached on.)
+- **No address on the lead.** Same trade. Nothing downstream hard-fails without
+  it: `createLead` takes no address, and `lead-intel` never scores location.
 - **No attribution.** A Google Form submission carries no UTM parameters or
   landing page, so these leads have no marketing attribution — unlike native
   form and chatbot leads. If campaign tracking matters for this channel, the

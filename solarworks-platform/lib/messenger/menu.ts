@@ -9,10 +9,10 @@ import { shortTitle, type QuickReply } from "./render"
  * WHY POSTBACK PAYLOADS AND NOT PLAIN TEXT. Everything else in this channel
  * deliberately reaches the brain as ordinary user text (see the header of
  * `render.ts`) — a tapped chip is indistinguishable from typing. The menu is the
- * one exception: these four actions are NAVIGATION, not answers to a question
- * the model asked. Feeding "Talk to a human" into the transcript as a user turn
- * would have the model treat it as conversational input and try to answer it,
- * which is exactly the wrong response to a request to stop talking to the bot.
+ * exception: these actions are NAVIGATION, not answers to a question the model
+ * asked. Feeding "Talk to a human" into the transcript as a user turn would have
+ * the model treat it as conversational input and try to answer it, which is
+ * exactly the wrong response to a request to stop talking to the bot.
  *
  * So menu payloads use a reserved `SW_MENU_*` namespace that `route.ts`
  * intercepts BEFORE the model call. The namespace prefix matters: a visitor who
@@ -20,10 +20,15 @@ import { shortTitle, type QuickReply } from "./render"
  * realistically it keeps these strings from ever colliding with a canonical
  * option in `vocab.ts`.
  *
- * ASSESSMENT IS THE DELIBERATE EXCEPTION. It resolves to a canonical sentence
- * that IS fed to the brain, because starting a qualification flow is precisely
- * what the model should do with it — no bespoke state machine, no second
- * implementation of the flow that already works.
+ * EVERY BRANCH IS NOW ANSWERED FROM FIXED COPY — no exceptions. Starting an
+ * assessment used to resolve to a sentence that was fed to the brain, on the
+ * theory that the model should own the flow it runs. In practice that made the
+ * opener a model call, and each of the four questions another one: a complete
+ * assessment cost ten or more calls and reliably exhausted the Groq free tier
+ * mid-conversation, leaving a half-qualified visitor being told to try again in
+ * 24 seconds. The questions are fixed text now (`ASSESSMENT_QUESTIONS_TEXT`),
+ * asked all at once, and the model's job starts at the visitor's ANSWER. So a
+ * menu tap costs zero calls, which is the whole point of the namespace.
  *
  * No `server-only` and no network access — plain data, so the guard tests can
  * walk every entry.
@@ -34,6 +39,18 @@ export const MENU_ASSESSMENT_UPDATE = "SW_MENU_ASSESSMENT_UPDATE"
 export const MENU_FAQ = "SW_MENU_FAQ"
 export const MENU_HUMAN = "SW_MENU_HUMAN"
 export const MENU_WORK = "SW_MENU_WORK"
+/**
+ * "Prefer a form?" — the Google Form as an alternative to answering in chat.
+ *
+ * Offered alongside the assessment questions rather than in the persistent menu:
+ * it only makes sense as an answer to "here are four questions", and the menu is
+ * already at Meta's five-item cap (`PERSISTENT_MENU_MAX`).
+ *
+ * Tapping it is a fork in the road, not a detour — the Form's own Apps Script
+ * bridge creates the lead, so the bot must stop qualifying (see `chosePaperForm`
+ * in sessions.ts) or the same person arrives in the inbox twice.
+ */
+export const MENU_FORM = "SW_MENU_FORM"
 /**
  * Start over: wipe the thread's stored state and run a fresh assessment.
  *
@@ -54,6 +71,7 @@ export const MENU_PAYLOADS = [
   MENU_ASSESSMENT,
   MENU_ASSESSMENT_UPDATE,
   MENU_FAQ,
+  MENU_FORM,
   MENU_HUMAN,
   MENU_WORK,
   MENU_RESET,
@@ -68,42 +86,82 @@ export function isMenuPayload(payload: string | undefined): payload is MenuPaylo
   return !!payload && (MENU_PAYLOADS as readonly string[]).includes(payload)
 }
 
-/**
- * The sentence a menu tap becomes when it DOES go to the model.
- *
- * Phrased as the visitor speaking, in the same register the brain expects, so
- * the model reads it as an ordinary opening turn.
- *
- * ENGLISH, like all fixed copy in this file — and it is load-bearing here in a
- * way the rest is not. The brain mirrors the language of the visitor's most
- * recent message, and on the first turn of a menu-started conversation THIS is
- * that message. A Taglish opener therefore told the model "this visitor writes
- * Taglish" before the visitor had typed a word, which is how the whole thread
- * ended up in Taglish regardless of who was on the other end.
- */
-export const ASSESSMENT_OPENER =
-  "I'd like to start a solar assessment for my property."
-
-/**
- * Re-engagement opener for someone we already hold a lead for.
- *
- * It names the situation explicitly so the model confirms what we have instead
- * of re-interrogating from scratch — the difference between "welcome back, is
- * this still the right number?" and a second identical lead in the sales inbox.
- */
-export const ASSESSMENT_UPDATE_OPENER =
-  "I enquired with you before. I'd just like to update my details."
-
-/**
- * Opener after a reset. Distinct from `ASSESSMENT_OPENER` on purpose: the
- * visitor has just been told the thread was cleared, so the model must not open
- * with "welcome back" or refer to anything it can no longer see. Saying "from
- * scratch" out loud is what keeps it from hallucinating continuity.
- */
-export const ASSESSMENT_RESTART_OPENER =
-  "Let's start over from scratch. I'd like a fresh solar assessment for my property."
-
 // --- copy ---------------------------------------------------------------------
+
+/**
+ * THE ASSESSMENT. All four questions, in one message, sent as fixed text.
+ *
+ * This replaced an interrogation. The model used to ask these one at a time,
+ * each question a full `runChatTurn` of up to two model calls, so a single
+ * assessment burned ten or more calls and hit the free tier's rate limit
+ * partway through — the visitor who had just typed their mobile number was
+ * answered with "I need about 24 seconds to catch up", then "I lost my train of
+ * thought". Asking everything at once costs nothing, cannot be rate-limited, and
+ * cannot lose its place. The model is not involved until the visitor REPLIES,
+ * and its job then is to read the answers out of that reply — see the
+ * qualification section of the system prompt in lib/chat/brain.ts, which is
+ * written against exactly this message.
+ *
+ * The numbering is load-bearing: it is what lets someone answer "1. 6-8k 2.
+ * night 3. zero 4. Rojan 09..." and be understood. Keep the four items, keep
+ * their order (it matches `REQUIRED_FIELD_LABELS`), and keep the closing line —
+ * without it people still answer one question per message, which is the
+ * behaviour this exists to end.
+ *
+ * The worked examples do the job `FORMAT_EXAMPLES` does elsewhere: there are no
+ * labelled input boxes here, so the shape of the answer has to be shown.
+ *
+ * ENGLISH, like all fixed copy in this file — and load-bearing in a way the rest
+ * is not. The brain mirrors the language of the visitor's most recent message,
+ * and on a menu-started conversation the messages before it are ours. Seeding
+ * Taglish here told the model "this visitor writes Taglish" before the visitor
+ * had typed a word, which is how the whole channel ended up Taglish. The guard
+ * test in menu.test.ts walks this string.
+ */
+export const ASSESSMENT_QUESTIONS_TEXT = `Our packages are personalized and right-sized for your requirements. Just a few quick questions so we can give you the best solution:
+
+1. What's the range of your monthly electricity bill? (e.g. 6-8k per month)
+2. Do you use electricity more during the day or at night? (e.g. 60% night, 40% day)
+3. What's your electricity goal? Cut your bill by half, get it to near zero, or fix brownout problems?
+4. Your name and mobile number, so we can give you a call.
+
+You can answer all four in one message — no need to send them one by one.`
+
+/**
+ * Prefaces the questions when the visitor tapped "Update my details".
+ *
+ * A returning visitor gets the SAME four questions rather than a bespoke
+ * "is this still your number?" flow. Confirming what we hold sounds gentler but
+ * needs the model to read it back, which is the model call this whole change
+ * exists to remove — and the answers are four lines to retype, not a form. The
+ * preface is what stops it reading as though we forgot them.
+ */
+export const ASSESSMENT_UPDATE_PREFACE =
+  "Happy to update your details — just send me the latest and I'll pass it on."
+
+/**
+ * The public Google Form, offered to anyone who would rather fill in a form than
+ * answer in chat.
+ *
+ * DUPLICATED, and it has to be: the same URL is embedded by
+ * `solarworks-landingpage/components/google-form-embed.tsx` and documented in
+ * `google-form/README.md`, and those live in other apps this one does not
+ * import from. A new Form means a new URL in ALL THREE — change one and the
+ * others silently keep pointing at a form nobody reads. The handover checklist
+ * in `Solar Works Vault/09-Handover` quotes it as well, for the same reason.
+ */
+export const GOOGLE_FORM_URL =
+  "https://docs.google.com/forms/d/e/1FAIpQLSfiwCR-yK7djNaPJ7BbhfhXJlCyb399237QWWFFFJFpa1DV6w/viewform"
+
+/**
+ * Sent when the visitor taps "Prefer a form?". One line of explanation and the
+ * link, and no model call.
+ *
+ * It promises we will not ask again, and `chosePaperForm` on the session is what
+ * makes that true — the Form's Apps Script bridge creates the lead on its own,
+ * so re-qualifying them here would put the same person in the inbox twice.
+ */
+export const FORM_HANDOFF_TEXT = `No problem — here's our assessment form instead:\n\n${GOOGLE_FORM_URL}\n\nSend it in whenever you're ready and our team will pick it up from there. I won't ask you those questions again — but do keep messaging here if anything comes up.`
 
 export const MENU_TITLES = {
   [MENU_ASSESSMENT]: "Start assessment",
@@ -136,7 +194,11 @@ export const RESET_CONFIRM_TEXT =
 /** Sent the moment the wipe lands, so the visitor sees the tap took effect. */
 export const RESET_DONE_TEXT = "Done — we're starting fresh. 🔄"
 
-/** Sent when "Start over" is tapped on a thread with nothing to clear. */
+/**
+ * Sent when "Start over" is tapped on a thread with nothing to clear. Prefixes
+ * `ASSESSMENT_QUESTIONS_TEXT` in the same bubble rather than standing alone —
+ * on its own it is an answer to a question nobody asked.
+ */
 export const RESET_NOTHING_TEXT = "Nothing to clear yet — let's get started."
 
 /**
@@ -178,6 +240,18 @@ export function menuQuickReplies(): QuickReply[] {
     quickReply(MENU_TITLES[MENU_WORK], MENU_WORK),
     quickReply(MENU_TITLES[MENU_HUMAN], MENU_HUMAN),
   ]
+}
+
+/**
+ * The one chip under the assessment questions.
+ *
+ * Deliberately a single option. Everything else on this message is a question,
+ * and a row of competing chips there reads as "or don't answer" — the escape
+ * hatch is worth offering, the distraction is not. "Prefer a form?" is 14
+ * characters, well inside Meta's 20-char title cap.
+ */
+export function assessmentQuickReplies(): QuickReply[] {
+  return [quickReply("Prefer a form?", MENU_FORM)]
 }
 
 /** Starter questions after "Ask a question", plus a way back to the menu. */

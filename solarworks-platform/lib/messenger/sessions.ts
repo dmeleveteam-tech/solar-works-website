@@ -54,6 +54,23 @@ export type MessengerSession = {
    * hand-off exists to remove — after the notice the bot is simply silent.
    */
   handoffNoticeSent: boolean
+  /**
+   * The visitor tapped "Prefer a form?" and is filling in the Google Form.
+   *
+   * NOT a hand-off, and deliberately a separate flag from `humanHandoff` and
+   * `leadAlreadySaved`. The bot must keep answering their questions — that is
+   * most of what someone does while a form is open in another tab — it just must
+   * not run the four assessment questions at them again. The Form's own Apps
+   * Script bridge creates the lead independently, so a second qualification here
+   * would put the same person in the sales inbox twice.
+   *
+   * Read by the brain as a system note (see `collectedFieldsNote`), not by any
+   * bespoke branch in the webhook: the model still owns the conversation.
+   *
+   * Cleared by `resetSession`, and by "Update my details" — both are the visitor
+   * explicitly asking the bot to take their details after all.
+   */
+  chosePaperForm: boolean
   attribution: Record<string, string>
   /** Message ids already processed, most recent first. Idempotency, see claimMid. */
   seenMids: string[]
@@ -109,6 +126,7 @@ function emptySession(psid: string): MessengerSession {
     leadAlreadySaved: false,
     humanHandoff: false,
     handoffNoticeSent: false,
+    chosePaperForm: false,
     attribution: {},
     seenMids: [],
     createdAt: now,
@@ -166,6 +184,11 @@ export function resetSession(session: MessengerSession): MessengerSession {
   // thread that then answers nothing — indistinguishable from a broken bot.
   session.humanHandoff = false
   session.handoffNoticeSent = false
+  // Same reasoning: "Start over" is a request for a fresh assessment, and the
+  // assessment is exactly what this flag suppresses. Leaving it set would give
+  // them the four questions once (the reset branch sends them) and then a model
+  // told never to ask them, which reads as a bot that forgot what it just said.
+  session.chosePaperForm = false
   return session
 }
 
@@ -175,14 +198,17 @@ export function resetSession(session: MessengerSession): MessengerSession {
  * A hand-off counts on its own: a thread a human has taken over holds no
  * transcript-shaped state of its own, but clearing it silently changes who the
  * visitor is talking to, which is exactly the kind of surprise the confirmation
- * step exists to prevent.
+ * step exists to prevent. `chosePaperForm` counts for the same reason — clearing
+ * it puts the assessment questions back in front of someone who has already
+ * opted out of them, and possibly already submitted the Form.
  */
 export function hasResettableState(session: MessengerSession): boolean {
   return (
     session.messages.length > 0 ||
     session.consentConfirmed ||
     session.leadAlreadySaved ||
-    session.humanHandoff
+    session.humanHandoff ||
+    session.chosePaperForm
   )
 }
 
@@ -227,6 +253,7 @@ export async function saveSession(session: MessengerSession): Promise<void> {
           leadAlreadySaved: session.leadAlreadySaved,
           humanHandoff: session.humanHandoff,
           handoffNoticeSent: session.handoffNoticeSent,
+          chosePaperForm: session.chosePaperForm,
           attribution: session.attribution,
           updatedAt: new Date(),
         },
@@ -278,6 +305,7 @@ export async function claimMid(psid: string, mid: string): Promise<boolean> {
           leadAlreadySaved: false,
           humanHandoff: false,
           handoffNoticeSent: false,
+          chosePaperForm: false,
           attribution: {},
           createdAt: new Date(),
         },
