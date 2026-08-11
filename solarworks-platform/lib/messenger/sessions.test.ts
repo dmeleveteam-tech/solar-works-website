@@ -30,7 +30,17 @@ import { readFileSync } from "node:fs"
  * field on the type must appear in all four places, not just the newest one.
  */
 
-const SOURCE = readFileSync(new URL("./sessions.ts", import.meta.url), "utf8")
+/**
+ * Line endings are normalised because this test matches on source TEXT, and the
+ * anchors below contain newlines. Git checks this repo out with CRLF on Windows,
+ * so `"\n}\n"` finds nothing in a freshly checked-out `sessions.ts` and every
+ * assertion here fails for a reason that has nothing to do with the sessions
+ * document. Read it the same way on every platform.
+ */
+const SOURCE = readFileSync(new URL("./sessions.ts", import.meta.url), "utf8").replace(
+  /\r\n/g,
+  "\n",
+)
 
 /** The body of a `{ … }` block, from `opener` to the first line that closes it. */
 function block(opener: string, closer: string): string {
