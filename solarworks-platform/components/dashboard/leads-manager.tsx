@@ -48,9 +48,9 @@ import {
   deleteLead,
 } from "@/app/dashboard/actions"
 import { convertLeadToProject } from "@/app/dashboard/projects/actions"
+import { DeleteConfirmDialog } from "@/components/delete-confirm-dialog"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { ConfirmButton } from "@/components/ui/confirm-button"
 import { EmptyState } from "@/components/ui/empty-state"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -242,6 +242,7 @@ export function LeadsManager({
   // Ids already converted this session — guards against an accidental
   // double-click creating two projects for the same lead.
   const [converted, setConverted] = React.useState<ReadonlySet<string>>(new Set())
+  const [deleteTarget, setDeleteTarget] = React.useState<Lead | null>(null)
 
   function toggleExpanded(id: string) {
     setExpanded((prev) => {
@@ -367,7 +368,9 @@ export function LeadsManager({
     setLeads((prev) => prev.map((l) => (l.id === lead.id ? res.data : l)))
   }
 
-  async function onDelete(lead: Lead) {
+  async function confirmDelete() {
+    if (!deleteTarget) return
+    const lead = deleteTarget
     setBusyId(lead.id)
     const res = await deleteLead({ id: lead.id })
     setBusyId(null)
@@ -377,6 +380,7 @@ export function LeadsManager({
     }
     toast.success("Lead deleted")
     setLeads((prev) => prev.filter((l) => l.id !== lead.id))
+    setDeleteTarget(null)
   }
 
   async function onConvert(lead: Lead, e: React.FormEvent<HTMLFormElement>) {
@@ -737,15 +741,16 @@ export function LeadsManager({
                         ) : null}
 
                         {canDelete ? (
-                          <ConfirmButton
-                            question={`Delete the lead from ${lead.name}?`}
-                            confirmLabel="Delete"
+                          <Button
+                            variant="ghost"
+                            size="sm"
                             disabled={busy}
-                            onConfirm={() => onDelete(lead)}
+                            onClick={() => setDeleteTarget(lead)}
+                            className="text-destructive hover:text-destructive"
                           >
                             <Trash2 />
                             <span className="hidden sm:inline">Delete</span>
-                          </ConfirmButton>
+                          </Button>
                         ) : null}
                       </div>
                     </div>
@@ -861,6 +866,19 @@ export function LeadsManager({
           )}
         </CardContent>
       </Card>
+
+      <DeleteConfirmDialog
+        open={deleteTarget != null}
+        onOpenChange={(open) => !open && setDeleteTarget(null)}
+        title="Delete this lead?"
+        description={
+          deleteTarget
+            ? `Delete the lead from ${deleteTarget.name}? This cannot be undone.`
+            : ""
+        }
+        busy={deleteTarget != null && busyId === deleteTarget.id}
+        onConfirm={confirmDelete}
+      />
     </div>
   )
 }

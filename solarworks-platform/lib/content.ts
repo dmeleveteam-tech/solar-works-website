@@ -63,6 +63,7 @@ export type TestimonialDoc = ContentMetaDoc & {
   videoUrl: string | null
   quote: string | null
   photo: string | null
+  sourceUrl: string | null
 }
 
 export type FaqDoc = ContentMetaDoc & {
@@ -119,6 +120,7 @@ export function serializeTestimonial(d: TestimonialDoc): TestimonialItem {
     videoUrl: d.videoUrl,
     quote: d.quote,
     photo: d.photo,
+    sourceUrl: d.sourceUrl,
     published: d.published,
     sortOrder: d.sortOrder,
     createdAt: d.createdAt.toISOString(),
@@ -214,6 +216,7 @@ export async function listPublishedTestimonials(): Promise<PublicTestimonials> {
       audience: d.audience,
       systemType: d.systemType,
       ...(d.photo ? { photo: d.photo } : {}),
+      ...(d.sourceUrl ? { sourceUrl: d.sourceUrl } : {}),
     }))
 
   return { video, written }

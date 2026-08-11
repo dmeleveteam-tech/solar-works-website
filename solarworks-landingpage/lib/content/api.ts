@@ -31,7 +31,11 @@ async function fetchContent<T>(type: string, fallback: T): Promise<T> {
   if (!BASE) return fallback
   try {
     const res = await fetch(`${BASE}/${type}`, {
-      next: { revalidate: REVALIDATE_SECONDS },
+      // Tagged so the CMS can drop this exact cache entry on demand (see
+      // app/api/revalidate) the instant something is deleted, published, or
+      // edited — `revalidate` below is only the fallback ceiling for when
+      // that on-demand call doesn't fire (env unset, request failed, etc).
+      next: { revalidate: REVALIDATE_SECONDS, tags: [type] },
     })
     if (!res.ok) throw new Error(`content api ${type} → ${res.status}`)
     return (await res.json()) as T

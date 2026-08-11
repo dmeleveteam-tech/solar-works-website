@@ -34,13 +34,13 @@ import {
   uploadReadings,
   type LinkableCustomer,
 } from "@/app/dashboard/savings/actions"
+import { DeleteConfirmDialog } from "@/components/delete-confirm-dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { EmptyState } from "@/components/ui/empty-state"
-import { ConfirmButton } from "@/components/ui/confirm-button"
 import { Card, CardContent } from "@/components/ui/card"
 
 export function SavingsManager({
@@ -152,6 +152,8 @@ function TariffSection({
 }) {
   const [saving, setSaving] = React.useState(false)
   const providerRef = React.useRef<HTMLInputElement>(null)
+  const [deleteTarget, setDeleteTarget] = React.useState<Tariff | null>(null)
+  const [deleteBusy, setDeleteBusy] = React.useState(false)
 
   function upsert(t: Tariff) {
     setTariffs((prev) => {
@@ -180,14 +182,19 @@ function TariffSection({
     e.currentTarget.reset()
   }
 
-  async function onDelete(t: Tariff) {
+  async function confirmDelete() {
+    if (!deleteTarget) return
+    const t = deleteTarget
+    setDeleteBusy(true)
     const res = await removeTariff({ id: t.id })
+    setDeleteBusy(false)
     if (!res.ok) {
       toast.error(res.error)
       return
     }
     setTariffs((prev) => prev.filter((x) => x.id !== t.id))
     toast.success("Tariff removed.")
+    setDeleteTarget(null)
   }
 
   return (
@@ -214,13 +221,16 @@ function TariffSection({
                     <span className="text-muted-foreground">/kWh</span>
                   </span>
                   {canDelete ? (
-                    <ConfirmButton
-                      question={`Remove the ${t.provider} tariff?`}
-                      confirmLabel="Remove"
-                      onConfirm={() => onDelete(t)}
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setDeleteTarget(t)}
+                      className="text-destructive hover:text-destructive"
+                      aria-label={`Remove ${t.provider} tariff`}
                     >
                       <X /> Remove
-                    </ConfirmButton>
+                    </Button>
                   ) : null}
                 </li>
               ))}
@@ -276,6 +286,16 @@ function TariffSection({
           </form>
         </CardContent>
       </Card>
+
+      <DeleteConfirmDialog
+        open={deleteTarget != null}
+        onOpenChange={(open) => !open && setDeleteTarget(null)}
+        title="Remove this tariff?"
+        description={deleteTarget ? `Remove the ${deleteTarget.provider} tariff?` : ""}
+        busy={deleteBusy}
+        onConfirm={confirmDelete}
+        confirmLabel="Remove"
+      />
     </section>
   )
 }
@@ -714,12 +734,18 @@ function DeletePlant({
   plant: SavingsPlant
   onDeleted: (id: string) => void
 }) {
+  const [confirming, setConfirming] = React.useState(false)
+  const [busy, setBusy] = React.useState(false)
+
   async function onDelete() {
+    setBusy(true)
     const res = await removePlant({ id: plant.id })
+    setBusy(false)
     if (!res.ok) {
       toast.error(res.error)
       return
     }
+    setConfirming(false)
     toast.success("Plant link deleted.")
     onDeleted(plant.id)
   }
@@ -729,13 +755,24 @@ function DeletePlant({
       <p className="text-sm text-muted-foreground">
         Deleting removes the link and every reading imported for it.
       </p>
-      <ConfirmButton
-        question="Delete this plant link and its readings?"
-        confirmLabel="Delete"
-        onConfirm={onDelete}
+      <Button
+        type="button"
+        size="sm"
+        variant="ghost"
+        onClick={() => setConfirming(true)}
+        className="text-destructive hover:text-destructive"
       >
         <Trash2 /> Delete plant link
-      </ConfirmButton>
+      </Button>
+
+      <DeleteConfirmDialog
+        open={confirming}
+        onOpenChange={setConfirming}
+        title="Delete this plant link?"
+        description={`Delete the plant link for ${plant.customerName || plant.customerEmail} (${plant.plantRef}) and its readings? This cannot be undone.`}
+        busy={busy}
+        onConfirm={onDelete}
+      />
     </div>
   )
 }

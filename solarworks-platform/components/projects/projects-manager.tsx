@@ -19,6 +19,7 @@ import { toast } from "sonner"
 
 import { cn } from "@/lib/utils"
 import { CLOUDINARY_SIGN_ENDPOINT, CLOUDINARY_UPLOAD_OPTIONS } from "@/lib/cloudinary-upload"
+import { DeleteConfirmDialog } from "@/components/delete-confirm-dialog"
 import {
   PROJECT_STAGES,
   STAGE_LABEL,
@@ -40,7 +41,6 @@ import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { Select } from "@/components/ui/select"
 import { EmptyState } from "@/components/ui/empty-state"
-import { ConfirmButton } from "@/components/ui/confirm-button"
 import { Card, CardContent } from "@/components/ui/card"
 
 // `next-cloudinary`'s CldUploadWidget throws during render (not just on
@@ -681,25 +681,42 @@ function DeleteProject({
   project: CustomerProject
   onDeleted: (id: string) => void
 }) {
+  const [confirming, setConfirming] = React.useState(false)
+  const [busy, setBusy] = React.useState(false)
+
   async function onDelete() {
+    setBusy(true)
     const res = await removeProject({ id: project.id })
+    setBusy(false)
     if (!res.ok) {
       toast.error(res.error)
       return
     }
+    setConfirming(false)
     toast.success("Project deleted.")
     onDeleted(project.id)
   }
 
   return (
     <div className="flex items-center gap-2 border-t pt-4">
-      <ConfirmButton
-        question="Delete this project permanently?"
-        confirmLabel="Delete"
-        onConfirm={onDelete}
+      <Button
+        type="button"
+        size="sm"
+        variant="ghost"
+        onClick={() => setConfirming(true)}
+        className="text-destructive hover:text-destructive"
       >
         <Trash2 /> Delete project
-      </ConfirmButton>
+      </Button>
+
+      <DeleteConfirmDialog
+        open={confirming}
+        onOpenChange={setConfirming}
+        title="Delete this project?"
+        description={`Permanently delete "${project.displayName}"? This cannot be undone.`}
+        busy={busy}
+        onConfirm={onDelete}
+      />
     </div>
   )
 }

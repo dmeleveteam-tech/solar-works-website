@@ -66,13 +66,13 @@ import {
   reorderFaqs,
   type ActionResult,
 } from "@/app/cms/actions"
+import { DeleteConfirmDialog } from "@/components/delete-confirm-dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Select } from "@/components/ui/select"
-import { ConfirmButton } from "@/components/ui/confirm-button"
 import { EmptyState } from "@/components/ui/empty-state"
 import { ImageField } from "@/components/cms/image-field"
 import { VideoField } from "@/components/cms/video-field"
@@ -173,15 +173,13 @@ function PublishedBadge({ published }: { published: boolean }) {
 function RowActions({
   published,
   busy,
-  deleteQuestion,
   onTogglePublish,
   onEdit,
   onDelete,
 }: {
   published: boolean
   busy: boolean
-  /** Shown inline on the confirm step, so the row says what it is about to delete. */
-  deleteQuestion: string
+  /** Opens the shared delete dialog; the row itself never deletes directly. */
   onTogglePublish: () => void
   onEdit: () => void
   onDelete: () => void
@@ -212,16 +210,16 @@ function RowActions({
       >
         <Pencil />
       </Button>
-      <ConfirmButton
-        question={deleteQuestion}
-        confirmLabel="Delete"
+      <Button
+        variant="ghost"
+        size="icon-sm"
         disabled={busy}
-        onConfirm={onDelete}
-        className="px-2"
+        onClick={onDelete}
+        aria-label="Delete"
+        className="text-destructive hover:text-destructive"
       >
         <Trash2 />
-        <span className="sr-only">Delete</span>
-      </ConfirmButton>
+      </Button>
     </div>
   )
 }
@@ -287,18 +285,44 @@ function useCrud<T extends WithIdPublished>(initial: T[], noun: string) {
     [],
   )
 
-  // Confirmation is handled by the row's `ConfirmButton`, so by the time this
-  // runs the deletion is already agreed to.
+  const [pendingDelete, setPendingDelete] = React.useState<{
+    item: T
+    label: string
+    action: (i: { id: string }) => Promise<ActionResult>
+  } | null>(null)
+
+  /** Opens the shared confirm dialog; the actual delete waits for confirmRemove. */
   const remove = React.useCallback(
-    async (item: T, action: (i: { id: string }) => Promise<ActionResult>) => {
-      setBusyId(item.id)
-      const res = await action({ id: item.id })
-      setBusyId(null)
-      if (!res.ok) return toast.error(res.error)
-      setItems((prev) => prev.filter((i) => i.id !== item.id))
-      toast.success(`${noun} deleted`)
+    (item: T, label: string, action: (i: { id: string }) => Promise<ActionResult>) => {
+      setPendingDelete({ item, label, action })
     },
-    [noun],
+    [],
+  )
+
+  const confirmRemove = React.useCallback(async () => {
+    if (!pendingDelete) return
+    const { item, action } = pendingDelete
+    setBusyId(item.id)
+    const res = await action({ id: item.id })
+    setBusyId(null)
+    if (!res.ok) {
+      toast.error(res.error)
+      return
+    }
+    setItems((prev) => prev.filter((i) => i.id !== item.id))
+    toast.success(`${noun} deleted`)
+    setPendingDelete(null)
+  }, [pendingDelete, noun])
+
+  const deleteDialog = (
+    <DeleteConfirmDialog
+      open={pendingDelete != null}
+      onOpenChange={(open) => !open && setPendingDelete(null)}
+      title={`Delete this ${noun.toLowerCase()}?`}
+      description={pendingDelete ? `Delete ${pendingDelete.label}? This cannot be undone.` : ""}
+      busy={pendingDelete != null && busyId === pendingDelete.item.id}
+      onConfirm={confirmRemove}
+    />
   )
 
   // Optimistically apply a drag reorder, reverting if the server rejects it.
@@ -319,7 +343,18 @@ function useCrud<T extends WithIdPublished>(initial: T[], noun: string) {
     [],
   )
 
-  return { items, editing, setEditing, busyId, errors, onSaved, togglePublish, remove, reorder }
+  return {
+    items,
+    editing,
+    setEditing,
+    busyId,
+    errors,
+    onSaved,
+    togglePublish,
+    remove,
+    reorder,
+    deleteDialog,
+  }
 }
 
 function SectionHeader({
@@ -730,10 +765,9 @@ function ProjectsManager({ initial }: { initial: ProjectItem[] }) {
               <RowActions
                 published={p.published}
                 busy={crud.busyId === p.id}
-                deleteQuestion={`Delete “${p.title}”? This cannot be undone.`}
                 onTogglePublish={() => crud.togglePublish(p, setProjectPublished)}
                 onEdit={() => crud.setEditing(p)}
-                onDelete={() => crud.remove(p, deleteProject)}
+                onDelete={() => crud.remove(p, `“${p.title}”`, deleteProject)}
               />
             </div>
           )}
@@ -741,6 +775,7 @@ function ProjectsManager({ initial }: { initial: ProjectItem[] }) {
       )}
 
       <ContentPreview preview={preview} onOpenChange={(o) => !o && setPreview(null)} />
+      {crud.deleteDialog}
     </div>
   )
 }
@@ -778,6 +813,7 @@ function TestimonialsManager({ initial }: { initial: TestimonialItem[] }) {
         thumbnail: str(fd, "thumbnail"),
         quote: str(fd, "quote"),
         photo: str(fd, "photo"),
+        sourceUrl: str(fd, "sourceUrl"),
       },
     })
   }
@@ -798,6 +834,7 @@ function TestimonialsManager({ initial }: { initial: TestimonialItem[] }) {
       videoUrl: str(fd, "videoUrl"),
       quote: str(fd, "quote"),
       photo: str(fd, "photo"),
+      sourceUrl: str(fd, "sourceUrl"),
       published: bool(fd, "published"),
       // Ordering is managed by drag-and-drop, not this form; preserve it on edit.
       sortOrder: current?.sortOrder ?? 0,
@@ -882,6 +919,15 @@ function TestimonialsManager({ initial }: { initial: TestimonialItem[] }) {
                 <Field label="Quote" htmlFor="t-quote" name="quote">
                   <textarea id="t-quote" name="quote" defaultValue={current?.quote ?? ""} className={textareaClass} />
                 </Field>
+                <Field label="Review link — optional" htmlFor="t-source" name="sourceUrl">
+                  <Input
+                    id="t-source"
+                    name="sourceUrl"
+                    type="url"
+                    defaultValue={current?.sourceUrl ?? ""}
+                    placeholder="https://g.co/kgs/... or Facebook post link"
+                  />
+                </Field>
                 <ImageField label="Client photo — optional" name="photo" defaultValue={current?.photo} error={crud.errors.photo} />
               </FieldGroup>
             )}
@@ -930,10 +976,11 @@ function TestimonialsManager({ initial }: { initial: TestimonialItem[] }) {
               <RowActions
                 published={t.published}
                 busy={crud.busyId === t.id}
-                deleteQuestion={`Delete the testimonial from ${t.name}? This cannot be undone.`}
                 onTogglePublish={() => crud.togglePublish(t, setTestimonialPublished)}
                 onEdit={() => crud.setEditing(t)}
-                onDelete={() => crud.remove(t, deleteTestimonial)}
+                onDelete={() =>
+                  crud.remove(t, `the testimonial from ${t.name}`, deleteTestimonial)
+                }
               />
             </div>
           )}
@@ -941,6 +988,7 @@ function TestimonialsManager({ initial }: { initial: TestimonialItem[] }) {
       )}
 
       <ContentPreview preview={preview} onOpenChange={(o) => !o && setPreview(null)} />
+      {crud.deleteDialog}
     </div>
   )
 }
@@ -1064,10 +1112,9 @@ function FaqsManager({ initial }: { initial: FaqItem[] }) {
               <RowActions
                 published={f.published}
                 busy={crud.busyId === f.id}
-                deleteQuestion="Delete this FAQ? This cannot be undone."
                 onTogglePublish={() => crud.togglePublish(f, setFaqPublished)}
                 onEdit={() => crud.setEditing(f)}
-                onDelete={() => crud.remove(f, deleteFaq)}
+                onDelete={() => crud.remove(f, `“${f.question}”`, deleteFaq)}
               />
             </div>
           )}
@@ -1075,6 +1122,7 @@ function FaqsManager({ initial }: { initial: FaqItem[] }) {
       )}
 
       <ContentPreview preview={preview} onOpenChange={(o) => !o && setPreview(null)} />
+      {crud.deleteDialog}
     </div>
   )
 }

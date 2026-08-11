@@ -6,6 +6,7 @@ import { z } from "zod"
 
 import { requireRole } from "@/lib/session"
 import { notify } from "@/lib/notifications"
+import { revalidateLanding } from "@/lib/revalidate-landing"
 import {
   projectsCollection,
   testimonialsCollection,
@@ -34,9 +35,10 @@ import {
  * only read (their access is enforced by the route's `requireRole`). This
  * mirrors the `content` permissions declared in `lib/permissions.ts`.
  *
- * After any mutation we `revalidatePath("/cms")` for the editor. The public
- * marketing site picks up changes through its own ISR revalidation window on
- * the read API (`app/api/content/[type]`).
+ * After any mutation we `revalidatePath("/cms")` for the editor, and
+ * `revalidateLanding(type)` to push the marketing site's cache for that
+ * content type immediately (best-effort — its own ISR window on the read API,
+ * `app/api/content/[type]`, is the fallback if that call doesn't land).
  */
 
 export type ActionResult<T = undefined> =
@@ -179,6 +181,7 @@ export async function createProject(
   const doc: ProjectDoc = { _id: new ObjectId(), ...v, createdAt: now, updatedAt: now }
   await projectsCollection().insertOne(doc)
   revalidatePath("/cms")
+  revalidateLanding("projects")
   return { ok: true, data: serializeProject(doc) }
 }
 
@@ -202,6 +205,7 @@ export async function updateProject(
   )
   if (!result) return { ok: false, error: "Project not found." }
   revalidatePath("/cms")
+  revalidateLanding("projects")
   return { ok: true, data: serializeProject(result) }
 }
 
@@ -224,6 +228,7 @@ export async function setProjectPublished(
     session.user.id,
   )
   revalidatePath("/cms")
+  revalidateLanding("projects")
   return { ok: true, data: serializeProject(result) }
 }
 
@@ -236,10 +241,44 @@ export async function deleteProject(input: { id: string }): Promise<ActionResult
   })
   if (!deletedCount) return { ok: false, error: "Project not found." }
   revalidatePath("/cms")
+  revalidateLanding("projects")
   return { ok: true, data: undefined }
 }
 
 // --- testimonials -----------------------------------------------------------
+
+/**
+ * The "YouTube/Vimeo id" field is meant to hold a bare id, but people
+ * naturally paste the URL they copied from the address bar instead. Accept
+ * either: if it looks like a URL, pull the id out of the common share/embed
+ * shapes; otherwise assume it's already a bare id and leave it untouched.
+ */
+function normalizeVideoId(raw: string): string {
+  const value = raw.trim()
+  if (!value || !/^https?:\/\//i.test(value)) return value
+
+  try {
+    const url = new URL(value)
+    const host = url.hostname.replace(/^www\./, "").replace(/^m\./, "")
+
+    if (host === "youtu.be") {
+      return url.pathname.slice(1).split("/")[0] || value
+    }
+    if (host === "youtube.com" || host === "youtube-nocookie.com") {
+      const v = url.searchParams.get("v")
+      if (v) return v
+      const match = url.pathname.match(/^\/(?:embed|shorts|live)\/([^/?]+)/)
+      if (match) return match[1]
+    }
+    if (host === "vimeo.com" || host === "player.vimeo.com") {
+      const match = url.pathname.match(/(\d+)/)
+      if (match) return match[1]
+    }
+  } catch {
+    // Not a parseable URL — fall through and keep the raw value.
+  }
+  return value
+}
 
 const testimonialSchema = z
   .object({
@@ -252,11 +291,12 @@ const testimonialSchema = z
     headline: z.string().trim().max(200).optional().or(z.literal("")),
     summary: z.string().trim().max(1000).optional().or(z.literal("")),
     thumbnail: z.string().trim().max(500).optional().or(z.literal("")),
-    videoId: z.string().trim().max(200).optional().or(z.literal("")),
+    videoId: z.string().trim().max(200).transform(normalizeVideoId).optional().or(z.literal("")),
     videoUrl: z.string().trim().max(500).optional().or(z.literal("")),
     // written
     quote: z.string().trim().max(1000).optional().or(z.literal("")),
     photo: z.string().trim().max(500).optional().or(z.literal("")),
+    sourceUrl: z.string().trim().max(500).optional().or(z.literal("")),
     published: z.coerce.boolean().default(false),
     sortOrder: z.coerce.number().int().min(0).max(10000).default(0),
   })
@@ -274,7 +314,12 @@ const testimonialSchema = z
       if (!v.quote)
         ctx.addIssue({ code: "custom", path: ["quote"], message: "Quote is required for a written testimonial" })
     }
-    for (const [key, val] of [["thumbnail", v.thumbnail], ["photo", v.photo], ["videoUrl", v.videoUrl]] as const) {
+    for (const [key, val] of [
+      ["thumbnail", v.thumbnail],
+      ["photo", v.photo],
+      ["videoUrl", v.videoUrl],
+      ["sourceUrl", v.sourceUrl],
+    ] as const) {
       if (val && !/^https?:\/\//i.test(val)) {
         ctx.addIssue({ code: "custom", path: [key], message: "Must be a valid URL" })
       }
@@ -298,6 +343,7 @@ function testimonialBody(v: z.infer<typeof testimonialSchema>) {
     videoUrl: isVideo ? blank(v.videoUrl) : null,
     quote: isVideo ? null : blank(v.quote),
     photo: isVideo ? null : blank(v.photo),
+    sourceUrl: isVideo ? null : blank(v.sourceUrl),
     published: v.published,
     sortOrder: v.sortOrder,
   }
@@ -323,6 +369,7 @@ export async function createTestimonial(
   }
   await testimonialsCollection().insertOne(doc)
   revalidatePath("/cms")
+  revalidateLanding("testimonials")
   return { ok: true, data: serializeTestimonial(doc) }
 }
 
@@ -342,6 +389,7 @@ export async function updateTestimonial(
   )
   if (!result) return { ok: false, error: "Testimonial not found." }
   revalidatePath("/cms")
+  revalidateLanding("testimonials")
   return { ok: true, data: serializeTestimonial(result) }
 }
 
@@ -364,6 +412,7 @@ export async function setTestimonialPublished(
     session.user.id,
   )
   revalidatePath("/cms")
+  revalidateLanding("testimonials")
   return { ok: true, data: serializeTestimonial(result) }
 }
 
@@ -376,6 +425,7 @@ export async function deleteTestimonial(input: { id: string }): Promise<ActionRe
   })
   if (!deletedCount) return { ok: false, error: "Testimonial not found." }
   revalidatePath("/cms")
+  revalidateLanding("testimonials")
   return { ok: true, data: undefined }
 }
 
@@ -404,6 +454,7 @@ export async function createFaq(
   const doc: FaqDoc = { _id: new ObjectId(), ...parsed.data, createdAt: now, updatedAt: now }
   await faqsCollection().insertOne(doc)
   revalidatePath("/cms")
+  revalidateLanding("faqs")
   return { ok: true, data: serializeFaq(doc) }
 }
 
@@ -422,6 +473,7 @@ export async function updateFaq(
   )
   if (!result) return { ok: false, error: "FAQ not found." }
   revalidatePath("/cms")
+  revalidateLanding("faqs")
   return { ok: true, data: serializeFaq(result) }
 }
 
@@ -439,6 +491,7 @@ export async function setFaqPublished(
   if (!result) return { ok: false, error: "FAQ not found." }
   await notifyPublished("FAQ", result.question, parsed.data.published, session.user.id)
   revalidatePath("/cms")
+  revalidateLanding("faqs")
   return { ok: true, data: serializeFaq(result) }
 }
 
@@ -451,6 +504,7 @@ export async function deleteFaq(input: { id: string }): Promise<ActionResult> {
   })
   if (!deletedCount) return { ok: false, error: "FAQ not found." }
   revalidatePath("/cms")
+  revalidateLanding("faqs")
   return { ok: true, data: undefined }
 }
 
@@ -462,6 +516,7 @@ export async function reorderProjects(input: { ids: string[] }): Promise<ActionR
   if (!parsed.success) return { ok: false, error: "Invalid request." }
   await applyOrder(projectsCollection, parsed.data.ids)
   revalidatePath("/cms")
+  revalidateLanding("projects")
   return { ok: true, data: undefined }
 }
 
@@ -471,6 +526,7 @@ export async function reorderTestimonials(input: { ids: string[] }): Promise<Act
   if (!parsed.success) return { ok: false, error: "Invalid request." }
   await applyOrder(testimonialsCollection, parsed.data.ids)
   revalidatePath("/cms")
+  revalidateLanding("testimonials")
   return { ok: true, data: undefined }
 }
 
@@ -480,5 +536,6 @@ export async function reorderFaqs(input: { ids: string[] }): Promise<ActionResul
   if (!parsed.success) return { ok: false, error: "Invalid request." }
   await applyOrder(faqsCollection, parsed.data.ids)
   revalidatePath("/cms")
+  revalidateLanding("faqs")
   return { ok: true, data: undefined }
 }

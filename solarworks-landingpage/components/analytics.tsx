@@ -14,9 +14,9 @@ import { useConsent } from "@/components/consent-provider"
 
 /**
  * Loads GA4 and Meta Pixel — but only after the visitor grants consent. Also
- * wires the "high-intent contact" conversion events (phone / Viber / WhatsApp)
- * with a single delegated click listener, so we don't have to touch every link
- * across the header, footer, and mobile CTA bar.
+ * wires the "high-intent contact" conversion events (phone / Viber / WhatsApp /
+ * Messenger) with a single delegated click listener, so we don't have to touch
+ * every link across the header, footer, mobile CTA bar, and chat launcher.
  */
 export function Analytics() {
   const { consent } = useConsent()
@@ -35,6 +35,7 @@ export function Analytics() {
         track(ANALYTICS_EVENTS.viberClick)
       else if (href.includes("wa.me") || href.includes("whatsapp"))
         track(ANALYTICS_EVENTS.whatsappClick)
+      else if (href.includes("m.me")) track(ANALYTICS_EVENTS.messengerClick)
     }
     document.addEventListener("click", onClick)
     return () => document.removeEventListener("click", onClick)

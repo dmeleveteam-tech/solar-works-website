@@ -83,6 +83,8 @@ export type TestimonialItem = ContentMeta & {
   // written-only
   quote: string | null
   photo: string | null
+  /** Link to the original review (Google, Facebook, etc.) — optional. */
+  sourceUrl: string | null
 }
 
 export type FaqItem = ContentMeta & {
@@ -136,6 +138,8 @@ export type PublicWrittenTestimonial = {
   audience: Audience
   systemType: SystemType
   photo?: string
+  /** Link to the original review (Google, Facebook, etc.) — optional. */
+  sourceUrl?: string
 }
 
 export type PublicTestimonials = {

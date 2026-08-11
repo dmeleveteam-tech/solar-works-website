@@ -16,12 +16,13 @@ import { toast } from "sonner"
 import { authClient, useSession } from "@/lib/auth-client"
 import { ROLES, isRole, type Role } from "@/lib/permissions"
 import { ROLE_LABEL, RoleBadge } from "@/components/role-badge"
+import { DeleteConfirmDialog } from "@/components/delete-confirm-dialog"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
-import { ConfirmButton } from "@/components/ui/confirm-button"
 import { EmptyState } from "@/components/ui/empty-state"
 import { Input } from "@/components/ui/input"
+import { PasswordInput } from "@/components/ui/password-input"
 import { Label } from "@/components/ui/label"
 import { Select } from "@/components/ui/select"
 import { SkeletonRows } from "@/components/ui/skeleton"
@@ -99,6 +100,7 @@ export function UsersManager() {
   const [creating, setCreating] = React.useState(false)
   const [newRole, setNewRole] = React.useState<Role>("staff")
   const nameRef = React.useRef<HTMLInputElement>(null)
+  const [deleteTarget, setDeleteTarget] = React.useState<AdminUser | null>(null)
 
   // Opening the panel puts the caret in the first field — the button and the
   // form are far enough apart vertically that a mouse-only reveal is a jump.
@@ -206,7 +208,9 @@ export function UsersManager() {
     )
   }
 
-  async function onRemove(user: AdminUser) {
+  async function confirmRemove() {
+    if (!deleteTarget) return
+    const user = deleteTarget
     setBusyId(user.id)
     const { error } = await authClient.admin.removeUser({ userId: user.id })
     setBusyId(null)
@@ -217,6 +221,7 @@ export function UsersManager() {
     toast.success(`Deleted ${user.email}`)
     setUsers((prev) => prev.filter((u) => u.id !== user.id))
     setTotal((t) => Math.max(0, t - 1))
+    setDeleteTarget(null)
   }
 
   return (
@@ -287,10 +292,9 @@ export function UsersManager() {
                 </div>
                 <div className="grid gap-1.5">
                   <Label htmlFor="new-password">Temp password</Label>
-                  <Input
+                  <PasswordInput
                     id="new-password"
                     name="password"
-                    type="password"
                     required
                     minLength={8}
                     placeholder="≥ 8 characters"
@@ -424,15 +428,16 @@ export function UsersManager() {
                           <span>{user.banned ? "Unban" : "Ban"}</span>
                         </Button>
 
-                        <ConfirmButton
-                          question="Delete permanently?"
-                          confirmLabel="Delete"
+                        <Button
+                          variant="ghost"
+                          size="sm"
                           disabled={busy || isSelf}
-                          onConfirm={() => onRemove(user)}
+                          onClick={() => setDeleteTarget(user)}
+                          className="text-destructive hover:text-destructive"
                         >
                           <Trash2 />
                           <span className="sr-only">Delete {user.email}</span>
-                        </ConfirmButton>
+                        </Button>
                       </div>
                     </div>
                   )
@@ -442,6 +447,19 @@ export function UsersManager() {
           )}
         </CardContent>
       </Card>
+
+      <DeleteConfirmDialog
+        open={deleteTarget != null}
+        onOpenChange={(open) => !open && setDeleteTarget(null)}
+        title="Delete this user?"
+        description={
+          deleteTarget
+            ? `Permanently delete ${deleteTarget.email}? This cannot be undone.`
+            : ""
+        }
+        busy={deleteTarget != null && busyId === deleteTarget.id}
+        onConfirm={confirmRemove}
+      />
     </div>
   )
 }

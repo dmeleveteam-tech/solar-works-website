@@ -15,6 +15,10 @@ import { Label } from "@/components/ui/label"
  * resulting URL in a hidden input named `name`, mirroring `ImageField`. Used
  * as an alternative to pasting a YouTube/Vimeo id — the uploaded file plays
  * directly on the marketing site.
+ *
+ * Also accepts a direct video URL typed/pasted in, for when the video is
+ * already hosted somewhere (no file to upload yet) — same submitted field
+ * either way.
  */
 export function VideoField({
   label,
@@ -30,12 +34,13 @@ export function VideoField({
 }) {
   const [url, setUrl] = React.useState(defaultValue ?? "")
   const inputId = React.useId()
+  const urlInputId = React.useId()
 
   return (
     <div className="grid gap-1.5">
       <Label htmlFor={inputId}>{label}</Label>
 
-      {/* Submitted value: the uploaded URL, validated server-side like before. */}
+      {/* Submitted value: the uploaded (or pasted) URL, validated server-side. */}
       <input type="hidden" name={name} value={url} />
 
       <CldUploadWidget
@@ -96,6 +101,23 @@ export function VideoField({
           </div>
         )}
       </CldUploadWidget>
+
+      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+        <span className="h-px flex-1 bg-border" />
+        or
+        <span className="h-px flex-1 bg-border" />
+      </div>
+      <Label htmlFor={urlInputId} className="text-xs font-normal text-muted-foreground">
+        Paste a direct video URL — no file to upload yet
+      </Label>
+      <input
+        id={urlInputId}
+        type="url"
+        value={url}
+        onChange={(e) => setUrl(e.target.value)}
+        placeholder="https://…"
+        className="h-9 w-full rounded-md border border-input bg-transparent px-2.5 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+      />
 
       {error ? <p className="text-xs font-medium text-destructive">{error}</p> : null}
     </div>
