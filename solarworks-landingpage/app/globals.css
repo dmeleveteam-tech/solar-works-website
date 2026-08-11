@@ -128,21 +128,12 @@
   --ease-in-out-strong: cubic-bezier(0.77, 0, 0.175, 1);
 }
 
-/* Lenis smooth-scroll (only active when the .lenis classes are present, i.e.
-   when SmoothScroll mounts and reduced-motion is off). */
-html.lenis,
-html.lenis body {
-  height: auto;
-}
-.lenis.lenis-smooth {
-  scroll-behavior: auto !important;
-}
-.lenis.lenis-smooth [data-lenis-prevent] {
-  overscroll-behavior: contain;
-}
-.lenis.lenis-stopped {
-  overflow: clip;
-}
+/* Scrolling here is deliberately the browser's own, and nothing else.
+   Lenis-driven smooth scroll and the CSS `scroll-behavior: smooth` on <html>
+   were both removed: hijacking the wheel makes the page feel heavy, fights
+   trackpads and screen readers, and breaks the position-restore browsers do for
+   free on back/forward. Do not reintroduce either — including as an "upgrade"
+   for anchor links, which is where it usually creeps back in. */
 
 @layer base {
   * {
@@ -153,7 +144,6 @@ html.lenis body {
     }
   html {
     @apply font-sans;
-    scroll-behavior: smooth;
     }
 }
 
@@ -228,17 +218,15 @@ html.lenis body {
 
 }
 
-@media (prefers-reduced-motion: reduce) {
-  html {
-    scroll-behavior: auto;
-  }
-}
+/* No reduced-motion override for scrolling is needed any more: scroll behaviour
+   is now the browser default everywhere, which is already what this block was
+   forcing. */
 
 /* ── Auto-play testimonial marquee ────────────────────────────────────
    A seamless, infinite horizontal loop. The track renders the cards twice;
    translating it by -50% wraps perfectly because the two halves are
    identical. Constant motion → linear easing (Emil Kowalski). Kept at top
-   level (not inside @layer utilities) to match the Lenis/scrollbar rules. */
+   level (not inside @layer utilities) to match the scrollbar rules. */
 @keyframes marquee-x {
   to {
     transform: translateX(-50%);

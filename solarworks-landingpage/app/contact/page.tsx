@@ -40,7 +40,10 @@ export default async function ContactPage({
         description="Share a few details and we'll come back with a personalized assessment grounded in your real consumption — no obligation, no surprise costs."
       />
       <Section>
-        <Container className="grid gap-10 lg:grid-cols-[1.4fr_1fr]">
+        {/* The form is a single step card now, not a 2000px column — it reads
+            better narrow, so the two sides are close to even and the whole
+            thing is capped so the card never stretches on wide screens. */}
+        <Container className="grid max-w-5xl gap-10 lg:grid-cols-[1fr_18rem]">
           <Reveal>
             <NativeInquiryForm defaultSolution={defaultSolution} />
           </Reveal>
@@ -49,8 +52,8 @@ export default async function ContactPage({
             <Reveal className="rounded-2xl border bg-card p-6 shadow-sm">
               <h2 className="font-semibold">Prefer to talk?</h2>
               <p className="mt-1 text-sm text-muted-foreground">
-                Reach us on whatever channel is easiests.//
-              </p> 
+                Reach us on whichever channel is easiest.
+              </p>
               <div className="mt-4 flex flex-col gap-2">
                 <ContactRow icon={<Phone className="size-4" />} {...siteConfig.contact.phone} />
                 <ContactRow icon={<MessageCircle className="size-4" />} {...siteConfig.contact.viber} />

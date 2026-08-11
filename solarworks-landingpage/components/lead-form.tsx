@@ -317,7 +317,14 @@ export function LeadForm({ defaultSolution }: { defaultSolution?: string }) {
             data-field="consent"
             className="mt-0.5"
           />
-          <Label htmlFor="consent" className="text-sm font-normal leading-relaxed">
+          {/* `block` overrides the Label primitive's `flex items-center gap-2`,
+              which would otherwise treat the sentence, the link and the closing
+              full stop as three flex items and orphan the full stop on its own
+              line. Same fix as the consent label in native-inquiry-form.tsx. */}
+          <Label
+            htmlFor="consent"
+            className="block text-sm font-normal leading-relaxed text-pretty"
+          >
             I agree to let {siteConfig.name} contact me and store my information for assessment
             purposes, as described in the{" "}
             <a href="/privacy" className="font-medium text-primary-strong underline-offset-2 hover:underline">

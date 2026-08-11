@@ -5,7 +5,6 @@ import "./globals.css"
 import { cn } from "@/lib/utils"
 import { siteConfig } from "@/lib/site-config"
 import { ThemeProvider } from "@/components/theme-provider"
-import { SmoothScroll } from "@/components/smooth-scroll"
 import { SiteHeader } from "@/components/layout/site-header"
 import { SiteFooter } from "@/components/layout/site-footer"
 import { MobileCtaBar } from "@/components/layout/mobile-cta-bar"
@@ -59,7 +58,6 @@ export default function RootLayout({
     >
       <body>
         <ThemeProvider>
-          <SmoothScroll />
           <div className="flex min-h-svh flex-col">
             <SiteHeader />
             {/* pb on mobile so the sticky CTA bar never overlaps content */}

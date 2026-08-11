@@ -21,6 +21,16 @@ type FormBody = {
   monthlyBill?: string
   monthlyKwh?: string
   goals?: string[]
+  /**
+   * What the visitor wants solar to do for their bill — one of the canonical
+   * options in the platform's `PRIMARY_GOALS`.
+   *
+   * Distinct from `goals` above, which is a legacy multi-select that writes the
+   * detail label "Goals". This one writes "Primary goal", which is what the
+   * Messenger bot and the Google Form bridge both write, so all three channels
+   * land in one inbox column instead of three.
+   */
+  primaryGoal?: string
   /** Daytime vs nighttime consumption split. */
   usageProfile?: string
   batteryInterest?: string
@@ -149,6 +159,10 @@ export async function POST(req: Request) {
   put("Monthly bill (PHP)", body.monthlyBill)
   put("Monthly consumption (kWh)", body.monthlyKwh)
   put("Goals", body.goals)
+  // Same label the Messenger bot's `save_lead` and the Google Form bridge use.
+  // Keep these three spellings identical or the inbox splits one question into
+  // three headings that nothing can group.
+  put("Primary goal", body.primaryGoal)
   put("Daytime vs nighttime usage", body.usageProfile)
   put("Battery storage interest", body.batteryInterest)
   put("Urgency", body.urgency)
