@@ -54,13 +54,13 @@ export function SiteHeader() {
 
       <header
         className={cn(
-          "sticky top-0 z-50 w-full border-b transition-colors duration-200",
+          "sticky top-0 z-50 w-full border-b border-black transition-colors duration-200",
           scrolled
-            ? "border-border bg-background/80 backdrop-blur-md"
-            : "border-transparent bg-background/70 backdrop-blur-sm",
+            ? "bg-background/80 backdrop-blur-md"
+            : "bg-background/70 backdrop-blur-sm",
         )}
       >
-        <div className="mx-auto grid h-20 max-w-[96rem] grid-cols-[auto_1fr_auto] items-center gap-4 px-4 sm:px-6 lg:px-10">
+        <div className="mx-auto grid h-24 max-w-[96rem] grid-cols-[auto_1fr_auto] items-center gap-4 px-4 sm:px-6 lg:h-32 lg:px-10">
           <Logo />
 
           <nav

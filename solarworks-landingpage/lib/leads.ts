@@ -30,7 +30,10 @@ export type LeadPayload = {
 }
 
 export type ForwardResult =
-  | { ok: true }
+  // `id` is the platform's lead id — present whenever the platform's response
+  // body parses, absent only if it ever changes shape. Callers that want to
+  // build a personalized Messenger deep link should treat it as optional.
+  | { ok: true; id?: string }
   | { ok: false; status: number; error: string }
 
 const PLATFORM_INGEST_URL = process.env.PLATFORM_INGEST_URL
@@ -76,7 +79,13 @@ export async function forwardLead(payload: LeadPayload): Promise<ForwardResult> 
         body: JSON.stringify(payload),
         cache: "no-store",
       })
-      if (res.ok) return { ok: true }
+      if (res.ok) {
+        // Best-effort: the platform returns `{ ok: true, id }`, but a lead was
+        // already written by the time we're reading this, so a malformed or
+        // missing body must never turn a successful forward into a failure.
+        const parsed = (await res.json().catch(() => null)) as { id?: string } | null
+        return { ok: true, id: parsed?.id }
+      }
 
       console.error(
         `Lead forward failed (attempt ${attempt}):`,

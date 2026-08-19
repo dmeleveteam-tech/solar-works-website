@@ -198,5 +198,8 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: false, error: result.error }, { status: result.status })
   }
 
-  return NextResponse.json({ ok: true }, { status: 201 })
+  // `id` powers the personalized "Continue on Messenger" link below — the
+  // browser attaches it to the m.me `ref` so the webhook can greet the visitor
+  // with the answers they just gave instead of a generic line.
+  return NextResponse.json({ ok: true, id: result.id }, { status: 201 })
 }

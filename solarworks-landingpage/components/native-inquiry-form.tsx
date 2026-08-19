@@ -16,7 +16,7 @@ import { cn } from "@/lib/utils"
 import { siteConfig } from "@/lib/site-config"
 import { track, ANALYTICS_EVENTS } from "@/lib/analytics"
 import { getAttribution } from "@/lib/attribution"
-import { MESSENGER_HREF } from "@/lib/messenger"
+import { MESSENGER_HREF, messengerLeadHref } from "@/lib/messenger"
 import { Turnstile, TURNSTILE_SITE_KEY } from "@/components/turnstile"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -97,6 +97,9 @@ export function NativeInquiryForm({ defaultSolution }: { defaultSolution?: strin
   const [status, setStatus] = React.useState<"idle" | "submitting" | "success">("idle")
   const [submitError, setSubmitError] = React.useState<string | null>(null)
   const [turnstileToken, setTurnstileToken] = React.useState("")
+  // The platform's lead id, once we have one — powers the personalized
+  // Messenger link the success screen redirects to.
+  const [leadId, setLeadId] = React.useState<string | undefined>(undefined)
 
   const handleTurnstileVerify = React.useCallback((t: string) => setTurnstileToken(t), [])
   const handleTurnstileExpire = React.useCallback(() => setTurnstileToken(""), [])
@@ -246,6 +249,9 @@ export function NativeInquiryForm({ defaultSolution }: { defaultSolution?: strin
         throw new Error(payload?.error ?? "Submit failed")
       }
 
+      const payload = (await res.json().catch(() => null)) as { id?: string } | null
+      setLeadId(payload?.id)
+
       track(ANALYTICS_EVENTS.leadFormSubmit)
       setStatus("success")
     } catch (err) {
@@ -259,33 +265,44 @@ export function NativeInquiryForm({ defaultSolution }: { defaultSolution?: strin
   }
 
   if (status === "success") {
+    // Personalized when we have a lead id (the normal case); falls back to the
+    // plain `web_lead` link if the platform never reported one. Either way the
+    // webhook still greets them — with the recap only when the id made it through.
+    const messengerHref = messengerLeadHref(leadId) ?? MESSENGER_HREF
     return (
-      <div className="rounded-[1.75rem] border bg-card p-8 text-center shadow-sm">
-        <span className="mx-auto grid size-14 place-items-center rounded-full bg-primary/15 text-primary">
-          <CheckCircle2 className="size-7" />
-        </span>
-        <h3 className="mt-5 text-xl font-semibold">Thank you — we&apos;ve got it.</h3>
-        <p className="mx-auto mt-2 max-w-md text-muted-foreground text-pretty">
-          A Solar Works adviser will review your details and reach out shortly. Prefer to talk now?
-        </p>
-        <div className="mt-6 flex flex-col justify-center gap-3 sm:flex-row">
-          <Button asChild>
-            <a href={siteConfig.contact.viber.href}>
-              <MessageCircle /> Chat on Viber
-            </a>
-          </Button>
-          {MESSENGER_HREF && (
-            <Button asChild variant="outline">
-              <a href={MESSENGER_HREF} target="_blank" rel="noopener noreferrer">
-                <ExternalLink /> Message us on Messenger
-              </a>
-            </Button>
-          )}
-          <Button asChild variant="outline">
-            <a href={siteConfig.contact.phone.href}>Call {siteConfig.contact.phone.value}</a>
-          </Button>
-        </div>
-      </div>
+      <SuccessRedirect
+        messengerHref={messengerHref}
+        content={
+          <div className="rounded-[1.75rem] border bg-card p-8 text-center shadow-sm">
+            <span className="mx-auto grid size-14 place-items-center rounded-full bg-primary/15 text-primary">
+              <CheckCircle2 className="size-7" />
+            </span>
+            <h3 className="mt-5 text-xl font-semibold">Thank you — we&apos;ve got it.</h3>
+            <p className="mx-auto mt-2 max-w-md text-muted-foreground text-pretty">
+              {messengerHref
+                ? "Taking you to Messenger to continue the conversation with a Solar Works adviser."
+                : "A Solar Works adviser will review your details and reach out shortly. Prefer to talk now?"}
+            </p>
+            <div className="mt-6 flex flex-col justify-center gap-3 sm:flex-row">
+              <Button asChild>
+                <a href={siteConfig.contact.viber.href}>
+                  <MessageCircle /> Chat on Viber
+                </a>
+              </Button>
+              {messengerHref && (
+                <Button asChild variant="outline">
+                  <a href={messengerHref} target="_blank" rel="noopener noreferrer">
+                    <ExternalLink /> Message us on Messenger
+                  </a>
+                </Button>
+              )}
+              <Button asChild variant="outline">
+                <a href={siteConfig.contact.phone.href}>Call {siteConfig.contact.phone.value}</a>
+              </Button>
+            </div>
+          </div>
+        }
+      />
     )
   }
 
@@ -304,9 +321,33 @@ export function NativeInquiryForm({ defaultSolution }: { defaultSolution?: strin
       {/* ── Progress ─────────────────────────────────────────────────────── */}
       <div className="flex items-center justify-between gap-4">
         <span className="section-label">Free assessment</span>
-        <span className="text-xs font-medium tabular-nums text-muted-foreground">
-          Step {step + 1} of {STEP_COUNT}
-        </span>
+        <div className="flex items-center gap-3">
+          <span className="text-xs font-medium tabular-nums text-muted-foreground">
+            Step {step + 1} of {STEP_COUNT}
+          </span>
+          {step > 0 ? (
+            <Button type="button" variant="ghost" size="sm" onClick={() => goTo(step - 1)}>
+              <ArrowLeft /> Back
+            </Button>
+          ) : null}
+          {step === LAST_STEP ? (
+            <Button type="submit" size="sm" disabled={status === "submitting"}>
+              {status === "submitting" ? (
+                <>
+                  <Loader2 className="animate-spin" /> Sending…
+                </>
+              ) : (
+                <>
+                  Send my details <ArrowRight />
+                </>
+              )}
+            </Button>
+          ) : (
+            <Button type="button" size="sm" onClick={goNext}>
+              Next <ArrowRight />
+            </Button>
+          )}
+        </div>
       </div>
       <div className="mt-3 flex gap-1.5" aria-hidden="true">
         {Array.from({ length: STEP_COUNT }, (_, i) => (
@@ -422,36 +463,36 @@ export function NativeInquiryForm({ defaultSolution }: { defaultSolution?: strin
         })}
       </div>
 
-      {/* ── Navigation ────────────────────────────────────────────────────
-          Kept outside the stack so the buttons never move between steps. */}
-      <div className="mt-7 flex items-center gap-3 border-t pt-5">
-        {step > 0 ? (
-          <Button type="button" variant="ghost" size="lg" onClick={() => goTo(step - 1)}>
-            <ArrowLeft /> Back
-          </Button>
-        ) : null}
-        <div className="ml-auto">
-          {step === LAST_STEP ? (
-            <Button type="submit" size="lg" disabled={status === "submitting"}>
-              {status === "submitting" ? (
-                <>
-                  <Loader2 className="animate-spin" /> Sending…
-                </>
-              ) : (
-                <>
-                  Send my details <ArrowRight />
-                </>
-              )}
-            </Button>
-          ) : (
-            <Button type="button" size="lg" onClick={goNext}>
-              Next <ArrowRight />
-            </Button>
-          )}
-        </div>
-      </div>
     </form>
   )
+}
+
+/* ── Post-submit hand-off ─────────────────────────────────────────────────
+   Success is shown either way, but when a Facebook Page is configured we also
+   navigate the tab to Messenger a beat later — long enough for the checkmark
+   and the "Taking you to Messenger…" line to register as the reason the page
+   is about to change, short enough that it still reads as one continuous
+   hand-off rather than two separate screens. The button in `content` is the
+   fallback for a slow connection, a blocked redirect, or someone who taps
+   away before the timer fires. */
+const MESSENGER_REDIRECT_DELAY_MS = 1200
+
+function SuccessRedirect({
+  messengerHref,
+  content,
+}: {
+  messengerHref: string | null
+  content: React.ReactNode
+}) {
+  React.useEffect(() => {
+    if (!messengerHref) return
+    const timer = setTimeout(() => {
+      window.location.href = messengerHref
+    }, MESSENGER_REDIRECT_DELAY_MS)
+    return () => clearTimeout(timer)
+  }, [messengerHref])
+
+  return content
 }
 
 /* ── Step 1: name + mobile ──────────────────────────────────────────────── */

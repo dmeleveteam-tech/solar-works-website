@@ -12,16 +12,12 @@ export function Logo({ className }: { className?: string }) {
     >
       <Image
         src="/images/solar-works-logo.png"
-        alt=""
-        width={72}
-        height={72}
-        className="h-14 w-14 object-contain [mix-blend-mode:multiply] dark:[mix-blend-mode:screen]"
+        alt={siteConfig.name}
+        width={160}
+        height={160}
+        className="h-20 w-20 object-contain [mix-blend-mode:multiply] dark:[mix-blend-mode:screen] lg:h-28 lg:w-28"
         priority
       />
-      <span className="font-heading text-lg font-bold leading-tight tracking-tight">
-        Solar<br />
-        <span className="text-primary">Works</span>
-      </span>
     </Link>
   )
 }
