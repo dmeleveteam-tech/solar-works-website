@@ -2,9 +2,9 @@ import type { Metadata } from "next"
 import Link from "next/link"
 import { Check, ArrowRight } from "lucide-react"
 
-import { solutions } from "@/lib/content/solutions"
+import { solutionIcon } from "@/lib/content/solutions"
 import { siteConfig } from "@/lib/site-config"
-import { getFaqs } from "@/lib/content/api"
+import { getFaqs, getSolutions } from "@/lib/content/api"
 import { cn } from "@/lib/utils"
 import { Container, Section, SectionHeading } from "@/components/section"
 import { PageHero } from "@/components/page-hero"
@@ -21,7 +21,7 @@ export const metadata: Metadata = {
 }
 
 export default async function SolarSolutionsPage() {
-  const faqs = await getFaqs()
+  const [faqs, solutions] = await Promise.all([getFaqs(), getSolutions()])
   return (
     <>
       <PageHero
@@ -38,7 +38,7 @@ export default async function SolarSolutionsPage() {
       <Section>
         <Container className="flex flex-col gap-20">
           {solutions.map((solution, i) => {
-            const Icon = solution.icon
+            const Icon = solutionIcon(solution.slug)
             const reversed = i % 2 === 1
             return (
               <div

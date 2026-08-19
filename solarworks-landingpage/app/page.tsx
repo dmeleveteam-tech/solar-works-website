@@ -15,10 +15,10 @@ import {
 } from "lucide-react"
 
 import { siteConfig } from "@/lib/site-config"
-import { solutions } from "@/lib/content/solutions"
+import { solutionIcon, type Solution } from "@/lib/content/solutions"
 import { trustMarkers, stats } from "@/lib/content/site-content"
 import { cn } from "@/lib/utils"
-import { getTestimonials } from "@/lib/content/api"
+import { getTestimonials, getSolutions } from "@/lib/content/api"
 
 import { Container, Section, SectionHeading, Eyebrow } from "@/components/section"
 import { Reveal } from "@/components/reveal"
@@ -31,7 +31,7 @@ import { CtaBand } from "@/components/sections/cta-band"
 import { TestimonialMarquee } from "@/components/sections/testimonial-marquee"
 
 export default async function HomePage() {
-  const { video } = await getTestimonials()
+  const [{ video }, solutions] = await Promise.all([getTestimonials(), getSolutions()])
 
   return (
     <>
@@ -40,7 +40,7 @@ export default async function HomePage() {
       <LogoCloud />
       <FeatureCards />
       <CapabilityGrid />
-      <Showcase />
+      <Showcase solutions={solutions} />
       <WhatYouGet />
       <PackagesSection />
       <CtaBand />
@@ -387,7 +387,7 @@ function CapabilityGrid() {
 }
 
 /* ── 5. Alternating showcase ─────────────────────────────── */
-function Showcase() {
+function Showcase({ solutions }: { solutions: Solution[] }) {
   return (
     <Section className="bg-muted/30">
       <Container>
@@ -399,7 +399,7 @@ function Showcase() {
         />
         <div className="mt-16 flex flex-col gap-16 sm:gap-24">
           {solutions.slice(0, 3).map((solution, i) => {
-            const Icon = solution.icon
+            const Icon = solutionIcon(solution.slug)
             const reversed = i % 2 === 1
             return (
               <div

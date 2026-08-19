@@ -13,7 +13,7 @@ const SECRET = process.env.REVALIDATE_SECRET
  * own within the ISR window either way (see solarworks-landingpage's
  * lib/content/api.ts).
  */
-export function revalidateLanding(type: "projects" | "testimonials" | "faqs"): void {
+export function revalidateLanding(type: "projects" | "testimonials" | "faqs" | "solutions"): void {
   if (!BASE || !SECRET) return
   fetch(`${BASE}/api/revalidate`, {
     method: "POST",

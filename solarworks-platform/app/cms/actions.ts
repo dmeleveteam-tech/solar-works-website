@@ -11,22 +11,28 @@ import {
   projectsCollection,
   testimonialsCollection,
   faqsCollection,
+  solutionsCollection,
   serializeProject,
   serializeTestimonial,
   serializeFaq,
+  serializeSolution,
   listProjects,
   listTestimonials,
   listFaqs,
+  listSolutions,
   AUDIENCES,
   SYSTEM_TYPES,
   FAQ_CATEGORIES,
   TESTIMONIAL_KINDS,
+  SOLUTION_SLUGS,
   type ProjectItem,
   type TestimonialItem,
   type FaqItem,
+  type SolutionItem,
   type ProjectDoc,
   type TestimonialDoc,
   type FaqDoc,
+  type SolutionDoc,
 } from "@/lib/content"
 
 /**
@@ -508,6 +514,130 @@ export async function deleteFaq(input: { id: string }): Promise<ActionResult> {
   return { ok: true, data: undefined }
 }
 
+// --- solutions ----------------------------------------------------------------
+
+/** One bullet per line in the editor's textarea; blank lines are dropped. */
+const highlightsField = z
+  .string()
+  .max(2000)
+  .transform((v) =>
+    v
+      .split("\n")
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .slice(0, 8),
+  )
+
+const solutionSchema = z.object({
+  slug: z.enum(SOLUTION_SLUGS),
+  name: z.string().trim().min(1, "Name is required").max(160),
+  forWho: z.string().trim().min(1, "This field is required").max(200),
+  summary: z.string().trim().min(1, "Summary is required").max(1000),
+  highlights: highlightsField,
+  image: z
+    .string()
+    .trim()
+    .max(500)
+    .url("Image must be a valid URL")
+    .regex(/^https?:\/\//i, "Image URL must start with http(s)://"),
+  published: z.coerce.boolean().default(false),
+  sortOrder: z.coerce.number().int().min(0).max(10000).default(0),
+})
+
+/** Reject a slug already used by a *different* solution — each of the 4 is unique. */
+async function solutionSlugTaken(value: string, exceptId?: string): Promise<boolean> {
+  const filter: Record<string, unknown> = { slug: value }
+  if (exceptId) filter._id = { $ne: new ObjectId(exceptId) }
+  return (await solutionsCollection().countDocuments(filter, { limit: 1 })) > 0
+}
+
+export async function getSolutions(): Promise<ActionResult<SolutionItem[]>> {
+  await requireRole(...CONTENT_ROLES)
+  return { ok: true, data: await listSolutions() }
+}
+
+export async function createSolution(
+  input: z.input<typeof solutionSchema>,
+): Promise<ActionResult<SolutionItem>> {
+  await requireRole(...CONTENT_ROLES)
+  const parsed = solutionSchema.safeParse(input)
+  if (!parsed.success) return invalid(parsed.error)
+
+  if (await solutionSlugTaken(parsed.data.slug)) {
+    return {
+      ok: false,
+      error: "That solution already exists.",
+      fieldErrors: { slug: "That solution already exists." },
+    }
+  }
+
+  const now = new Date()
+  const doc: SolutionDoc = { _id: new ObjectId(), ...parsed.data, createdAt: now, updatedAt: now }
+  await solutionsCollection().insertOne(doc)
+  revalidatePath("/cms")
+  revalidateLanding("solutions")
+  return { ok: true, data: serializeSolution(doc) }
+}
+
+export async function updateSolution(
+  input: { id: string } & z.input<typeof solutionSchema>,
+): Promise<ActionResult<SolutionItem>> {
+  await requireRole(...CONTENT_ROLES)
+  const id = idSchema.safeParse({ id: input.id })
+  if (!id.success) return { ok: false, error: "Invalid id." }
+  const parsed = solutionSchema.safeParse(input)
+  if (!parsed.success) return invalid(parsed.error)
+
+  if (await solutionSlugTaken(parsed.data.slug, input.id)) {
+    return {
+      ok: false,
+      error: "That solution already exists.",
+      fieldErrors: { slug: "That solution already exists." },
+    }
+  }
+
+  const result = await solutionsCollection().findOneAndUpdate(
+    { _id: new ObjectId(input.id) },
+    { $set: { ...parsed.data, updatedAt: new Date() } },
+    { returnDocument: "after" },
+  )
+  if (!result) return { ok: false, error: "Solution not found." }
+  revalidatePath("/cms")
+  revalidateLanding("solutions")
+  return { ok: true, data: serializeSolution(result) }
+}
+
+export async function setSolutionPublished(
+  input: z.input<typeof publishSchema>,
+): Promise<ActionResult<SolutionItem>> {
+  const session = await requireRole(...CONTENT_ROLES)
+  const parsed = publishSchema.safeParse(input)
+  if (!parsed.success) return { ok: false, error: "Invalid request." }
+  const result = await solutionsCollection().findOneAndUpdate(
+    { _id: new ObjectId(parsed.data.id) },
+    { $set: { published: parsed.data.published, updatedAt: new Date() } },
+    { returnDocument: "after" },
+  )
+  if (!result) return { ok: false, error: "Solution not found." }
+  await notifyPublished("Solution", result.name, parsed.data.published, session.user.id)
+  revalidatePath("/cms")
+  revalidateLanding("solutions")
+  return { ok: true, data: serializeSolution(result) }
+}
+
+export async function deleteSolution(input: { id: string }): Promise<ActionResult> {
+  await requireRole(...CONTENT_ROLES)
+  const parsed = objectId.safeParse(input.id)
+  if (!parsed.success) return { ok: false, error: "Invalid id." }
+  const { deletedCount } = await solutionsCollection().deleteOne({
+    _id: new ObjectId(parsed.data),
+  })
+  if (!deletedCount) return { ok: false, error: "Solution not found." }
+  revalidatePath("/cms")
+  revalidateLanding("solutions")
+  return { ok: true, data: undefined }
+}
+
 // --- reordering -------------------------------------------------------------
 
 export async function reorderProjects(input: { ids: string[] }): Promise<ActionResult> {
@@ -537,5 +667,15 @@ export async function reorderFaqs(input: { ids: string[] }): Promise<ActionResul
   await applyOrder(faqsCollection, parsed.data.ids)
   revalidatePath("/cms")
   revalidateLanding("faqs")
+  return { ok: true, data: undefined }
+}
+
+export async function reorderSolutions(input: { ids: string[] }): Promise<ActionResult> {
+  await requireRole(...CONTENT_ROLES)
+  const parsed = reorderSchema.safeParse(input)
+  if (!parsed.success) return { ok: false, error: "Invalid request." }
+  await applyOrder(solutionsCollection, parsed.data.ids)
+  revalidatePath("/cms")
+  revalidateLanding("solutions")
   return { ok: true, data: undefined }
 }

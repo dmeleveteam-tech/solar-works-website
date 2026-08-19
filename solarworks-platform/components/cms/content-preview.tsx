@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { BatteryCharging, ImageIcon, MapPin, Play, Quote, Zap } from "lucide-react"
+import { BatteryCharging, Check, ImageIcon, MapPin, Play, Quote, Zap } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
@@ -27,6 +27,7 @@ export type PreviewState =
   | { kind: "project"; data: ProjectPreview }
   | { kind: "testimonial"; data: TestimonialPreview }
   | { kind: "faq"; data: FaqPreview }
+  | { kind: "solution"; data: SolutionPreview }
 
 export type ProjectPreview = {
   title: string
@@ -55,10 +56,19 @@ export type TestimonialPreview = {
 
 export type FaqPreview = { question: string; answer: string; category: string }
 
+export type SolutionPreview = {
+  name: string
+  forWho: string
+  summary: string
+  highlights: string[]
+  image: string
+}
+
 const TITLE: Record<PreviewState["kind"], string> = {
   project: "Project preview",
   testimonial: "Testimonial preview",
   faq: "FAQ preview",
+  solution: "Solution preview",
 }
 
 export function ContentPreview({
@@ -89,6 +99,7 @@ export function ContentPreview({
               <TestimonialPreviewCard data={preview.data} />
             ) : null}
             {preview?.kind === "faq" ? <FaqPreviewItem data={preview.data} /> : null}
+            {preview?.kind === "solution" ? <SolutionPreviewCard data={preview.data} /> : null}
           </div>
         </div>
       </SheetContent>
@@ -238,6 +249,37 @@ function TestimonialPreviewCard({ data }: { data: TestimonialPreview }) {
           >
             View original review ↗
           </a>
+        ) : null}
+      </CardContent>
+    </Card>
+  )
+}
+
+// --- solution -----------------------------------------------------------------
+
+function SolutionPreviewCard({ data }: { data: SolutionPreview }) {
+  return (
+    <Card className="gap-0 overflow-hidden pt-0">
+      <PreviewImage src={data.image} className="aspect-[4/3] w-full" />
+      <CardContent className="flex flex-col gap-3 pt-5">
+        <div>
+          <h3 className="text-base font-semibold">{data.name || "Untitled solution"}</h3>
+          {data.forWho ? (
+            <p className="mt-0.5 text-sm font-medium text-primary">{data.forWho}</p>
+          ) : null}
+        </div>
+        {data.summary ? (
+          <p className="text-sm text-pretty text-muted-foreground">{data.summary}</p>
+        ) : null}
+        {data.highlights.length > 0 ? (
+          <ul className="grid gap-1.5">
+            {data.highlights.map((h) => (
+              <li key={h} className="flex items-start gap-2 text-sm">
+                <Check className="mt-0.5 size-3.5 shrink-0 text-primary" />
+                {h}
+              </li>
+            ))}
+          </ul>
         ) : null}
       </CardContent>
     </Card>

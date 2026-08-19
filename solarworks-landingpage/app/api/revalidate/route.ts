@@ -7,14 +7,14 @@ import { revalidateTag } from "next/cache"
  * edit shows up on the live site immediately instead of waiting out
  * `lib/content/api.ts`'s ISR window (up to 5 minutes).
  *
- * POST /api/revalidate  body: { type: "projects" | "testimonials" | "faqs" }
+ * POST /api/revalidate  body: { type: "projects" | "testimonials" | "faqs" | "solutions" }
  * Header: x-revalidate-secret — must equal REVALIDATE_SECRET.
  *
  * Not wired to anything if REVALIDATE_SECRET is unset — the site still works,
  * it just falls back to the plain ISR window like before.
  */
 
-const CONTENT_TYPES = ["projects", "testimonials", "faqs"] as const
+const CONTENT_TYPES = ["projects", "testimonials", "faqs", "solutions"] as const
 type ContentType = (typeof CONTENT_TYPES)[number]
 
 function isContentType(value: unknown): value is ContentType {
