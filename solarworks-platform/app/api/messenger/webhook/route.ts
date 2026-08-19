@@ -4,6 +4,7 @@ import { LONG_WAIT_MS, MAX_MESSAGES, runChatTurn, type ChatMessage } from "@/lib
 import { siteFacts } from "@/lib/chat/site-facts"
 import { CONSENT_ACCEPT_TEXT } from "@/lib/chat/vocab"
 import { env, messengerEnabled } from "@/lib/env"
+import { getLeadById, type Lead } from "@/lib/leads"
 import {
   ALREADY_A_LEAD_TEXT,
   ASSESSMENT_QUESTIONS_TEXT,
@@ -79,6 +80,37 @@ export const maxDuration = 60
  */
 const WELCOME_MESSAGE =
   "Thanks for your inquiry with Solar Works! We've received your details from the website. Feel free to ask us anything here — our team will reply to you on Messenger."
+
+/**
+ * Labelled detail keys the assessment form writes (see the landing app's
+ * `app/api/leads/route.ts`) that are worth echoing back in the greeting. Kept
+ * to the three assessment questions, in the order the form asks them — the
+ * point is a visitor recognizing what they just answered, not a full dump of
+ * `details`, which also carries UTM attribution nobody needs to read back.
+ */
+const RECAP_DETAIL_KEYS = [
+  "Monthly bill (PHP)",
+  "Daytime vs nighttime usage",
+  "Primary goal",
+] as const
+
+/**
+ * The personalized `web_lead:<id>` greeting — printed instead of the generic
+ * `WELCOME_MESSAGE` once the lead behind the id is found. Confirms we got the
+ * right person (by name) and shows back exactly what they told the form, so
+ * the hand-off reads as a continuation of the same conversation rather than a
+ * cold "thanks, we got something."
+ */
+function buildWebLeadWelcome(lead: Lead): string {
+  const details = lead.details ?? {}
+  const lines = RECAP_DETAIL_KEYS.map((key) => details[key] && `• ${key}: ${details[key]}`).filter(
+    Boolean,
+  )
+  const greeting = `Thanks for your inquiry, ${lead.name}! We've received your details from the website:`
+  return lines.length
+    ? `${greeting}\n${lines.join("\n")}\n\nOur team will reply to you here shortly. Feel free to ask us anything meanwhile.`
+    : WELCOME_MESSAGE
+}
 
 const ATTACHMENT_REPLY =
   "Sorry — I can't read images or files here. Could you type your question instead?"
@@ -436,7 +468,7 @@ async function processEvent(event: MessagingEvent): Promise<void> {
 
   const ref = referralRef(event)
 
-  if (ref === "web_lead") {
+  if (ref === "web_lead" || ref?.startsWith("web_lead:")) {
     // PRESERVED BEHAVIOUR. This referral comes from the "Continue on Messenger"
     // link shown after the website chatbot or form already saved a lead — the
     // visitor is being handed to a human, not to the bot. Greeting them and
@@ -447,7 +479,24 @@ async function processEvent(event: MessagingEvent): Promise<void> {
     session.leadAlreadySaved = true
     session.attribution = { ...session.attribution, utm_source: "messenger", utm_campaign: ref }
     await saveSession(session)
-    await sendText(psid, WELCOME_MESSAGE)
+
+    // `web_lead:<id>` — the assessment form's redirect — carries the lead id so
+    // we can greet by name and echo back what they answered. A bare `web_lead`
+    // (older links, or the id failing to reach the browser) still gets the
+    // generic line; a lookup failure degrades the same way rather than
+    // blocking the greeting.
+    let welcome = WELCOME_MESSAGE
+    const leadId = ref.startsWith("web_lead:") ? ref.slice("web_lead:".length) : undefined
+    if (leadId) {
+      try {
+        const lead = await getLeadById(leadId)
+        if (lead) welcome = buildWebLeadWelcome(lead)
+      } catch (err) {
+        console.error("[messenger] failed to load web lead for greeting:", err)
+      }
+    }
+
+    await sendText(psid, welcome)
     return
   }
 
