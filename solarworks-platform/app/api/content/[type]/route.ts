@@ -6,6 +6,7 @@ import {
   listPublishedProjects,
   listPublishedTestimonials,
   listPublishedFaqs,
+  listPublishedSolutions,
 } from "@/lib/content"
 
 /**
@@ -20,6 +21,7 @@ import {
  * GET /api/content/projects      → PublicProject[]
  * GET /api/content/testimonials  → { video: [...], written: [...] }
  * GET /api/content/faqs          → PublicFaq[]
+ * GET /api/content/solutions     → PublicSolution[]
  */
 
 // Always read fresh from the DB; the consumer (marketing site) does the caching.
@@ -46,6 +48,8 @@ export async function GET(
         return NextResponse.json(await listPublishedTestimonials())
       case "faqs":
         return NextResponse.json(await listPublishedFaqs())
+      case "solutions":
+        return NextResponse.json(await listPublishedSolutions())
     }
   } catch (err) {
     // Never leak internals to the caller; log server-side for debugging.

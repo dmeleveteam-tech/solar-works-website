@@ -8,6 +8,7 @@ import {
   type WrittenTestimonial,
 } from "./testimonials"
 import { faqs as fallbackFaqs, type Faq } from "./site-content"
+import { solutions as fallbackSolutions, type Solution } from "./solutions"
 
 /**
  * Live content read from the Solar Works platform (the back-office CMS), with the
@@ -68,4 +69,8 @@ export async function getTestimonials(): Promise<Testimonials> {
 
 export async function getFaqs(): Promise<Faq[]> {
   return fetchContent<Faq[]>("faqs", fallbackFaqs)
+}
+
+export async function getSolutions(): Promise<Solution[]> {
+  return fetchContent<Solution[]>("solutions", fallbackSolutions)
 }

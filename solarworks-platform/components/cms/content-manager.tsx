@@ -7,6 +7,7 @@ import {
   GripVertical,
   HelpCircle,
   Images,
+  LayoutGrid,
   Loader2,
   MessageSquareQuote,
   Pencil,
@@ -39,11 +40,14 @@ import {
   AUDIENCES,
   SYSTEM_TYPES,
   FAQ_CATEGORIES,
+  SOLUTION_SLUGS,
+  SOLUTION_SLUG_LABEL,
   CONTENT_TYPE_LABEL,
   type ContentType,
   type ProjectItem,
   type TestimonialItem,
   type FaqItem,
+  type SolutionItem,
   type Audience,
   type SystemType,
   type FaqCategory,
@@ -61,9 +65,14 @@ import {
   updateFaq,
   setFaqPublished,
   deleteFaq,
+  createSolution,
+  updateSolution,
+  setSolutionPublished,
+  deleteSolution,
   reorderProjects,
   reorderTestimonials,
   reorderFaqs,
+  reorderSolutions,
   type ActionResult,
 } from "@/app/cms/actions"
 import { DeleteConfirmDialog } from "@/components/delete-confirm-dialog"
@@ -1127,22 +1136,194 @@ function FaqsManager({ initial }: { initial: FaqItem[] }) {
   )
 }
 
+// --- solutions ----------------------------------------------------------------
+
+function SolutionsManager({ initial }: { initial: SolutionItem[] }) {
+  const crud = useCrud<SolutionItem>(initial, "Solution")
+  const [saving, setSaving] = React.useState(false)
+  const [preview, setPreview] = React.useState<PreviewState | null>(null)
+  const editing = crud.editing
+  const current = editing && editing !== "new" ? editing : null
+
+  // A solution not yet in the list, so "Add" defaults to whichever of the 4
+  // fixed slugs hasn't been created yet instead of colliding on the first one.
+  const nextSlug = SOLUTION_SLUGS.find((s) => !crud.items.some((i) => i.slug === s))
+
+  function onPreview(form: HTMLFormElement) {
+    const fd = new FormData(form)
+    setPreview({
+      kind: "solution",
+      data: {
+        name: str(fd, "name"),
+        forWho: str(fd, "forWho"),
+        summary: str(fd, "summary"),
+        highlights: str(fd, "highlights").split("\n").map((h) => h.trim()).filter(Boolean),
+        image: str(fd, "image"),
+      },
+    })
+  }
+
+  async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    const fd = new FormData(e.currentTarget)
+    const input = {
+      slug: str(fd, "slug") as SolutionItem["slug"],
+      name: str(fd, "name"),
+      forWho: str(fd, "forWho"),
+      summary: str(fd, "summary"),
+      highlights: str(fd, "highlights"),
+      image: str(fd, "image"),
+      published: bool(fd, "published"),
+      // Ordering is managed by drag-and-drop, not this form; preserve it on edit.
+      sortOrder: current?.sortOrder ?? 0,
+    }
+    setSaving(true)
+    const res = current
+      ? await updateSolution({ id: current.id, ...input })
+      : await createSolution(input)
+    setSaving(false)
+    crud.onSaved(res, !current)
+  }
+
+  return (
+    <div className="grid gap-4">
+      <SectionHeader
+        label="Home & Solar Solutions"
+        title="Solutions"
+        description={
+          'The 4 solution cards shown in "A system that fits how you actually live" on Home and on the Solar Solutions page.'
+        }
+        addLabel="Add solution"
+        onAdd={() => crud.setEditing("new")}
+        adding={editing === "new" || !nextSlug}
+      />
+
+      {editing ? (
+        <FormShell
+          key={current?.id ?? "new"}
+          title={current ? "Edit solution" : "New solution"}
+          onSubmit={onSubmit}
+          onCancel={() => crud.setEditing(null)}
+          onPreview={onPreview}
+          saving={saving}
+          errors={crud.errors}
+        >
+          <div className="grid gap-7">
+            <FieldGroup label="Identity" className="sm:grid-cols-2">
+              <Field label="Which solution" htmlFor="s-slug" name="slug">
+                <Select id="s-slug" name="slug" defaultValue={current?.slug ?? nextSlug}>
+                  {SOLUTION_SLUGS.map((s) => (
+                    <option key={s} value={s}>
+                      {SOLUTION_SLUG_LABEL[s]}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+              <Field label="Display name" htmlFor="s-name" name="name">
+                <Input id="s-name" name="name" defaultValue={current?.name} required />
+              </Field>
+              <Field label="For who" htmlFor="s-for" name="forWho" className="sm:col-span-2">
+                <Input
+                  id="s-for"
+                  name="forWho"
+                  defaultValue={current?.forWho}
+                  placeholder="Homes with stable grid power that want lower bills"
+                  required
+                />
+              </Field>
+            </FieldGroup>
+
+            <FieldGroup label="Story">
+              <Field label="Summary" htmlFor="s-sum" name="summary">
+                <textarea id="s-sum" name="summary" defaultValue={current?.summary} className={textareaClass} required />
+              </Field>
+              <Field label="Highlights — one per line" htmlFor="s-high" name="highlights">
+                <textarea
+                  id="s-high"
+                  name="highlights"
+                  defaultValue={current?.highlights.join("\n")}
+                  placeholder={"Lowest upfront cost per kW\nFastest payback period\nNet-metering ready"}
+                  className={textareaClass}
+                />
+              </Field>
+              <ImageField label="Solution image" name="image" defaultValue={current?.image} required error={crud.errors.image} />
+            </FieldGroup>
+
+            <FieldGroup label="Visibility">
+              <CheckboxField label="Published" name="published" defaultChecked={current?.published} />
+            </FieldGroup>
+          </div>
+        </FormShell>
+      ) : null}
+
+      {crud.items.length === 0 ? (
+        <Card>
+          <CardContent className="px-0">
+            <EmptyState
+              icon={LayoutGrid}
+              title="No solutions yet"
+              description='Add the 4 solution cards shown on Home ("A system that fits how you actually live") and the Solar Solutions page — each with its own photo and description.'
+              action={
+                <Button size="sm" onClick={() => crud.setEditing("new")}>
+                  <Plus /> Add solution
+                </Button>
+              }
+            />
+          </CardContent>
+        </Card>
+      ) : (
+        <SortableList
+          items={crud.items}
+          onReorder={(ids) => crud.reorder(ids, reorderSolutions)}
+          renderRow={(s, handle) => (
+            <div className="data-row flex-wrap">
+              {handle}
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2 font-medium">
+                  <span className="truncate">{s.name}</span>
+                  <PublishedBadge published={s.published} />
+                </div>
+                <div className="truncate text-sm text-muted-foreground">
+                  {SOLUTION_SLUG_LABEL[s.slug]} · {s.forWho}
+                </div>
+              </div>
+              <RowActions
+                published={s.published}
+                busy={crud.busyId === s.id}
+                onTogglePublish={() => crud.togglePublish(s, setSolutionPublished)}
+                onEdit={() => crud.setEditing(s)}
+                onDelete={() => crud.remove(s, `“${s.name}”`, deleteSolution)}
+              />
+            </div>
+          )}
+        />
+      )}
+
+      <ContentPreview preview={preview} onOpenChange={(o) => !o && setPreview(null)} />
+      {crud.deleteDialog}
+    </div>
+  )
+}
+
 // --- tabbed shell -----------------------------------------------------------
 
 export function ContentManager({
   projects,
   testimonials,
   faqs,
+  solutions,
 }: {
   projects: ProjectItem[]
   testimonials: TestimonialItem[]
   faqs: FaqItem[]
+  solutions: SolutionItem[]
 }) {
   const [tab, setTab] = React.useState<ContentType>("projects")
   const counts: Record<ContentType, number> = {
     projects: projects.length,
     testimonials: testimonials.length,
     faqs: faqs.length,
+    solutions: solutions.length,
   }
 
   return (
@@ -1183,6 +1364,7 @@ export function ContentManager({
       {tab === "projects" ? <ProjectsManager initial={projects} /> : null}
       {tab === "testimonials" ? <TestimonialsManager initial={testimonials} /> : null}
       {tab === "faqs" ? <FaqsManager initial={faqs} /> : null}
+      {tab === "solutions" ? <SolutionsManager initial={solutions} /> : null}
     </div>
   )
 }

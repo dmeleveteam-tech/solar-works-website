@@ -1,13 +1,13 @@
 import Link from "next/link"
 import { ArrowRight, Check } from "lucide-react"
 
-import type { Solution } from "@/lib/content/solutions"
+import { solutionIcon, type Solution } from "@/lib/content/solutions"
 import { siteConfig } from "@/lib/site-config"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 
 export function SolutionCard({ solution }: { solution: Solution }) {
-  const Icon = solution.icon
+  const Icon = solutionIcon(solution.slug)
   return (
     <Card className="group/card h-full">
       <CardContent className="flex h-full flex-col gap-4">

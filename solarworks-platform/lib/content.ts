@@ -9,7 +9,10 @@ import type {
   ProjectItem,
   PublicFaq,
   PublicProject,
+  PublicSolution,
   PublicTestimonials,
+  SolutionItem,
+  SolutionSlug,
   SystemType,
   TestimonialItem,
   TestimonialKind,
@@ -72,6 +75,15 @@ export type FaqDoc = ContentMetaDoc & {
   category: FaqCategory
 }
 
+export type SolutionDoc = ContentMetaDoc & {
+  slug: SolutionSlug
+  name: string
+  forWho: string
+  summary: string
+  highlights: string[]
+  image: string
+}
+
 export function projectsCollection(): Collection<ProjectDoc> {
   return db.collection<ProjectDoc>("projects")
 }
@@ -80,6 +92,9 @@ export function testimonialsCollection(): Collection<TestimonialDoc> {
 }
 export function faqsCollection(): Collection<FaqDoc> {
   return db.collection<FaqDoc>("faqs")
+}
+export function solutionsCollection(): Collection<SolutionDoc> {
+  return db.collection<SolutionDoc>("solutions")
 }
 
 // --- serializers (Doc → client-safe Item) -----------------------------------
@@ -141,6 +156,22 @@ export function serializeFaq(d: FaqDoc): FaqItem {
   }
 }
 
+export function serializeSolution(d: SolutionDoc): SolutionItem {
+  return {
+    id: d._id.toString(),
+    slug: d.slug,
+    name: d.name,
+    forWho: d.forWho,
+    summary: d.summary,
+    highlights: d.highlights,
+    image: d.image,
+    published: d.published,
+    sortOrder: d.sortOrder,
+    createdAt: d.createdAt.toISOString(),
+    updatedAt: d.updatedAt.toISOString(),
+  }
+}
+
 // --- admin reads (all items, sorted for the editor) -------------------------
 
 /** Editor sort: by sortOrder then newest, so manual ordering wins. */
@@ -159,6 +190,11 @@ export async function listTestimonials(): Promise<TestimonialItem[]> {
 export async function listFaqs(): Promise<FaqItem[]> {
   const docs = await faqsCollection().find().sort(EDITOR_SORT).toArray()
   return docs.map(serializeFaq)
+}
+
+export async function listSolutions(): Promise<SolutionItem[]> {
+  const docs = await solutionsCollection().find().sort(EDITOR_SORT).toArray()
+  return docs.map(serializeSolution)
 }
 
 // --- public reads (published only, mapped to the marketing-site shapes) ------
@@ -231,5 +267,20 @@ export async function listPublishedFaqs(): Promise<PublicFaq[]> {
     question: d.question,
     answer: d.answer,
     category: d.category,
+  }))
+}
+
+export async function listPublishedSolutions(): Promise<PublicSolution[]> {
+  const docs = await solutionsCollection()
+    .find({ published: true })
+    .sort(PUBLIC_SORT)
+    .toArray()
+  return docs.map((d) => ({
+    slug: d.slug,
+    name: d.name,
+    forWho: d.forWho,
+    summary: d.summary,
+    highlights: d.highlights,
+    image: d.image,
   }))
 }
